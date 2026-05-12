@@ -1,0 +1,38 @@
+{
+  "type": "object",
+  "properties": {
+    "episode_id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "episode_type": {
+      "type": "string"
+    },
+    "research_dossier_markdown": {
+      "type": "string"
+    },
+    "citations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "missing_inputs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "episode_id",
+    "title",
+    "episode_type",
+    "research_dossier_markdown",
+    "citations",
+    "missing_inputs"
+  ],
+  "additionalProperties": false
+}

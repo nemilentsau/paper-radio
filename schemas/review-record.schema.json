@@ -1,0 +1,83 @@
+{
+  "type": "object",
+  "properties": {
+    "paper_id": {
+      "type": "string"
+    },
+    "one_line_claim": {
+      "type": "string"
+    },
+    "what_they_tested": {
+      "type": "string"
+    },
+    "strongest_point": {
+      "type": "string"
+    },
+    "weakest_point": {
+      "type": "string"
+    },
+    "missing_baselines": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "missing_ablations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "red_flags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "positive_signals": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "research_score": {
+      "type": "number"
+    },
+    "podcast_score": {
+      "type": "number"
+    },
+    "overclaim_score": {
+      "type": "number"
+    },
+    "replication_interest": {
+      "type": "number"
+    },
+    "verdict": {
+      "type": "string"
+    },
+    "citations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "paper_id",
+    "one_line_claim",
+    "what_they_tested",
+    "strongest_point",
+    "weakest_point",
+    "missing_baselines",
+    "missing_ablations",
+    "red_flags",
+    "positive_signals",
+    "research_score",
+    "podcast_score",
+    "overclaim_score",
+    "replication_interest",
+    "verdict",
+    "citations"
+  ],
+  "additionalProperties": false
+}

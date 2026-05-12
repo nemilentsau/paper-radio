@@ -1,0 +1,46 @@
+{
+  "type": "object",
+  "properties": {
+    "paper_id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "core_claim": {
+      "type": "string"
+    },
+    "topic_tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "likely_red_flags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "research_score_estimate": {
+      "type": "number"
+    },
+    "podcast_score_estimate": {
+      "type": "number"
+    },
+    "decision": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "paper_id",
+    "title",
+    "core_claim",
+    "topic_tags",
+    "likely_red_flags",
+    "research_score_estimate",
+    "podcast_score_estimate",
+    "decision"
+  ],
+  "additionalProperties": false
+}

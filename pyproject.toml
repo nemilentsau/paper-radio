@@ -1,0 +1,40 @@
+[project]
+name = "paper-radio"
+version = "0.1.0"
+description = "Standalone pipeline for turning daily research papers into NotebookLM-ready audio episode bundles."
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "pyright",
+  "ruff",
+]
+
+[project.scripts]
+paper-radio = "paper_radio.cli:main"
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["paper_radio*"]
+
+[tool.uv]
+package = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "UP"]
+
+[tool.pyright]
+include = ["paper_radio", "tests"]
+exclude = [".venv", ".worktrees", "data", "episodes"]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
