@@ -12,7 +12,7 @@ TRIAGE_RECORD_SCHEMA: dict[str, Any] = {
         "likely_red_flags": {"type": "array", "items": {"type": "string"}},
         "research_score_estimate": {"type": "number"},
         "podcast_score_estimate": {"type": "number"},
-        "decision": {"type": "string"},
+        "decision": {"type": "string", "enum": ["advance_to_review", "queue_for_review", "skip"]},
     },
     "required": [
         "paper_id",
@@ -200,6 +200,7 @@ Required schema: {job["schema_path"]}
 Use only the embedded candidate JSON below. Do not browse the web. Do not inspect repository files.
 This is fast triage, not a full review. Infer from title, abstract, authors, categories, and source signals only.
 Do not cite external evidence. Do not reward hype language without evidence in the abstract.
+The decision must be exactly one of: advance_to_review, queue_for_review, skip.
 
 Embedded candidate JSON:
 {candidate_json}

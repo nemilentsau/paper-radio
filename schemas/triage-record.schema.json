@@ -29,7 +29,12 @@
       "type": "number"
     },
     "decision": {
-      "type": "string"
+      "type": "string",
+      "enum": [
+        "advance_to_review",
+        "queue_for_review",
+        "skip"
+      ]
     }
   },
   "required": [

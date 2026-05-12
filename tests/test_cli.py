@@ -50,6 +50,23 @@ class CliTest(unittest.TestCase):
         self.assertEqual(args.command, "plan-triage")
         self.assertEqual(args.candidate_path, "data/candidates/2026-05-12/arxiv.json")
 
+    def test_parser_accepts_promote_triage_command(self):
+        parser = build_parser()
+
+        args = parser.parse_args(
+            [
+                "promote-triage",
+                "--triage-dir",
+                "data/triage",
+                "--manifest",
+                "jobs/triage.jsonl",
+            ]
+        )
+
+        self.assertEqual(args.command, "promote-triage")
+        self.assertEqual(args.triage_dir, "data/triage")
+        self.assertEqual(args.manifest, "jobs/triage.jsonl")
+
     def test_parser_accepts_create_episode_command(self):
         parser = build_parser()
 

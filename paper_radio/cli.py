@@ -11,6 +11,7 @@ from paper_radio.episode_manifest import create_episode_manifest
 from paper_radio.episode_planning import write_episode_job_manifests
 from paper_radio.episode_runner import run_episode
 from paper_radio.triage_planning import write_triage_job_manifest
+from paper_radio.triage_promotion import promote_triage_results
 
 
 def cmd_init(args: argparse.Namespace) -> None:
@@ -46,6 +47,24 @@ def cmd_plan_triage(args: argparse.Namespace) -> None:
     candidate_path = Path(args.candidate_path)
     result = write_triage_job_manifest(PROJECT_ROOT, candidate_path)
     print(json.dumps({"triage_job_ids": result.job_ids}, indent=2))
+
+
+def cmd_promote_triage(args: argparse.Namespace) -> None:
+    result = promote_triage_results(
+        PROJECT_ROOT,
+        triage_dir=Path(args.triage_dir),
+        manifest_path=Path(args.manifest),
+    )
+    print(
+        json.dumps(
+            {
+                "promoted_paper_ids": result.promoted_paper_ids,
+                "skipped_paper_ids": result.skipped_paper_ids,
+                "unrecognized_paper_ids": result.unrecognized_paper_ids,
+            },
+            indent=2,
+        )
+    )
 
 
 def cmd_create_episode(args: argparse.Namespace) -> None:
@@ -111,6 +130,11 @@ def build_parser() -> argparse.ArgumentParser:
     plan_triage_parser = subparsers.add_parser("plan-triage")
     plan_triage_parser.add_argument("--candidate-path", required=True, help="Candidate JSON path")
     plan_triage_parser.set_defaults(func=cmd_plan_triage)
+
+    promote_triage_parser = subparsers.add_parser("promote-triage")
+    promote_triage_parser.add_argument("--triage-dir", default="data/triage", help="Directory of triage JSON records")
+    promote_triage_parser.add_argument("--manifest", default="jobs/triage.jsonl", help="Triage job manifest path")
+    promote_triage_parser.set_defaults(func=cmd_promote_triage)
 
     create_episode_parser = subparsers.add_parser("create-episode")
     create_episode_parser.add_argument("--episode-path", required=True, help="Episode dir")

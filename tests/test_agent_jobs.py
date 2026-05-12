@@ -16,6 +16,10 @@ from paper_radio.agent_jobs import (
 class AgentJobsTest(unittest.TestCase):
     def test_schemas_define_standalone_paper_radio_records(self):
         self.assertIn("paper_id", TRIAGE_RECORD_SCHEMA["required"])
+        self.assertEqual(
+            TRIAGE_RECORD_SCHEMA["properties"]["decision"]["enum"],
+            ["advance_to_review", "queue_for_review", "skip"],
+        )
         self.assertIn("research_score", REVIEW_RECORD_SCHEMA["properties"])
         self.assertIn("podcast_score", REVIEW_RECORD_SCHEMA["properties"])
         self.assertIn("research_dossier_markdown", SOURCE_DOSSIER_SCHEMA["required"])
@@ -75,6 +79,7 @@ class AgentJobsTest(unittest.TestCase):
         self.assertIn("Do not browse the web", prompt)
         self.assertIn("Do not inspect repository files", prompt)
         self.assertIn("MiCA Learns More Knowledge Than LoRA", prompt)
+        self.assertIn("decision must be exactly one of", prompt)
         self.assertIn("Score both research quality and podcast value", prompt)
 
 

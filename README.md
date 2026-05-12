@@ -42,6 +42,12 @@ Create triage jobs for a candidate batch:
 uv run python -m paper_radio.cli plan-triage --candidate-path data/candidates/2026-05-12/arxiv.json
 ```
 
+Promote selected triage outputs into stored paper records:
+
+```bash
+uv run python -m paper_radio.cli promote-triage
+```
+
 Ingest a known arXiv paper ID:
 
 ```bash
