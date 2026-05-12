@@ -13,6 +13,8 @@
 - Triage rationale: The paper targets an active and technically plausible direction in language modeling and claims a concrete modeling change with experimental gains, which makes it worth review. The topic is also likely interesting for podcast discussion because it sits at the intersection of diffusion, flow matching, and language generation.
 - Research score estimate: 7.8
 - Podcast score estimate: 7.1
+- Local PDF path: data/papers/pdfs/arxiv-2605.10938.pdf
+- Full text path: data/papers/fulltext/arxiv-2605.10938.txt
 - Abstract URL: https://arxiv.org/abs/2605.10938
 - PDF URL: https://arxiv.org/pdf/2605.10938
 

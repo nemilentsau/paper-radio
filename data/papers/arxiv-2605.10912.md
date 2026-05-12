@@ -13,6 +13,8 @@
 - Triage rationale: This looks like a substantive benchmark paper with a concrete evaluation setting, reproducible tooling, and results that could matter for agent research and podcast discussion. The abstract gives enough signal of a real empirical contribution rather than a hype-only systems note, so it merits full review.
 - Research score estimate: 7.8
 - Podcast score estimate: 7.4
+- Local PDF path: data/papers/pdfs/arxiv-2605.10912.pdf
+- Full text path: data/papers/fulltext/arxiv-2605.10912.txt
 - Abstract URL: https://arxiv.org/abs/2605.10912
 - PDF URL: https://arxiv.org/pdf/2605.10912
 

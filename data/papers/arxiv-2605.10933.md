@@ -13,6 +13,8 @@
 - Triage rationale: The abstract describes a concrete architectural contribution with both model-quality and deployment implications, which makes it useful to review. The claims are strong and benchmark-dependent, so it is better treated as a review candidate rather than advanced immediately.
 - Research score estimate: 6.7
 - Podcast score estimate: 7.4
+- Local PDF path: data/papers/pdfs/arxiv-2605.10933.pdf
+- Full text path: data/papers/fulltext/arxiv-2605.10933.txt
 - Abstract URL: https://arxiv.org/abs/2605.10933
 - PDF URL: https://arxiv.org/pdf/2605.10933
 

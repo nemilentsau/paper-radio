@@ -7,6 +7,7 @@ from typing import Any
 
 from paper_radio.agent_jobs import build_job_prompt, find_job
 from paper_radio.config import PROJECT_ROOT
+from paper_radio.source_fetch import validate_review_job_sources
 
 
 def check_agent_available(agent: str) -> None:
@@ -129,6 +130,7 @@ def run_job(
     dry_run: bool = False,
 ) -> list[str]:
     job = find_job(manifest_path, job_id)
+    validate_review_job_sources(root, job)
     if not dry_run:
         check_agent_available(agent)
     prompt = build_job_prompt(job)

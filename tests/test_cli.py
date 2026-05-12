@@ -42,6 +42,14 @@ class CliTest(unittest.TestCase):
         self.assertEqual(args.command, "ingest-arxiv")
         self.assertEqual(args.id, ["2604.01694", "2604.09999"])
 
+    def test_parser_accepts_fetch_sources_command(self):
+        parser = build_parser()
+
+        args = parser.parse_args(["fetch-sources", "--paper-id", "arxiv-2605.10933"])
+
+        self.assertEqual(args.command, "fetch-sources")
+        self.assertEqual(args.paper_id, ["arxiv-2605.10933"])
+
     def test_parser_accepts_plan_triage_command(self):
         parser = build_parser()
 

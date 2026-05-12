@@ -3,7 +3,9 @@ name = "paper-radio"
 version = "0.1.0"
 description = "Standalone pipeline for turning daily research papers into NotebookLM-ready audio episode bundles."
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "pypdf>=6.11.0",
+]
 
 [project.optional-dependencies]
 dev = [

@@ -3,6 +3,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from paper_radio.papers import load_paper_record
+from paper_radio.source_fetch import validate_full_text_source
+
 
 @dataclass(frozen=True)
 class EpisodeJobPlan:
@@ -70,8 +73,11 @@ def _paper_paths(manifest: dict[str, Any]) -> dict[str, str]:
     return {str(key): str(path) for key, path in value.items()}
 
 
-def _review_job(paper_id: str, paper_paths: dict[str, str]) -> dict[str, Any]:
+def _review_job(root: Path, paper_id: str, paper_paths: dict[str, str]) -> dict[str, Any]:
+    paper = load_paper_record(root, paper_id)
+    full_text_path = validate_full_text_source(root, paper)
     input_paths = [paper_paths[paper_id]] if paper_id in paper_paths else []
+    input_paths.append(full_text_path)
     return {
         "job_id": f"review-{paper_id}",
         "kind": "review",
@@ -108,7 +114,7 @@ def write_episode_job_manifests(root: Path, episode_path: str) -> EpisodeJobPlan
     relative_episode_path = _relative_episode_path(root, episode_path)
     manifest = _read_json(_manifest_path(root, episode_path))
     paper_paths = _paper_paths(manifest)
-    review_jobs = [_review_job(paper_id, paper_paths) for paper_id in _paper_ids(manifest)]
+    review_jobs = [_review_job(root, paper_id, paper_paths) for paper_id in _paper_ids(manifest)]
     source_dossier_job = _source_dossier_job(manifest, relative_episode_path)
 
     _upsert_jobs(root / "jobs" / "reviews.jsonl", review_jobs)

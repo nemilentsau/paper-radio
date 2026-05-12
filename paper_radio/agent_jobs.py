@@ -11,18 +11,8 @@ TRIAGE_RECORD_SCHEMA: dict[str, Any] = {
         "triage_rationale": {"type": "string"},
         "topic_tags": {"type": "array", "items": {"type": "string"}},
         "likely_red_flags": {"type": "array", "items": {"type": "string"}},
-        "research_score_estimate": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 10,
-            "description": "0 to 10 estimate, not 0 to 1.",
-        },
-        "podcast_score_estimate": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 10,
-            "description": "0 to 10 estimate, not 0 to 1.",
-        },
+        "research_score_estimate": {"type": "number"},
+        "podcast_score_estimate": {"type": "number"},
         "decision": {"type": "string", "enum": ["advance_to_review", "queue_for_review", "skip"]},
     },
     "required": [

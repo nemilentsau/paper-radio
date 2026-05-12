@@ -1,0 +1,21 @@
+{
+  "episode_id": "episode-2026-05-12-01-frontier-ml-roundup",
+  "title": "Frontier ML roundup: agents, MoE efficiency, and language flows",
+  "episode_type": "roundup",
+  "paper_ids": [
+    "arxiv-2605.10912",
+    "arxiv-2605.10933",
+    "arxiv-2605.10938"
+  ],
+  "paper_titles": {
+    "arxiv-2605.10912": "WildClawBench: A Benchmark for Real-World, Long-Horizon Agent Evaluation",
+    "arxiv-2605.10933": "DECO: Sparse Mixture-of-Experts with Dense-Comparable Performance on End-Side Devices",
+    "arxiv-2605.10938": "ELF: Embedded Language Flows"
+  },
+  "paper_paths": {
+    "arxiv-2605.10912": "data/papers/arxiv-2605.10912.md",
+    "arxiv-2605.10933": "data/papers/arxiv-2605.10933.md",
+    "arxiv-2605.10938": "data/papers/arxiv-2605.10938.md"
+  },
+  "script_job_id": "episode-2026-05-12-01-frontier-ml-roundup-dossier"
+}

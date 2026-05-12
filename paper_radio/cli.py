@@ -10,6 +10,7 @@ from paper_radio.config import PROJECT_ROOT
 from paper_radio.episode_manifest import create_episode_manifest
 from paper_radio.episode_planning import write_episode_job_manifests
 from paper_radio.episode_runner import run_episode
+from paper_radio.source_fetch import fetch_paper_source
 from paper_radio.triage_planning import write_triage_job_manifest
 from paper_radio.triage_promotion import promote_triage_results
 
@@ -41,6 +42,24 @@ def cmd_candidate_arxiv(args: argparse.Namespace) -> None:
 def cmd_ingest_arxiv(args: argparse.Namespace) -> None:
     papers = ingest_arxiv_ids(PROJECT_ROOT, args.id)
     print(json.dumps({"paper_ids": [paper.paper_id for paper in papers]}, indent=2))
+
+
+def cmd_fetch_sources(args: argparse.Namespace) -> None:
+    paths = [fetch_paper_source(PROJECT_ROOT, paper_id) for paper_id in args.paper_id]
+    print(
+        json.dumps(
+            {
+                "sources": [
+                    {
+                        "pdf_path": str(path.pdf_path),
+                        "full_text_path": str(path.full_text_path),
+                    }
+                    for path in paths
+                ]
+            },
+            indent=2,
+        )
+    )
 
 
 def cmd_plan_triage(args: argparse.Namespace) -> None:
@@ -126,6 +145,15 @@ def build_parser() -> argparse.ArgumentParser:
     ingest_arxiv_parser = subparsers.add_parser("ingest-arxiv")
     ingest_arxiv_parser.add_argument("--id", action="append", required=True, help="arXiv ID. Repeat for multiple IDs.")
     ingest_arxiv_parser.set_defaults(func=cmd_ingest_arxiv)
+
+    fetch_sources_parser = subparsers.add_parser("fetch-sources")
+    fetch_sources_parser.add_argument(
+        "--paper-id",
+        action="append",
+        required=True,
+        help="Stored paper ID. Repeat for multiple papers.",
+    )
+    fetch_sources_parser.set_defaults(func=cmd_fetch_sources)
 
     plan_triage_parser = subparsers.add_parser("plan-triage")
     plan_triage_parser.add_argument("--candidate-path", required=True, help="Candidate JSON path")

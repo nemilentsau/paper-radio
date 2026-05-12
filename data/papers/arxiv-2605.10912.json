@@ -39,5 +39,7 @@
   "triage_decision": "advance_to_review",
   "triage_rationale": "This looks like a substantive benchmark paper with a concrete evaluation setting, reproducible tooling, and results that could matter for agent research and podcast discussion. The abstract gives enough signal of a real empirical contribution rather than a hype-only systems note, so it merits full review.",
   "research_score_estimate": 7.8,
-  "podcast_score_estimate": 7.4
+  "podcast_score_estimate": 7.4,
+  "local_pdf_path": "data/papers/pdfs/arxiv-2605.10912.pdf",
+  "full_text_path": "data/papers/fulltext/arxiv-2605.10912.txt"
 }

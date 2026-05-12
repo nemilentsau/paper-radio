@@ -32,6 +32,8 @@ class PaperRecord:
     triage_rationale: str | None = None
     research_score_estimate: float | None = None
     podcast_score_estimate: float | None = None
+    local_pdf_path: str | None = None
+    full_text_path: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -54,6 +56,8 @@ class PaperRecord:
             "triage_rationale": self.triage_rationale,
             "research_score_estimate": self.research_score_estimate,
             "podcast_score_estimate": self.podcast_score_estimate,
+            "local_pdf_path": self.local_pdf_path,
+            "full_text_path": self.full_text_path,
         }
 
     @classmethod
@@ -82,6 +86,8 @@ class PaperRecord:
             podcast_score_estimate=float(data["podcast_score_estimate"])
             if data.get("podcast_score_estimate") is not None
             else None,
+            local_pdf_path=str(data["local_pdf_path"]) if data.get("local_pdf_path") is not None else None,
+            full_text_path=str(data["full_text_path"]) if data.get("full_text_path") is not None else None,
         )
 
 
@@ -137,6 +143,10 @@ def render_paper_markdown(paper: PaperRecord) -> str:
         metadata_lines.append(f"- Research score estimate: {paper.research_score_estimate}")
     if paper.podcast_score_estimate is not None:
         metadata_lines.append(f"- Podcast score estimate: {paper.podcast_score_estimate}")
+    if paper.local_pdf_path:
+        metadata_lines.append(f"- Local PDF path: {paper.local_pdf_path}")
+    if paper.full_text_path:
+        metadata_lines.append(f"- Full text path: {paper.full_text_path}")
     metadata_lines.extend(
         [
             f"- Abstract URL: {paper.abs_url}",

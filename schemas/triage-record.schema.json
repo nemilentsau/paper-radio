@@ -26,16 +26,10 @@
       }
     },
     "research_score_estimate": {
-      "type": "number",
-      "minimum": 0,
-      "maximum": 10,
-      "description": "0 to 10 estimate, not 0 to 1."
+      "type": "number"
     },
     "podcast_score_estimate": {
-      "type": "number",
-      "minimum": 0,
-      "maximum": 10,
-      "description": "0 to 10 estimate, not 0 to 1."
+      "type": "number"
     },
     "decision": {
       "type": "string",

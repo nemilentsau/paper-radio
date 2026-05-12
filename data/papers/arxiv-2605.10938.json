@@ -32,5 +32,7 @@
   "triage_decision": "advance_to_review",
   "triage_rationale": "The paper targets an active and technically plausible direction in language modeling and claims a concrete modeling change with experimental gains, which makes it worth review. The topic is also likely interesting for podcast discussion because it sits at the intersection of diffusion, flow matching, and language generation.",
   "research_score_estimate": 7.8,
-  "podcast_score_estimate": 7.1
+  "podcast_score_estimate": 7.1,
+  "local_pdf_path": "data/papers/pdfs/arxiv-2605.10938.pdf",
+  "full_text_path": "data/papers/fulltext/arxiv-2605.10938.txt"
 }

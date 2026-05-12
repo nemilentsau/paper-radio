@@ -153,6 +153,32 @@ class AgentRunnerTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "codex CLI is not usable"):
             check_agent_available("codex")
 
+    @patch("paper_radio.agent_runner.subprocess.run")
+    def test_run_review_job_rejects_manifest_without_full_text_source(self, run):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest_path = root / "jobs" / "reviews.jsonl"
+            manifest_path.parent.mkdir(parents=True)
+            manifest_path.write_text(
+                json.dumps(
+                    {
+                        "job_id": "review-arxiv-2605.10933",
+                        "kind": "review",
+                        "paper_id": "arxiv-2605.10933",
+                        "input_paths": ["data/papers/arxiv-2605.10933.md"],
+                        "output_path": "data/reviews/arxiv-2605.10933.json",
+                        "schema_path": "schemas/review-record.schema.json",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(RuntimeError, "full-text source"):
+                run_job(manifest_path, "review-arxiv-2605.10933", "codex", root=root)
+
+            run.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
