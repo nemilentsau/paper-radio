@@ -1,7 +1,7 @@
 {
   "episode_id": "episode-2026-05-12-01-frontier-ml-roundup",
   "title": "Frontier ML roundup: agents, MoE efficiency, and language flows",
-  "episode_type": "roundup",
+  "episode_type": "frontier_ml_roundup",
   "paper_ids": [
     "arxiv-2605.10912",
     "arxiv-2605.10933",

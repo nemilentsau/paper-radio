@@ -1,0 +1,75 @@
+## Episode Metadata
+
+- Episode ID: episode-2026-05-12-01-frontier-ml-roundup
+- Title: Frontier ML roundup: agents, MoE efficiency, and language flows
+- Episode type: frontier_ml_roundup
+- Papers: arxiv-2605.10912, arxiv-2605.10933, arxiv-2605.10938
+- NotebookLM handoff target: episodes/2026-05-12/01_frontier_ml_roundup/notebooklm_bundle/research_dossier.md
+
+## Why These Papers Are Grouped
+
+These papers are all about frontier ML systems where the headline result depends on the surrounding machinery, not just the model weights. WildClawBench evaluates CLI agents inside native runtimes and shows the harness can move scores materially. DECO argues sparse MoE can be useful when total parameters, storage, and edge decoding matter. ELF argues language diffusion improves when it moves through continuous contextual embedding space and delays token discretization.
+
+The grouping is useful because each paper makes an efficiency or capability claim that sounds broad, then reveals a narrower measurement problem: agent scores depend on scaffolds and judges; MoE efficiency depends on what budget is matched; diffusion-LM quality depends on sampling metrics, pretrained embeddings, and guidance.
+
+## Concise Thesis
+
+The episode thesis: current frontier ML progress is increasingly a systems story. These papers are strongest when they expose hidden infrastructure variables: tool harnesses for agents, storage-versus-active-compute tradeoffs for MoE, and representation choice for diffusion language models. They are weakest where they turn promising system-level evidence into broad claims before uncertainty, baselines, and deployment conditions are fully nailed down.
+
+## Per-Paper Claim Versus Evidence
+
+- arxiv-2605.10912: WildClawBench claims that current CLI agents still struggle on realistic long-horizon multimodal and bilingual tasks. Evidence: 60 human-authored tasks, 19 frontier models, Dockerized native-runtime execution, grading over artifacts and environment state, and a best OpenClaw score of 62.2. The important result is not just the leaderboard: changing only the harness moves MiMo V2 Pro from 29.9 with Claude Code to 48.1 with Hermes Agent.
+- arxiv-2605.10933: DECO claims a ReLU-routed sparse MoE can match dense quality at the same total parameter and token budget while activating roughly 20 percent of routed experts. Evidence: dense and MoE comparisons at 0.11B, 0.24B, 0.53B, and 1.18B total parameters; C4 perplexity and seven downstream tasks; component ablations; and decoding speedups averaging 2.58x on RTX 4090 and 3.00x on Jetson AGX against the paper's baseline setup.
+- arxiv-2605.10938: ELF claims continuous embedding-space flow matching can substantially improve diffusion language modeling with fewer sampling steps and fewer counted training tokens. Evidence: OpenWebText training with frozen T5-small contextual embeddings, GPT-2-Large generative perplexity plus unigram entropy on 1,000 samples, conditional WMT14 De-En and XSum evaluations, and extensive ablations around embeddings, prediction target, decoder sharing, guidance, time schedule, and sampling.
+
+## Strongest Contributions
+
+- WildClawBench treats the evaluated object as the full agent system: model, CLI scaffold, tool calls, logs, generated files, side effects, and grading environment. That is the right direction for agent evaluation.
+- WildClawBench's harness comparison is especially valuable because it shows scaffolding is not a neutral wrapper. The same model can look meaningfully different depending on runtime.
+- DECO asks a sharper MoE question than many sparse-model papers: can sparse MoE help when total parameter count and training tokens are held fixed, not only when active compute is lower?
+- DECO backs its architectural story with ablations on router scaling, NormSiLU, gated versus non-gated experts, activation ratio, shared expert size, and expert granularity.
+- ELF has a clean modeling idea: keep the diffusion path continuous in contextual embedding space, use flow matching with x-prediction, and leave discrete token decisions until the final step.
+- ELF's ablations are unusually relevant to the claim. The paper tests representation source, shared versus separate decoder, bottleneck size, prediction target, optimizer, schedule, SDE noise, CFG scale, and model size.
+
+## Serious Weaknesses And Red Flags
+
+- WildClawBench has only 60 curated tasks and filters for pilot-model score separation, which can bias the suite toward discriminating among chosen models rather than representing natural deployment work.
+- WildClawBench uses GPT 5.4 as a semantic judge while GPT 5.4 is also evaluated. The human agreement check covers only five sampled LLM-judged tasks, so judge bias and uncertainty remain live concerns.
+- WildClawBench reports repeated-run variance for only four models. Leaderboard deltas for the wider model set should not be read as stable universal rankings.
+- DECO's dense-comparable margins are often tiny and reported without seed variance. Examples include near-identical C4 perplexity and average task scores where ordinary training noise could matter.
+- DECO's end-side claim is under-measured. The paper gives useful Jetson throughput, but little direct evidence on storage movement, model loading, memory residency, battery, mobile NPU behavior, or optimized dense baselines.
+- DECO does not test SFT, RL, or instruction-following stability, and the largest model is 1.18B parameters. The result is promising small-scale pretraining evidence, not proof of production edge LLM readiness.
+- ELF's 10x fewer-training-tokens claim excludes the frozen T5-small encoder's pretraining, even though the pretrained contextual embedding space is central to the best result.
+- ELF relies heavily on GPT-2-Large generative perplexity and unigram entropy for unconditional generation. Those metrics miss factuality, repetition, semantic errors, and preference quality.
+- ELF's qualitative examples matter: low-perplexity samples still contain invented facts, repetitions, typos, mistranslations, and contradictory summaries.
+
+## Missing Baselines And Ablations
+
+- WildClawBench needs time-limited human expert performance, no-tool LLM baselines, simple scripted baselines, established open agent scaffolds under matched tools, and a judge-free deterministic/state-only subset.
+- WildClawBench needs larger judge validation: multiple LLM/VLM judges, larger human panels, confidence intervals, disagreement examples, and repeated trials across all major models.
+- DECO needs matched-active-compute dense models, quantized/pruned/distilled dense edge baselines, optimized dense and optimized MoE kernels, multiple random seeds, active FLOP and memory-traffic reporting, and post-training evaluations.
+- DECO should separate the runtime cost of NormSiLU, shared experts, attention, and non-FFN components from the appealing but incomplete phrase "20 percent of experts."
+- ELF needs a same-scale autoregressive Transformer under the same OpenWebText/tokenizer/evaluation setup, DLM baselines rerun under one pipeline, compute-matched inference comparisons, and a simple decoder baseline using the same frozen T5 representation.
+- ELF needs larger human or LLM-judge preference studies, multiple external perplexity evaluators, factuality and repetition metrics, longer-sequence tests, out-of-domain tests, and accounting that includes or controls for encoder pretraining.
+
+## Comparison Axes
+
+- System dependency: WildClawBench is most explicit that the scaffold is part of the evaluated system. DECO and ELF also depend on system choices, but those dependencies are easier to hide behind average scores.
+- Efficiency target: WildClawBench studies task completion under runtime budgets; DECO studies total-parameter and active-expert efficiency; ELF studies sampling steps and counted training tokens.
+- Evidence maturity: WildClawBench is operationally concrete but small and partly LLM-judged. DECO is experimentally disciplined at small scale but thin on variance and deployment realism. ELF is technically elegant with strong ablations but leans on fragile generation metrics and pretrained representations.
+- Overclaim risk: WildClawBench risks overstating real-world representativeness. DECO risks overstating edge deployment readiness. ELF risks overstating diffusion-LM competitiveness and data efficiency.
+- Replication interest: all three are worth replication. WildClawBench is valuable if the released tasks and harness are usable. DECO is valuable if checkpoints and kernels are released. ELF is valuable if training, sampling, and evaluation scripts make the metric pipeline auditable.
+
+## Verdict For The Listener
+
+Treat all three papers as serious, useful, and incomplete. WildClawBench is the best discussion anchor because it makes the hidden agent-harness variable visible. DECO is the cleanest efficiency question because it matches total parameters and tokens instead of relying only on sparse active compute. ELF is the most interesting modeling idea because it reframes diffusion language modeling around continuous contextual representations.
+
+The skeptical throughline: none of these papers should be reduced to a leaderboard win. The listener should come away asking what budget was matched, what infrastructure was included, what evaluator was trusted, and what hidden pretrained or deployment assumptions made the result possible.
+
+## Source Notes And Local Input Paths
+
+- Local review input: data/reviews/arxiv-2605.10912.json
+- Local review input: data/reviews/arxiv-2605.10933.json
+- Local review input: data/reviews/arxiv-2605.10938.json
+- Required output path for runner handoff: episodes/2026-05-12/01_frontier_ml_roundup/notebooklm_bundle/research_dossier.md
+- This dossier is factual source material for NotebookLM. It contains no dialogue, speaker labels, stage directions, cold open, host banter, or finished narration.
