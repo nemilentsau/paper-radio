@@ -16,6 +16,7 @@ from paper_radio.agent_runner import (
 class AgentRunnerTest(unittest.TestCase):
     def test_build_codex_command_uses_exec_schema_and_output_file(self):
         job = {
+            "kind": "review",
             "output_path": "data/reviews/2604.01694.json",
             "schema_path": "schemas/review-record.schema.json",
         }
@@ -31,6 +32,23 @@ class AgentRunnerTest(unittest.TestCase):
         self.assertIn("-o", command)
         self.assertIn("data/reviews/2604.01694.json", command)
         self.assertEqual(command[-1], prompt)
+
+    def test_build_codex_command_uses_low_cost_settings_for_fast_triage(self):
+        job = {
+            "kind": "triage",
+            "output_path": "data/triage/arxiv-2604.01694.json",
+            "schema_path": "schemas/triage-record.schema.json",
+        }
+        prompt = "Triage the embedded candidate."
+
+        command = build_codex_command(job, prompt)
+
+        self.assertIn("--ignore-user-config", command)
+        self.assertIn("--model", command)
+        self.assertIn("gpt-5.4-mini", command)
+        self.assertIn("-c", command)
+        self.assertIn('model_reasoning_effort="low"', command)
+        self.assertIn("data/triage/arxiv-2604.01694.json", command)
 
     def test_build_claude_command_uses_print_mode_and_json_schema(self):
         with tempfile.TemporaryDirectory() as tmp:

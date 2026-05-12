@@ -189,7 +189,7 @@ Paper inputs to read:
 Return only JSON matching the schema. Be skeptical, concrete, and source-grounded.
 """
     if kind == "triage":
-        input_paths = "\n".join(f"- {_prompt_text(path)}" for path in job.get("input_paths", []))
+        candidate_json = json.dumps(job.get("candidate", {}), indent=2, ensure_ascii=False)
         return f"""Triage one ML paper for Paper Radio.
 
 Job ID: {job["job_id"]}
@@ -197,8 +197,12 @@ Paper ID: {job["paper_id"]}
 Output path: {job["output_path"]}
 Required schema: {job["schema_path"]}
 
-Candidate inputs to read:
-{input_paths}
+Use only the embedded candidate JSON below. Do not browse the web. Do not inspect repository files.
+This is fast triage, not a full review. Infer from title, abstract, authors, categories, and source signals only.
+Do not cite external evidence. Do not reward hype language without evidence in the abstract.
+
+Embedded candidate JSON:
+{candidate_json}
 
 Return only JSON matching the schema. Score both research quality and podcast value.
 """

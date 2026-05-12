@@ -24,7 +24,7 @@ def check_agent_available(agent: str) -> None:
 
 
 def build_codex_command(job: Mapping[str, object], prompt: str) -> list[str]:
-    return [
+    command = [
         "codex",
         "exec",
         "--sandbox",
@@ -35,6 +35,15 @@ def build_codex_command(job: Mapping[str, object], prompt: str) -> list[str]:
         str(job["output_path"]),
         prompt,
     ]
+    if job.get("kind") == "triage":
+        command[2:2] = [
+            "--ignore-user-config",
+            "--model",
+            "gpt-5.4-mini",
+            "-c",
+            'model_reasoning_effort="low"',
+        ]
+    return command
 
 
 def build_claude_command(job: Mapping[str, object], prompt: str, root: Path = PROJECT_ROOT) -> list[str]:

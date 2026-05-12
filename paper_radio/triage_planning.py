@@ -53,6 +53,7 @@ def write_triage_job_manifest(root: Path, candidate_path: Path) -> TriageJobPlan
             "job_id": f"triage-{candidate['paper_id']}",
             "kind": "triage",
             "paper_id": str(candidate["paper_id"]),
+            "candidate": candidate,
             "input_paths": [relative_candidate_path],
             "output_path": f"data/triage/{candidate['paper_id']}.json",
             "schema_path": "schemas/triage-record.schema.json",

@@ -2,11 +2,12 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Any
 
 from paper_radio.triage_planning import write_triage_job_manifest
 
 
-def read_jsonl(path: Path) -> list[dict[str, object]]:
+def read_jsonl(path: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
@@ -37,6 +38,11 @@ class TriagePlanningTest(unittest.TestCase):
             self.assertEqual(len(jobs), 1)
             self.assertEqual(jobs[0]["kind"], "triage")
             self.assertEqual(jobs[0]["paper_id"], "arxiv-2604.01694")
+            self.assertEqual(jobs[0]["candidate"]["title"], "MiCA Learns More Knowledge Than LoRA and Full Fine-Tuning")
+            self.assertEqual(
+                jobs[0]["candidate"]["abstract"],
+                "A compact PEFT method is evaluated on knowledge injection tasks.",
+            )
             self.assertEqual(jobs[0]["input_paths"], ["data/candidates/2026-05-12/arxiv.json"])
             self.assertEqual(jobs[0]["output_path"], "data/triage/arxiv-2604.01694.json")
             self.assertEqual(jobs[0]["schema_path"], "schemas/triage-record.schema.json")

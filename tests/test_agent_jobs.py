@@ -58,6 +58,12 @@ class AgentJobsTest(unittest.TestCase):
             "job_id": "triage-arxiv-2604.01694",
             "kind": "triage",
             "paper_id": "arxiv-2604.01694",
+            "candidate": {
+                "paper_id": "arxiv-2604.01694",
+                "title": "MiCA Learns More Knowledge Than LoRA and Full Fine-Tuning",
+                "abstract": "A compact PEFT method is evaluated on knowledge injection tasks.",
+                "categories": ["cs.LG"],
+            },
             "input_paths": ["data/candidates/2026-05-12/arxiv.json"],
             "output_path": "data/triage/arxiv-2604.01694.json",
             "schema_path": "schemas/triage-record.schema.json",
@@ -65,8 +71,10 @@ class AgentJobsTest(unittest.TestCase):
 
         prompt = build_job_prompt(job)
 
-        self.assertIn("Candidate inputs to read:", prompt)
-        self.assertIn("data/candidates/2026-05-12/arxiv.json", prompt)
+        self.assertIn("Use only the embedded candidate JSON below", prompt)
+        self.assertIn("Do not browse the web", prompt)
+        self.assertIn("Do not inspect repository files", prompt)
+        self.assertIn("MiCA Learns More Knowledge Than LoRA", prompt)
         self.assertIn("Score both research quality and podcast value", prompt)
 
 
