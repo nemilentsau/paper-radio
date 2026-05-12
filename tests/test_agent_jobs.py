@@ -7,6 +7,7 @@ from paper_radio.agent_jobs import (
     REVIEW_RECORD_SCHEMA,
     SOURCE_DOSSIER_SCHEMA,
     TRIAGE_RECORD_SCHEMA,
+    build_job_prompt,
     build_source_dossier_prompt,
     write_agent_job_artifacts,
 )
@@ -51,6 +52,22 @@ class AgentJobsTest(unittest.TestCase):
         self.assertIn("Do not write dialogue", prompt)
         self.assertIn("research_dossier_markdown", prompt)
         self.assertIn("PEFT papers with stale baselines", prompt)
+
+    def test_triage_prompt_includes_candidate_input_paths(self):
+        job = {
+            "job_id": "triage-arxiv-2604.01694",
+            "kind": "triage",
+            "paper_id": "arxiv-2604.01694",
+            "input_paths": ["data/candidates/2026-05-12/arxiv.json"],
+            "output_path": "data/triage/arxiv-2604.01694.json",
+            "schema_path": "schemas/triage-record.schema.json",
+        }
+
+        prompt = build_job_prompt(job)
+
+        self.assertIn("Candidate inputs to read:", prompt)
+        self.assertIn("data/candidates/2026-05-12/arxiv.json", prompt)
+        self.assertIn("Score both research quality and podcast value", prompt)
 
 
 if __name__ == "__main__":

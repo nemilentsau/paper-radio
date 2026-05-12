@@ -1,12 +1,16 @@
 import argparse
 import json
+from datetime import date
 from pathlib import Path
 
 from paper_radio.agent_jobs import write_agent_job_artifacts
 from paper_radio.agent_runner import run_job
+from paper_radio.arxiv import fetch_recent_candidates, ingest_arxiv_ids
 from paper_radio.config import PROJECT_ROOT
+from paper_radio.episode_manifest import create_episode_manifest
 from paper_radio.episode_planning import write_episode_job_manifests
 from paper_radio.episode_runner import run_episode
+from paper_radio.triage_planning import write_triage_job_manifest
 
 
 def cmd_init(args: argparse.Namespace) -> None:
@@ -21,6 +25,39 @@ def cmd_run_job(args: argparse.Namespace) -> None:
     command = run_job(manifest, args.job_id, args.agent, dry_run=args.dry_run)
     if args.dry_run:
         print(json.dumps(command, indent=2))
+
+
+def cmd_candidate_arxiv(args: argparse.Namespace) -> None:
+    paths = fetch_recent_candidates(
+        PROJECT_ROOT,
+        categories=args.category,
+        max_results=args.max_results,
+        run_date=args.run_date or date.today().isoformat(),
+    )
+    print(json.dumps({"json_path": str(paths.json_path), "markdown_path": str(paths.markdown_path)}, indent=2))
+
+
+def cmd_ingest_arxiv(args: argparse.Namespace) -> None:
+    papers = ingest_arxiv_ids(PROJECT_ROOT, args.id)
+    print(json.dumps({"paper_ids": [paper.paper_id for paper in papers]}, indent=2))
+
+
+def cmd_plan_triage(args: argparse.Namespace) -> None:
+    candidate_path = Path(args.candidate_path)
+    result = write_triage_job_manifest(PROJECT_ROOT, candidate_path)
+    print(json.dumps({"triage_job_ids": result.job_ids}, indent=2))
+
+
+def cmd_create_episode(args: argparse.Namespace) -> None:
+    manifest_path = create_episode_manifest(
+        root=PROJECT_ROOT,
+        episode_path=args.episode_path,
+        title=args.title,
+        episode_type=args.episode_type,
+        paper_ids=args.paper_id,
+        episode_id=args.episode_id,
+    )
+    print(json.dumps({"manifest_path": str(manifest_path)}, indent=2))
 
 
 def cmd_plan_episode(args: argparse.Namespace) -> None:
@@ -55,6 +92,38 @@ def build_parser() -> argparse.ArgumentParser:
     run_job_parser.add_argument("--agent", required=True, choices=("codex", "claude"), help="Headless agent backend")
     run_job_parser.add_argument("--dry-run", action="store_true", help="Print the command without executing it")
     run_job_parser.set_defaults(func=cmd_run_job)
+
+    candidate_arxiv_parser = subparsers.add_parser("candidate-arxiv")
+    candidate_arxiv_parser.add_argument(
+        "--category",
+        action="append",
+        required=True,
+        help="arXiv category, e.g. cs.LG. Repeat for multiple categories.",
+    )
+    candidate_arxiv_parser.add_argument("--max-results", type=int, default=100, help="Maximum arXiv results to fetch")
+    candidate_arxiv_parser.add_argument("--run-date", help="Candidate batch date, defaults to today")
+    candidate_arxiv_parser.set_defaults(func=cmd_candidate_arxiv)
+
+    ingest_arxiv_parser = subparsers.add_parser("ingest-arxiv")
+    ingest_arxiv_parser.add_argument("--id", action="append", required=True, help="arXiv ID. Repeat for multiple IDs.")
+    ingest_arxiv_parser.set_defaults(func=cmd_ingest_arxiv)
+
+    plan_triage_parser = subparsers.add_parser("plan-triage")
+    plan_triage_parser.add_argument("--candidate-path", required=True, help="Candidate JSON path")
+    plan_triage_parser.set_defaults(func=cmd_plan_triage)
+
+    create_episode_parser = subparsers.add_parser("create-episode")
+    create_episode_parser.add_argument("--episode-path", required=True, help="Episode dir")
+    create_episode_parser.add_argument("--title", required=True, help="Episode title")
+    create_episode_parser.add_argument("--episode-type", required=True, help="Episode type")
+    create_episode_parser.add_argument(
+        "--paper-id",
+        action="append",
+        required=True,
+        help="Stored paper ID, e.g. arxiv-2604.01694. Repeat for multiple papers.",
+    )
+    create_episode_parser.add_argument("--episode-id", help="Optional explicit episode ID")
+    create_episode_parser.set_defaults(func=cmd_create_episode)
 
     plan_episode_parser = subparsers.add_parser("plan-episode")
     plan_episode_parser.add_argument("--episode-path", required=True, help="Episode dir")

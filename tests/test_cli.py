@@ -12,6 +12,64 @@ class CliTest(unittest.TestCase):
         self.assertEqual(args.command, "plan-episode")
         self.assertEqual(args.episode_path, "episodes/2026-05-12/01_peft")
 
+    def test_parser_accepts_candidate_arxiv_command(self):
+        parser = build_parser()
+
+        args = parser.parse_args(
+            [
+                "candidate-arxiv",
+                "--category",
+                "cs.LG",
+                "--category",
+                "cs.CL",
+                "--max-results",
+                "50",
+                "--run-date",
+                "2026-05-12",
+            ]
+        )
+
+        self.assertEqual(args.command, "candidate-arxiv")
+        self.assertEqual(args.category, ["cs.LG", "cs.CL"])
+        self.assertEqual(args.max_results, 50)
+        self.assertEqual(args.run_date, "2026-05-12")
+
+    def test_parser_accepts_ingest_arxiv_command(self):
+        parser = build_parser()
+
+        args = parser.parse_args(["ingest-arxiv", "--id", "2604.01694", "--id", "2604.09999"])
+
+        self.assertEqual(args.command, "ingest-arxiv")
+        self.assertEqual(args.id, ["2604.01694", "2604.09999"])
+
+    def test_parser_accepts_plan_triage_command(self):
+        parser = build_parser()
+
+        args = parser.parse_args(["plan-triage", "--candidate-path", "data/candidates/2026-05-12/arxiv.json"])
+
+        self.assertEqual(args.command, "plan-triage")
+        self.assertEqual(args.candidate_path, "data/candidates/2026-05-12/arxiv.json")
+
+    def test_parser_accepts_create_episode_command(self):
+        parser = build_parser()
+
+        args = parser.parse_args(
+            [
+                "create-episode",
+                "--episode-path",
+                "episodes/2026-05-12/01_peft",
+                "--title",
+                "PEFT papers with stale baselines",
+                "--episode-type",
+                "comparison",
+                "--paper-id",
+                "arxiv-2604.01694",
+            ]
+        )
+
+        self.assertEqual(args.command, "create-episode")
+        self.assertEqual(args.paper_id, ["arxiv-2604.01694"])
+
 
 if __name__ == "__main__":
     unittest.main()

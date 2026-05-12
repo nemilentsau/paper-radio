@@ -26,6 +26,38 @@ uv run python -m unittest discover -s tests -v
 
 ## Episode Runner
 
+Discover recent arXiv candidates:
+
+```bash
+uv run python -m paper_radio.cli candidate-arxiv \
+  --category cs.LG \
+  --category cs.CL \
+  --category cs.AI \
+  --max-results 100
+```
+
+Create triage jobs for a candidate batch:
+
+```bash
+uv run python -m paper_radio.cli plan-triage --candidate-path data/candidates/2026-05-12/arxiv.json
+```
+
+Ingest a known arXiv paper ID:
+
+```bash
+uv run python -m paper_radio.cli ingest-arxiv --id 2604.01694
+```
+
+Create an episode manifest from stored paper records:
+
+```bash
+uv run python -m paper_radio.cli create-episode \
+  --episode-path episodes/2026-05-12/01_peft \
+  --title "PEFT papers with stale baselines" \
+  --episode-type comparison \
+  --paper-id arxiv-2604.01694
+```
+
 Create or update the job manifests for an episode:
 
 ```bash

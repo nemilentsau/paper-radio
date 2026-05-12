@@ -189,12 +189,16 @@ Paper inputs to read:
 Return only JSON matching the schema. Be skeptical, concrete, and source-grounded.
 """
     if kind == "triage":
+        input_paths = "\n".join(f"- {_prompt_text(path)}" for path in job.get("input_paths", []))
         return f"""Triage one ML paper for Paper Radio.
 
 Job ID: {job["job_id"]}
 Paper ID: {job["paper_id"]}
 Output path: {job["output_path"]}
 Required schema: {job["schema_path"]}
+
+Candidate inputs to read:
+{input_paths}
 
 Return only JSON matching the schema. Score both research quality and podcast value.
 """
