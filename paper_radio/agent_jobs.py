@@ -11,8 +11,18 @@ TRIAGE_RECORD_SCHEMA: dict[str, Any] = {
         "triage_rationale": {"type": "string"},
         "topic_tags": {"type": "array", "items": {"type": "string"}},
         "likely_red_flags": {"type": "array", "items": {"type": "string"}},
-        "research_score_estimate": {"type": "number"},
-        "podcast_score_estimate": {"type": "number"},
+        "research_score_estimate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10,
+            "description": "0 to 10 estimate, not 0 to 1.",
+        },
+        "podcast_score_estimate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10,
+            "description": "0 to 10 estimate, not 0 to 1.",
+        },
         "decision": {"type": "string", "enum": ["advance_to_review", "queue_for_review", "skip"]},
     },
     "required": [
@@ -206,6 +216,7 @@ The decision must be exactly one of: advance_to_review, queue_for_review, skip.
 Affiliations and trusted_orgs are weak source signals. They can affect review priority, but they are not evidence
 that the paper's claims are correct.
 Set triage_rationale to one or two concrete sentences explaining the decision.
+Use a 0 to 10 scale for research_score_estimate and podcast_score_estimate, not a 0 to 1 scale.
 
 Embedded candidate JSON:
 {candidate_json}

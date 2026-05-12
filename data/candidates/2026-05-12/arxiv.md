@@ -4,6 +4,8 @@
 
 - Categories: cs.CL, cs.AI, cs.LG
 - Authors: Keya Hu, Linlu Qiu, Yiyang Lu, Hanhong Zhao, Tianhong Li, Yoon Kim, Jacob Andreas, Kaiming He
+- Author affiliations: unknown
+- Trusted org matches: none
 - Abstract URL: https://arxiv.org/abs/2605.10938
 - PDF URL: https://arxiv.org/pdf/2605.10938
 
@@ -13,6 +15,8 @@ Diffusion and flow-based models have become the de facto approaches for generati
 
 - Categories: cs.LG, cs.AI, cs.CV, cs.RO, stat.ML
 - Authors: Yaman Kindap, Manfred Opper, Benjamin Dupuis, Umut Simsekli, Tolga Birdal
+- Author affiliations: unknown
+- Trusted org matches: none
 - Abstract URL: https://arxiv.org/abs/2605.10934
 - PDF URL: https://arxiv.org/pdf/2605.10934
 
@@ -22,6 +26,8 @@ Modelling extreme events and heavy-tailed phenomena is central to building relia
 
 - Categories: cs.LG, cs.CL
 - Authors: Chenyang Song, Weilin Zhao, Xu Han, Chaojun Xiao, Yingfa Chen, Zhiyuan Liu
+- Author affiliations: unknown
+- Trusted org matches: none
 - Abstract URL: https://arxiv.org/abs/2605.10933
 - PDF URL: https://arxiv.org/pdf/2605.10933
 
@@ -31,6 +37,8 @@ While Mixture-of-Experts (MoE) scales model capacity without proportionally incr
 
 - Categories: math.AP, cs.LG, math.DS
 - Authors: Albert Alcalde, Leon Bungert, Konstantin Riedl, Tim Roith
+- Author affiliations: unknown
+- Trusted org matches: none
 - Abstract URL: https://arxiv.org/abs/2605.10931
 - PDF URL: https://arxiv.org/pdf/2605.10931
 
@@ -40,6 +48,8 @@ Transformers with self-attention modules as their core components have become an
 
 - Categories: cs.LG, cs.CL
 - Authors: Junhao Shen, Teng Zhang, Xiaoyan Zhao, Hong Cheng
+- Author affiliations: unknown
+- Trusted org matches: none
 - Abstract URL: https://arxiv.org/abs/2605.10923
 - PDF URL: https://arxiv.org/pdf/2605.10923
 
@@ -49,6 +59,8 @@ Large language model agents increasingly rely on external skills to solve comple
 
 - Categories: cs.LG, cs.MA, cs.RO
 - Authors: Usman A. Khan, Joseph W. Durham
+- Author affiliations: unknown
+- Trusted org matches: none
 - Abstract URL: https://arxiv.org/abs/2605.10917
 - PDF URL: https://arxiv.org/pdf/2605.10917
 
@@ -58,6 +70,8 @@ We consider anonymous multi-agent path finding (MAPF) where a set of robots is t
 
 - Categories: cs.CV, cs.AI
 - Authors: Md. Sultan Al Rayhan, Maheen Islam
+- Author affiliations: unknown
+- Trusted org matches: none
 - Abstract URL: https://arxiv.org/abs/2605.10916
 - PDF URL: https://arxiv.org/pdf/2605.10916
 
@@ -67,6 +81,8 @@ Recognition of handwritten Bangla compound characters remains a challenging prob
 
 - Categories: cs.AI, cs.PL, cs.SE
 - Authors: Simon Yu, Derek Chong, Ananjan Nandi, Dilara Soylu, Jiuding Sun, Christopher D Manning, Weiyan Shi
+- Author affiliations: unknown
+- Trusted org matches: none
 - Abstract URL: https://arxiv.org/abs/2605.10913
 - PDF URL: https://arxiv.org/pdf/2605.10913
 
@@ -76,6 +92,8 @@ We introduce Shepherd, a functional programming model that formalizes meta-agent
 
 - Categories: cs.CL
 - Authors: Shuangrui Ding, Xuanlang Dai, Long Xing, Shengyuan Ding, Ziyu Liu, Yang JingYi, Penghui Yang, Zhixiong Zhang, Xilin Wei, Xinyu Fang, Yubo Ma, Haodong Duan, Jing Shao, Jiaqi Wang, Dahua Lin, Kai Chen, Yuhang Zang
+- Author affiliations: unknown
+- Trusted org matches: none
 - Abstract URL: https://arxiv.org/abs/2605.10912
 - PDF URL: https://arxiv.org/pdf/2605.10912
 
@@ -85,6 +103,8 @@ Large language and vision-language models increasingly power agents that act on 
 
 - Categories: quant-ph, cs.LG
 - Authors: Richie Yeung, Aleks Kissinger, Rob Cornish
+- Author affiliations: unknown
+- Trusted org matches: none
 - Abstract URL: https://arxiv.org/abs/2605.10910
 - PDF URL: https://arxiv.org/pdf/2605.10910
 

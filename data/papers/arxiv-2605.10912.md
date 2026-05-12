@@ -9,9 +9,10 @@
 - Updated: 2026-05-11T17:49:43Z
 - Categories: cs.CL
 - Source signals: arxiv_recent
-- Triage decision: queue_for_review
-- Research score estimate: 7.4
-- Podcast score estimate: 8.6
+- Triage decision: advance_to_review
+- Triage rationale: This looks like a substantive benchmark paper with a concrete evaluation setting, reproducible tooling, and results that could matter for agent research and podcast discussion. The abstract gives enough signal of a real empirical contribution rather than a hype-only systems note, so it merits full review.
+- Research score estimate: 7.8
+- Podcast score estimate: 7.4
 - Abstract URL: https://arxiv.org/abs/2605.10912
 - PDF URL: https://arxiv.org/pdf/2605.10912
 

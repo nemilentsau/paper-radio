@@ -9,9 +9,10 @@
 - Updated: 2026-05-11T17:59:29Z
 - Categories: cs.CL, cs.AI, cs.LG
 - Source signals: arxiv_recent
-- Triage decision: queue_for_review
-- Research score estimate: 8.0
-- Podcast score estimate: 8.7
+- Triage decision: advance_to_review
+- Triage rationale: The paper targets an active and technically plausible direction in language modeling and claims a concrete modeling change with experimental gains, which makes it worth review. The topic is also likely interesting for podcast discussion because it sits at the intersection of diffusion, flow matching, and language generation.
+- Research score estimate: 7.8
+- Podcast score estimate: 7.1
 - Abstract URL: https://arxiv.org/abs/2605.10938
 - PDF URL: https://arxiv.org/pdf/2605.10938
 

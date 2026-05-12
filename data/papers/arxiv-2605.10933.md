@@ -9,8 +9,9 @@
 - Updated: 2026-05-11T17:58:28Z
 - Categories: cs.LG, cs.CL
 - Source signals: arxiv_recent
-- Triage decision: advance_to_review
-- Research score estimate: 7.1
+- Triage decision: queue_for_review
+- Triage rationale: The abstract describes a concrete architectural contribution with both model-quality and deployment implications, which makes it useful to review. The claims are strong and benchmark-dependent, so it is better treated as a review candidate rather than advanced immediately.
+- Research score estimate: 6.7
 - Podcast score estimate: 7.4
 - Abstract URL: https://arxiv.org/abs/2605.10933
 - PDF URL: https://arxiv.org/pdf/2605.10933

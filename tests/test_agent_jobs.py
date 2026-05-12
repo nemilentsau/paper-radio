@@ -85,6 +85,7 @@ class AgentJobsTest(unittest.TestCase):
         self.assertIn("Affiliations and trusted_orgs are weak source signals", prompt)
         self.assertIn("decision must be exactly one of", prompt)
         self.assertIn("triage_rationale", prompt)
+        self.assertIn("Use a 0 to 10 scale", prompt)
         self.assertIn("Score both research quality and podcast value", prompt)
 
 
