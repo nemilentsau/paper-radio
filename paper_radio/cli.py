@@ -5,6 +5,7 @@ from pathlib import Path
 from paper_radio.agent_jobs import write_agent_job_artifacts
 from paper_radio.agent_runner import run_job
 from paper_radio.config import PROJECT_ROOT
+from paper_radio.episode_planning import write_episode_job_manifests
 from paper_radio.episode_runner import run_episode
 
 
@@ -20,6 +21,19 @@ def cmd_run_job(args: argparse.Namespace) -> None:
     command = run_job(manifest, args.job_id, args.agent, dry_run=args.dry_run)
     if args.dry_run:
         print(json.dumps(command, indent=2))
+
+
+def cmd_plan_episode(args: argparse.Namespace) -> None:
+    result = write_episode_job_manifests(PROJECT_ROOT, args.episode_path)
+    print(
+        json.dumps(
+            {
+                "review_job_ids": result.review_job_ids,
+                "source_dossier_job_id": result.source_dossier_job_id,
+            },
+            indent=2,
+        )
+    )
 
 
 def cmd_run_episode(args: argparse.Namespace) -> None:
@@ -41,6 +55,10 @@ def build_parser() -> argparse.ArgumentParser:
     run_job_parser.add_argument("--agent", required=True, choices=("codex", "claude"), help="Headless agent backend")
     run_job_parser.add_argument("--dry-run", action="store_true", help="Print the command without executing it")
     run_job_parser.set_defaults(func=cmd_run_job)
+
+    plan_episode_parser = subparsers.add_parser("plan-episode")
+    plan_episode_parser.add_argument("--episode-path", required=True, help="Episode dir")
+    plan_episode_parser.set_defaults(func=cmd_plan_episode)
 
     run_episode_parser = subparsers.add_parser("run-episode")
     run_episode_parser.add_argument("--episode-path", required=True, help="Episode dir")

@@ -26,6 +26,12 @@ uv run python -m unittest discover -s tests -v
 
 ## Episode Runner
 
+Create or update the job manifests for an episode:
+
+```bash
+uv run python -m paper_radio.cli plan-episode --episode-path episodes/2026-05-12/01_peft
+```
+
 Production episode runs should use the ordered runner:
 
 ```bash
