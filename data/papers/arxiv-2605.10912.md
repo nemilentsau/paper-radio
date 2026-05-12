@@ -9,6 +9,9 @@
 - Updated: 2026-05-11T17:49:43Z
 - Categories: cs.CL
 - Source signals: arxiv_recent
+- Triage decision: queue_for_review
+- Research score estimate: 7.4
+- Podcast score estimate: 8.6
 - Abstract URL: https://arxiv.org/abs/2605.10912
 - PDF URL: https://arxiv.org/pdf/2605.10912
 

@@ -1,13 +1,15 @@
+from dataclasses import replace
 from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from xml.etree import ElementTree
 
 from paper_radio.candidates import CandidatePaths, write_candidate_batch
+from paper_radio.org_signals import annotate_trusted_orgs, load_trusted_orgs
 from paper_radio.papers import PaperRecord, normalize_arxiv_paper_id, normalize_arxiv_source_id, write_paper_record
 
 ARXIV_API_URL = "https://export.arxiv.org/api/query"
-ATOM_NS = {"atom": "http://www.w3.org/2005/Atom"}
+ATOM_NS = {"atom": "http://www.w3.org/2005/Atom", "arxiv": "http://arxiv.org/schemas/atom"}
 
 
 def build_arxiv_query_url(categories: list[str], max_results: int, start: int = 0) -> str:
@@ -54,6 +56,15 @@ def _entry_pdf_url(source_id: str) -> str:
     return f"https://arxiv.org/pdf/{source_id}"
 
 
+def _entry_author_affiliations(entry: ElementTree.Element) -> tuple[str, ...]:
+    affiliations: list[str] = []
+    for author in entry.findall("atom:author", ATOM_NS):
+        affiliation = author.findtext("arxiv:affiliation", default="", namespaces=ATOM_NS)
+        if affiliation:
+            affiliations.append(" ".join(affiliation.split()))
+    return tuple(dict.fromkeys(affiliations))
+
+
 def parse_arxiv_atom(xml_text: str, source_type: str) -> list[PaperRecord]:
     root = ElementTree.fromstring(xml_text)
     papers: list[PaperRecord] = []
@@ -76,6 +87,7 @@ def parse_arxiv_atom(xml_text: str, source_type: str) -> list[PaperRecord]:
                 source_id=source_id,
                 title=_text(entry, "title"),
                 authors=authors,
+                author_affiliations=_entry_author_affiliations(entry),
                 abstract=_text(entry, "summary"),
                 published_at=_text(entry, "published"),
                 updated_at=_text(entry, "updated"),
@@ -91,28 +103,19 @@ def parse_arxiv_atom(xml_text: str, source_type: str) -> list[PaperRecord]:
 
 def fetch_recent_candidates(root: Path, categories: list[str], max_results: int, run_date: str) -> CandidatePaths:
     xml_text = fetch_text(build_arxiv_query_url(categories=categories, max_results=max_results))
-    papers = parse_arxiv_atom(xml_text, source_type="arxiv_recent")
+    trusted_orgs = load_trusted_orgs(root)
+    papers = [
+        annotate_trusted_orgs(paper, trusted_orgs)
+        for paper in parse_arxiv_atom(xml_text, source_type="arxiv_recent")
+    ]
     return write_candidate_batch(root, run_date=run_date, source="arxiv", papers=papers)
 
 
 def ingest_arxiv_ids(root: Path, arxiv_ids: list[str]) -> list[PaperRecord]:
     xml_text = fetch_text(build_arxiv_id_url(arxiv_ids))
+    trusted_orgs = load_trusted_orgs(root)
     papers = [
-        PaperRecord(
-            paper_id=paper.paper_id,
-            source=paper.source,
-            source_id=paper.source_id,
-            title=paper.title,
-            authors=paper.authors,
-            abstract=paper.abstract,
-            published_at=paper.published_at,
-            updated_at=paper.updated_at,
-            categories=paper.categories,
-            pdf_url=paper.pdf_url,
-            abs_url=paper.abs_url,
-            source_types=("arxiv",),
-            status="ingested",
-        )
+        annotate_trusted_orgs(replace(paper, source_types=("arxiv",), status="ingested"), trusted_orgs)
         for paper in parse_arxiv_atom(xml_text, source_type="arxiv")
     ]
     for paper in papers:

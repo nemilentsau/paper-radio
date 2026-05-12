@@ -13,7 +13,10 @@ SAMPLE_ATOM = """<?xml version="1.0" encoding="UTF-8"?>
     <summary>
       A compact PEFT method is evaluated on knowledge injection tasks.
     </summary>
-    <author><name>Sten Rüdiger</name></author>
+    <author>
+      <name>Sten Rüdiger</name>
+      <arxiv:affiliation>Research Institute for Machine Learning</arxiv:affiliation>
+    </author>
     <author><name>Sebastian Raschka</name></author>
     <category term="cs.LG" />
     <category term="cs.CL" />
@@ -53,6 +56,7 @@ class ArxivTest(unittest.TestCase):
         self.assertEqual([paper.paper_id for paper in papers], ["arxiv-2604.01694", "arxiv-2604.09999"])
         self.assertEqual(papers[0].source_id, "2604.01694")
         self.assertEqual(papers[0].authors, ("Sten Rüdiger", "Sebastian Raschka"))
+        self.assertEqual(papers[0].author_affiliations, ("Research Institute for Machine Learning",))
         self.assertEqual(papers[0].categories, ("cs.LG", "cs.CL"))
         self.assertEqual(papers[0].pdf_url, "https://arxiv.org/pdf/2604.01694")
         self.assertEqual(papers[0].abs_url, "https://arxiv.org/abs/2604.01694")

@@ -51,9 +51,26 @@ def _load_candidates_by_paper_id(manifest_path: Path) -> dict[str, dict[str, Any
     return candidates
 
 
-def _candidate_to_triaged_paper(candidate: dict[str, Any]) -> PaperRecord:
+def _optional_float(value: object) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, int | float | str):
+        return float(value)
+    raise TypeError(f"Expected a numeric triage score, got {type(value).__name__}")
+
+
+def _candidate_to_triaged_paper(candidate: dict[str, Any], triage_record: dict[str, Any], decision: str) -> PaperRecord:
     paper = PaperRecord.from_dict(candidate)
-    return replace(paper, status="triaged")
+    return replace(
+        paper,
+        status="triaged",
+        triage_decision=decision,
+        triage_rationale=str(triage_record["triage_rationale"])
+        if triage_record.get("triage_rationale") is not None
+        else None,
+        research_score_estimate=_optional_float(triage_record.get("research_score_estimate")),
+        podcast_score_estimate=_optional_float(triage_record.get("podcast_score_estimate")),
+    )
 
 
 def promote_triage_results(
@@ -77,7 +94,7 @@ def promote_triage_results(
             candidate = candidates_by_paper_id.get(paper_id)
             if candidate is None:
                 raise RuntimeError(f"No triage job candidate found for selected paper {paper_id}")
-            write_paper_record(root, _candidate_to_triaged_paper(candidate))
+            write_paper_record(root, _candidate_to_triaged_paper(candidate, triage_record, decision))
             promoted_paper_ids.append(paper_id)
         elif decision == "skip":
             skipped_paper_ids.append(paper_id)

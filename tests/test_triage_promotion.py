@@ -23,6 +23,7 @@ def candidate_record(paper_id: str, source_id: str, title: str) -> dict[str, obj
         "source_id": source_id,
         "title": title,
         "authors": ["Ada Lovelace", "Grace Hopper"],
+        "author_affiliations": ["Trusted AI Lab"],
         "abstract": "A compact abstract for triage promotion.",
         "published_at": "2026-05-11T17:49:43Z",
         "updated_at": "2026-05-11T17:49:43Z",
@@ -31,6 +32,7 @@ def candidate_record(paper_id: str, source_id: str, title: str) -> dict[str, obj
         "abs_url": f"https://arxiv.org/abs/{source_id}",
         "source_types": ["arxiv_recent"],
         "status": "candidate",
+        "trusted_orgs": ["Trusted AI Lab"],
         "decision": "untriaged",
     }
 
@@ -77,6 +79,9 @@ class TriagePromotionTest(unittest.TestCase):
                 {
                     "paper_id": "arxiv-2605.10912",
                     "title": selected["title"],
+                    "triage_rationale": "Long-horizon agent benchmark with strong podcast value.",
+                    "research_score_estimate": 7.4,
+                    "podcast_score_estimate": 8.6,
                     "decision": "queue",
                 },
             )
@@ -100,8 +105,14 @@ class TriagePromotionTest(unittest.TestCase):
             markdown = (root / "data" / "papers" / "arxiv-2605.10912.md").read_text(encoding="utf-8")
             self.assertEqual(data["status"], "triaged")
             self.assertEqual(data["source_types"], ["arxiv_recent"])
+            self.assertEqual(data["trusted_orgs"], ["Trusted AI Lab"])
+            self.assertEqual(data["triage_decision"], "queue_for_review")
+            self.assertEqual(data["triage_rationale"], "Long-horizon agent benchmark with strong podcast value.")
+            self.assertEqual(data["research_score_estimate"], 7.4)
+            self.assertEqual(data["podcast_score_estimate"], 8.6)
             self.assertEqual(data["abs_url"], "https://arxiv.org/abs/2605.10912")
             self.assertIn("# WildClawBench", markdown)
+            self.assertIn("Long-horizon agent benchmark with strong podcast value.", markdown)
             self.assertFalse(skipped_json.exists())
 
     def test_promote_triage_results_requires_candidate_for_selected_paper(self):

@@ -16,6 +16,7 @@ from paper_radio.agent_jobs import (
 class AgentJobsTest(unittest.TestCase):
     def test_schemas_define_standalone_paper_radio_records(self):
         self.assertIn("paper_id", TRIAGE_RECORD_SCHEMA["required"])
+        self.assertIn("triage_rationale", TRIAGE_RECORD_SCHEMA["required"])
         self.assertEqual(
             TRIAGE_RECORD_SCHEMA["properties"]["decision"]["enum"],
             ["advance_to_review", "queue_for_review", "skip"],
@@ -67,6 +68,8 @@ class AgentJobsTest(unittest.TestCase):
                 "title": "MiCA Learns More Knowledge Than LoRA and Full Fine-Tuning",
                 "abstract": "A compact PEFT method is evaluated on knowledge injection tasks.",
                 "categories": ["cs.LG"],
+                "author_affiliations": ["Research Institute for Machine Learning"],
+                "trusted_orgs": ["Research Institute for Machine Learning"],
             },
             "input_paths": ["data/candidates/2026-05-12/arxiv.json"],
             "output_path": "data/triage/arxiv-2604.01694.json",
@@ -79,7 +82,9 @@ class AgentJobsTest(unittest.TestCase):
         self.assertIn("Do not browse the web", prompt)
         self.assertIn("Do not inspect repository files", prompt)
         self.assertIn("MiCA Learns More Knowledge Than LoRA", prompt)
+        self.assertIn("Affiliations and trusted_orgs are weak source signals", prompt)
         self.assertIn("decision must be exactly one of", prompt)
+        self.assertIn("triage_rationale", prompt)
         self.assertIn("Score both research quality and podcast value", prompt)
 
 

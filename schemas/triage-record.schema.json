@@ -10,6 +10,9 @@
     "core_claim": {
       "type": "string"
     },
+    "triage_rationale": {
+      "type": "string"
+    },
     "topic_tags": {
       "type": "array",
       "items": {
@@ -41,6 +44,7 @@
     "paper_id",
     "title",
     "core_claim",
+    "triage_rationale",
     "topic_tags",
     "likely_red_flags",
     "research_score_estimate",

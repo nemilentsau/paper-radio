@@ -25,12 +25,16 @@ def _render_candidate_markdown(source: str, run_date: str, candidates: list[dict
         "",
     ]
     for candidate in candidates:
+        affiliations = ", ".join(candidate.get("author_affiliations", []))
+        trusted_orgs = ", ".join(candidate.get("trusted_orgs", []))
         lines.extend(
             [
                 f"## {candidate['paper_id']}: {candidate['title']}",
                 "",
                 f"- Categories: {', '.join(candidate['categories'])}",
                 f"- Authors: {', '.join(candidate['authors'])}",
+                f"- Author affiliations: {affiliations or 'unknown'}",
+                f"- Trusted org matches: {trusted_orgs or 'none'}",
                 f"- Abstract URL: {candidate['abs_url']}",
                 f"- PDF URL: {candidate['pdf_url']}",
                 "",

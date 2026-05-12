@@ -36,6 +36,12 @@ uv run python -m paper_radio.cli candidate-arxiv \
   --max-results 100
 ```
 
+arXiv affiliation metadata is opportunistic: the API can expose author-supplied
+`arxiv:affiliation` values, but many papers omit them. When affiliations are
+present, Paper Radio matches them against `config/trusted-orgs.json` and stores
+the resulting `trusted_orgs` as weak triage signals. Edit that config to tune
+which labs or universities get source-signal treatment.
+
 Create triage jobs for a candidate batch:
 
 ```bash

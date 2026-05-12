@@ -1,0 +1,44 @@
+{
+  "trusted_orgs": [
+    {
+      "name": "OpenAI",
+      "aliases": ["OpenAI"]
+    },
+    {
+      "name": "Google DeepMind",
+      "aliases": ["Google DeepMind", "DeepMind"]
+    },
+    {
+      "name": "Anthropic",
+      "aliases": ["Anthropic"]
+    },
+    {
+      "name": "Meta AI",
+      "aliases": ["Meta AI", "FAIR", "Meta Fundamental AI Research"]
+    },
+    {
+      "name": "Microsoft Research",
+      "aliases": ["Microsoft Research", "MSR"]
+    },
+    {
+      "name": "Allen Institute for AI",
+      "aliases": ["Allen Institute for AI", "AI2"]
+    },
+    {
+      "name": "Stanford University",
+      "aliases": ["Stanford University", "Stanford"]
+    },
+    {
+      "name": "Massachusetts Institute of Technology",
+      "aliases": ["Massachusetts Institute of Technology", "MIT"]
+    },
+    {
+      "name": "University of California, Berkeley",
+      "aliases": ["University of California, Berkeley", "UC Berkeley", "Berkeley"]
+    },
+    {
+      "name": "Carnegie Mellon University",
+      "aliases": ["Carnegie Mellon University", "CMU"]
+    }
+  ]
+}

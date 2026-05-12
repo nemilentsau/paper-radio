@@ -8,6 +8,7 @@ TRIAGE_RECORD_SCHEMA: dict[str, Any] = {
         "paper_id": {"type": "string"},
         "title": {"type": "string"},
         "core_claim": {"type": "string"},
+        "triage_rationale": {"type": "string"},
         "topic_tags": {"type": "array", "items": {"type": "string"}},
         "likely_red_flags": {"type": "array", "items": {"type": "string"}},
         "research_score_estimate": {"type": "number"},
@@ -18,6 +19,7 @@ TRIAGE_RECORD_SCHEMA: dict[str, Any] = {
         "paper_id",
         "title",
         "core_claim",
+        "triage_rationale",
         "topic_tags",
         "likely_red_flags",
         "research_score_estimate",
@@ -201,6 +203,9 @@ Use only the embedded candidate JSON below. Do not browse the web. Do not inspec
 This is fast triage, not a full review. Infer from title, abstract, authors, categories, and source signals only.
 Do not cite external evidence. Do not reward hype language without evidence in the abstract.
 The decision must be exactly one of: advance_to_review, queue_for_review, skip.
+Affiliations and trusted_orgs are weak source signals. They can affect review priority, but they are not evidence
+that the paper's claims are correct.
+Set triage_rationale to one or two concrete sentences explaining the decision.
 
 Embedded candidate JSON:
 {candidate_json}
