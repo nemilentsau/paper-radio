@@ -7,6 +7,11 @@ from typing import Any
 
 from paper_radio.agent_jobs import build_job_prompt, find_job
 from paper_radio.config import PROJECT_ROOT
+from paper_radio.output_validation import (
+    OutputValidationError,
+    validate_job_output,
+    validate_source_dossier_record,
+)
 from paper_radio.source_fetch import validate_review_job_sources
 
 
@@ -122,6 +127,26 @@ def _write_codex_sidecar_outputs(job: Mapping[str, object], root: Path) -> None:
     _write_source_dossier_bundle(job, output, root)
 
 
+def _remove_invalid_outputs(job: Mapping[str, object], root: Path) -> None:
+    paths = [job.get("output_path")]
+    if job.get("kind") == "source_dossier":
+        paths.append(job.get("bundle_output_path"))
+    for path in paths:
+        if not path:
+            continue
+        output_path = _resolve_project_path(root, path)
+        if output_path.exists():
+            output_path.unlink()
+
+
+def _validate_written_job_output(job: Mapping[str, object], root: Path) -> None:
+    try:
+        validate_job_output(root, job)
+    except OutputValidationError:
+        _remove_invalid_outputs(job, root)
+        raise
+
+
 def run_job(
     manifest_path: Path,
     job_id: str,
@@ -147,9 +172,14 @@ def run_job(
     if agent == "codex":
         subprocess.run(command, cwd=root, check=True)
         _write_codex_sidecar_outputs(job, root)
+        _validate_written_job_output(job, root)
     else:
         result = subprocess.run(command, cwd=root, text=True, capture_output=True, check=True)
-        _write_structured_output(job, _extract_claude_output(result.stdout), root)
+        output = _extract_claude_output(result.stdout)
+        if job.get("kind") == "source_dossier" and isinstance(output, Mapping):
+            validate_source_dossier_record(job, output)
+        _write_structured_output(job, output, root)
+        _validate_written_job_output(job, root)
     return command
 
 

@@ -5,12 +5,10 @@ from typing import Any
 
 from paper_radio.agent_runner import run_job
 from paper_radio.config import PROJECT_ROOT
-
-READINESS_FIELDS = ("one_line_claim", "strongest_point", "weakest_point", "verdict")
-PLACEHOLDER_MARKERS = ("review incomplete", "research incomplete")
+from paper_radio.output_validation import OutputValidationError, validate_review_file
 
 
-class ReviewReadinessError(RuntimeError):
+class ReviewReadinessError(OutputValidationError):
     pass
 
 
@@ -38,29 +36,13 @@ def _script_job_id(manifest: dict[str, Any]) -> str:
     return str(manifest.get("script_job_id", f"{manifest['episode_id']}-dossier"))
 
 
-def _is_placeholder(value: object) -> bool:
-    return isinstance(value, str) and any(marker in value.casefold() for marker in PLACEHOLDER_MARKERS)
-
-
 def validate_reviews_ready(root: Path, paper_ids: list[str]) -> None:
     errors: list[str] = []
     for paper_id in paper_ids:
-        review_path = root / "data" / "reviews" / f"{paper_id}.json"
-        if not review_path.exists():
-            errors.append(f"{review_path.relative_to(root)} is missing")
-            continue
         try:
-            record = _read_json(review_path)
-        except json.JSONDecodeError as error:
-            errors.append(f"{review_path.relative_to(root)} is not valid JSON: {error}")
-            continue
-        for field in READINESS_FIELDS:
-            value = record.get(field)
-            if not isinstance(value, str) or not value.strip() or _is_placeholder(value):
-                errors.append(f"{review_path.relative_to(root)} has incomplete field `{field}`")
-        for field in ("research_score", "podcast_score"):
-            if not isinstance(record.get(field), int | float):
-                errors.append(f"{review_path.relative_to(root)} has invalid field `{field}`")
+            validate_review_file(root, paper_id)
+        except OutputValidationError as error:
+            errors.append(str(error))
     if errors:
         detail = "\n- ".join(errors)
         raise ReviewReadinessError(f"Review records are not production-ready:\n- {detail}")
