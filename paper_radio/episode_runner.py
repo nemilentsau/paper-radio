@@ -78,6 +78,11 @@ def run_episode(
     commands: list[list[str]] = []
     review_manifest = _review_manifest_path(root)
     for paper_id in paper_ids:
+        try:
+            validate_review_file(root, paper_id)
+            continue
+        except OutputValidationError:
+            pass
         commands.append(run_job(review_manifest, f"review-{paper_id}", agent, root=root))
 
     validate_reviews_ready(root, paper_ids)

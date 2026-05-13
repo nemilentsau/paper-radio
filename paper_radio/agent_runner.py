@@ -169,6 +169,8 @@ def run_job(
     if dry_run:
         return command
 
+    _resolve_project_path(root, job["output_path"]).parent.mkdir(parents=True, exist_ok=True)
+
     if agent == "codex":
         subprocess.run(command, cwd=root, check=True)
         _write_codex_sidecar_outputs(job, root)

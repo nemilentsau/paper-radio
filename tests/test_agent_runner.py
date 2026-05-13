@@ -101,6 +101,53 @@ class AgentRunnerTest(unittest.TestCase):
         self.assertIn('model_reasoning_effort="low"', command)
         self.assertIn("data/triage/arxiv-2604.01694.json", command)
 
+    @patch("paper_radio.agent_runner.subprocess.run")
+    def test_run_codex_job_creates_output_parent_before_running_agent(self, run):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest_path = root / "jobs" / "triage.jsonl"
+            manifest_path.parent.mkdir(parents=True)
+            output_path = root / "data" / "triage" / "arxiv-2604.01694.json"
+            job = {
+                "job_id": "triage-arxiv-2604.01694",
+                "kind": "triage",
+                "paper_id": "arxiv-2604.01694",
+                "candidate": {
+                    "paper_id": "arxiv-2604.01694",
+                    "title": "A Useful Paper",
+                },
+                "output_path": "data/triage/arxiv-2604.01694.json",
+                "schema_path": "schemas/triage-record.schema.json",
+            }
+            manifest_path.write_text(json.dumps(job) + "\n", encoding="utf-8")
+
+            def fake_run(command, **kwargs):
+                if command == ["codex", "--version"]:
+                    return subprocess.CompletedProcess(args=command, returncode=0, stdout="codex 0.130.0", stderr="")
+                self.assertTrue(output_path.parent.exists())
+                output_path.write_text(
+                    json.dumps(
+                        {
+                            "paper_id": "arxiv-2604.01694",
+                            "title": "A Useful Paper",
+                            "core_claim": "The paper makes a concrete claim.",
+                            "triage_rationale": "This candidate has enough signal for review.",
+                            "topic_tags": ["agents"],
+                            "likely_red_flags": ["Only abstract-level evidence is available."],
+                            "research_score_estimate": 6.5,
+                            "podcast_score_estimate": 6.0,
+                            "decision": "queue_for_review",
+                        }
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+                return subprocess.CompletedProcess(args=command, returncode=0)
+
+            run.side_effect = fake_run
+
+            run_job(manifest_path, "triage-arxiv-2604.01694", "codex", root=root)
+
     def test_build_claude_command_uses_print_mode_and_json_schema(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

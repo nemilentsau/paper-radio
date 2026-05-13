@@ -1,0 +1,42 @@
+{
+  "episode_id": "episode-2026-05-13-01-frontier-ml-roundup",
+  "title": "Frontier ML roundup: agent memory, post-training, and multimodal generation",
+  "episode_type": "frontier_ml_roundup",
+  "paper_ids": [
+    "arxiv-2605.12477",
+    "arxiv-2605.12480",
+    "arxiv-2605.12481",
+    "arxiv-2605.12483",
+    "arxiv-2605.12484",
+    "arxiv-2605.12487",
+    "arxiv-2605.12491",
+    "arxiv-2605.12492",
+    "arxiv-2605.12493",
+    "arxiv-2605.12495"
+  ],
+  "paper_titles": {
+    "arxiv-2605.12477": "MEME: Multi-entity & Evolving Memory Evaluation",
+    "arxiv-2605.12480": "OmniNFT: Modality-wise Omni Diffusion Reinforcement for Joint Audio-Video Generation",
+    "arxiv-2605.12481": "ToolCUA: Towards Optimal GUI-Tool Path Orchestration for Computer Use Agents",
+    "arxiv-2605.12483": "Beyond GRPO and On-Policy Distillation: An Empirical Sparse-to-Dense Reward Principle for Language-Model Post-Training",
+    "arxiv-2605.12484": "Learning, Fast and Slow: Towards LLMs That Adapt Continually",
+    "arxiv-2605.12487": "Task-Adaptive Embedding Refinement via Test-time LLM Guidance",
+    "arxiv-2605.12491": "Elastic Attention Cores for Scalable Vision Transformers",
+    "arxiv-2605.12492": "Pion: A Spectrum-Preserving Optimizer via Orthogonal Equivalence Transformation",
+    "arxiv-2605.12493": "LongMemEval-V2: Evaluating Long-Term Agent Memory Toward Experienced Colleagues",
+    "arxiv-2605.12495": "AlphaGRPO: Unlocking Self-Reflective Multimodal Generation in UMMs via Decompositional Verifiable Reward"
+  },
+  "paper_paths": {
+    "arxiv-2605.12477": "data/papers/arxiv-2605.12477.md",
+    "arxiv-2605.12480": "data/papers/arxiv-2605.12480.md",
+    "arxiv-2605.12481": "data/papers/arxiv-2605.12481.md",
+    "arxiv-2605.12483": "data/papers/arxiv-2605.12483.md",
+    "arxiv-2605.12484": "data/papers/arxiv-2605.12484.md",
+    "arxiv-2605.12487": "data/papers/arxiv-2605.12487.md",
+    "arxiv-2605.12491": "data/papers/arxiv-2605.12491.md",
+    "arxiv-2605.12492": "data/papers/arxiv-2605.12492.md",
+    "arxiv-2605.12493": "data/papers/arxiv-2605.12493.md",
+    "arxiv-2605.12495": "data/papers/arxiv-2605.12495.md"
+  },
+  "script_job_id": "episode-2026-05-13-01-frontier-ml-roundup-dossier"
+}

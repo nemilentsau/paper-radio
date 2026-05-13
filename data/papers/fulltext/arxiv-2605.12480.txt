@@ -1,0 +1,764 @@
+arXiv preprint
+OMNINFT: MODALITY-WISEOMNIDIFFUSIONREIN-
+FORCEMENT FORJOINTAUDIO-VIDEOGENERATION
+Guohui Zhang1, Xiaoxiao Ma 1, Jie Huang 1, Hang Xu 1, Hu Yu1, Siming Fu 3, Yuming Li2,
+Zeyue Xue3,Lin Song 3‡,Haoyang Huang 3,Nan Duan 3,Feng Zhao 1†
+1University of Science and Technology of China, 2Peking University, 3JD Explore Academy
+From a wide, high-angle perspective, a professional basketball game unfolds in a brightly lit indoor arena. On the light wood-toned court branded with "Quicken Loans Arena\" and \"NBA 2K,\" the Golden State player wearing number 30…
+LTX
+OmniNFT
+Single-Modal
+Cross-Modal
+Motion Quality ↑
+0.547
+0.677
+0.797
+Visual Quality ↑
+2.038
+2.374
+3.326
+Audio Quality ↑
+5.197
+5.141
+5.715
+CLAP ↑
+0.4120.432
+0.445
+JavisScore ↑
+0.192
+0.2220.220
+AVH-Score ↑ 0.223
+0.251
+0.257
+LTX-2 LTX-2.3 LTX-2+OmniNFT
+Figure 1: OmniNFT consistently improves the performance of LTX-2 in audio and visual quality,
+motion quality, cross-modal alignment, and audio–video synchronization.
+ABSTRACT
+Recent advances in joint audio-video generation have been remarkable, yet real-
+world applications demand strong per-modality fidelity, cross-modal alignment,
+and fine-grained synchronization. Reinforcement Learning (RL) offers a promis-
+ing paradigm, but its extension tomulti-objectiveandmulti-modaljoint audio-
+video generation remains unexplored. Notably, our in-depth analysis first reveals
+that the primary obstacles to applying RL in this stem from:(i)multi-objective
+advantages inconsistency, where the advantages of multimodal outputs are not
+always consistent within a group;(ii)multi-modal gradients imbalance, where
+video-branch gradients leak into shallow audio layers responsible for intra-modal
+generation;(iii)uniform credit assignment, where fine-grained cross-modal align-
+ment regions fail to get efficient exploration. These shortcomings suggest that
+vanilla RL fine-tuning strategy with a single global advantage often leads to sub-
+optimal results. To address these challenges, we proposeOmniNFT, a novel
+modality-aware online diffusion RL framework with three key innovations:(1)
+Modality-wise advantage routing, which routes independent per-reward advan-
+tages to their respective modality generation branches.(2)Layer-wise gradient
+surgery, which selectively detaches video-branch gradients on shallow audio lay-
+ers while retaining those for cross-modal interaction layers.(3)Region-wise loss
+reweighting, which modulates policy optimization toward critical regions related
+to audio-video synchronization and fine-grained alignment. Extensive experi-
+ments on JavisBench and VBench with the LTX-2 backbone demonstrate that
+OmniNFT achieve comprehensive improvements in audio and video perceptual
+quality, cross-modal alignment, and audio-video synchronization.
+Project Page:https://zghhui.github.io/OmniNFT/
+†Corresponding author
+‡Project leader
+1
+arXiv:2605.12480v1  [cs.CV]  12 May 2026
+
+arXiv preprint
+1 INTRODUCTION
+Recent years have witnessed significant advancements in joint audio-video generation (Low et al.,
+2025; Liu et al., 2026a; Seedance et al., 2025). However, achieving genuine practical utility in real-
+world applications demands a combination of high per-modality fidelity, robust cross-modal seman-
+tic consistency, and fine-grained audio-video synchronization. How to effectively align audio-video
+generative models with these multifaceted requirements remains an open and pressing challenge.
+Despite rapid progress, current joint audio-video generative models (Wang et al., 2025; HaCohen
+et al., 2026; Liu et al., 2026a) still struggle to simultaneously satisfy these multifaceted objectives.
+Meanwhile, Reinforcement Learning with Verifiable Rewards (RLVR), particularly Group Relative
+Policy Optimization (GRPO) (Guo et al., 2025), has recently emerged as a powerful post-training
+paradigm for generative models (He et al., 2025; Li et al., 2025), owing to its ability to optimize
+complex and highly subjective objectives (Liu et al., 2026b). The previous research (Xue et al., 2025;
+Zheng et al., 2025) has successfully leveraged RLVR to enhance text-to-image/video generation
+quality and semantic alignment. These successes motivate a key question:can RLVR be effectively
+extended to joint audio-video generation to optimize fidelity, alignment, and AV synchronization?
+However, the performance of directly applying vanilla RLVR to joint audio-video generation re-
+mains suboptimal. Our in-depth analysis reveals that the primary obstacles stem from three types of
+optimization mismatch:(i)multi-objective advantages inconsistency: the different rewards for the
+video and audio components of a single multimodal output are often inconsistent, as illustrated in
+Fig. 2(a).(ii)multi-modal gradients imbalance: intra-modal generation and cross-modal interaction
+mainly concentrate in the shallow and deeper layers, respectively, see Fig. 2. However, gradients
+from the video branch tend to dominate the update direction of the shallow audio layers in the back-
+ward process.(iii)uniform credit assignment: A V synchronization and fine-grained alignment focus
+on certain critical regions, yet uniform updates ignore different contributions of these regions.
+We address these challenges withOmniNFT(Modality-wiseOmniDiffusionNegative-awareFine-
+Tuning), a novel modality-aware diffusion RL framework for joint audio-video generation. Omn-
+iNFT addresses the above issues with three coordinated designs.(1) Modality-wise advantage
+routing:for advantage inconsistency, we compute an independent advantage for each reward and
+selectively route it according to its underlying modality.(2) Layer-wise gradient surgery:for gra-
+dients imbalance, we detach the part gradient from the video stream on the shallow layers of the
+audio model, while preserving the effective gradients responsible for audio–video interaction.(3)
+Region-wise loss reweighting:for credit assignment, we introduce a critical-region reweighting
+strategy that strengthens the optimization on critical regions. This fine-grained credit assignment,
+coupled with gradient surgery, effectively circumvents optimization mismatch across modalities.
+We conduct extensive experiments on JavisBench (Liu et al., 2025c) and VBench (Huang et al.,
+2024) using LTX-2 (HaCohen et al., 2026) as the backbone. OmniNFT achieves comprehensive
+improvements across audio and video perceptual quality, cross-modal alignment, and audio-video
+synchronization. Our contributions are summarized as follows:
+• We first visit RL for joint audio-video generation and identify its core optimization bottle-
+neck, including advantage inconsistency, gradients imbalance, and uniform credit assign-
+ment, which together hinder effective joint improvement.
+• Based on these bottlenecks, we propose OmniNFT that combines modality-wise advantage
+routing, layer-wise gradient surgery, and region-wise loss reweighting, effectively facilitat-
+ing multi-objective and multi-modal optimization.
+• Extensive experiments demonstrate that OmniNFT delivers consistent gains in perceptual
+quality, cross-modal alignment, and audio-video synchronization over strong baselines.
+2 RELATEDWORK
+2.1 TEXT-TO-VIDEOGENERATION.
+Text-to-video generation has rapidly progressed from U-Net-based diffusion to large-scale
+Transformer-based diffusion. Early methods (Blattmann et al., 2023a; Guo et al., 2023; Wu et al.,
+2
+
+arXiv preprint
+Figure 2:Advantage inconsistency and asymmetric audio-video interaction.(a) Video and audio
+advantages are weakly correlated: roughly half of the samples receiveopposingrewards across the
+two modalities. (b) Blocking the V2AKVin mid-layers collapses A V synchronization to0.41×
+baseline, whereas (d) the symmetric A2V ablation causes a mild degradation when applied to the
+later blocks. (c,e) Layer-wise gradient norms of cross-attention show that audio-video interaction
+is concentrated in themiddleandlatertransformer blocks (A V Sync Zone). On the audio branch,
+gradients from videoKV(A2V) disturb the update direction of the audio shallow blocks in (c).
+2023a; Blattmann et al., 2023b) typically adapt image diffusion backbones with temporal modules
+to support video generation, while recent Diffusion Transformers (DiTs) (Brooks et al., 2024; Hong
+et al., 2022; Kong et al., 2024) scale more effectively with data and model size, demonstrating sub-
+stantial gains in visual fidelity, physical plausibility, and text alignment. Among open-source lines,
+Wan (Wan et al., 2025) emphasizes efficient spatiotemporal attention with flow-matching training,
+and LTX-Video (HaCohen et al., 2024) further targets real-time inference by jointly optimizing a
+Video-V AE and a denoising Transformer.
+2.2 JOINTAUDIO-VIDEOGENERATION.
+Building on strong text-to-video backbones, recent work increasingly focuses on generating tempo-
+rally synchronized video and audio in a single pipeline. Veo3 (Google DeepMind, 2024) demon-
+strates joint audio-video capabilities. UniVerse-1 (Wang et al., 2025) combines Wan 2.1 (Wan et al.,
+2025) for video generation and ACE-Step (Gong et al., 2025) for audio generation, and introduces
+lightweight projection modules to align latent spaces across modalities. In parallel, the Javis se-
+ries (Liu et al., 2025c; 2026a) explores unified modeling for joint generation, whereas the LTX
+series (HaCohen et al., 2026) adopts an asymmetric dual-stream design with bidirectional cross-
+attention to handle modality imbalance. While these efforts have yielded promising results, there
+remains substantial room for improvement in generation quality and audio-visual synchronization.
+2.3 REINFORCEMENTLEARNING FORVISUALGENERATION.
+Inspired by the success of GRPO (Guo et al., 2025) in large language models (LLMs), RLVR has
+emerged as a practical post-training strategy for improving visual quality and semantic alignment in
+visual generation (Luo et al., 2025; Zhang et al., 2025a;b; Jiang et al., 2025). Several methods adapt
+reward-driven policy optimization to image and video generation tasks. For example, T2I-R1 (Jiang
+et al., 2025) introduces dual-level chain-of-thought RL for autoregressive generation, while Flow-
+GRPO (Liu et al., 2025a) and Dance-GRPO (Xue et al., 2025) extend flow matching with stochastic
+trajectories by reformulating Ordinary Differential Equation (ODE) as Stochastic Differential Equa-
+tion (SDE) processes. DiffusionNFT (Zheng et al., 2025) instead finetunes diffusion models in the
+forward process through an implicit policy-improvement direction. However, effective expansion of
+RL into multi-objective joint audio-visual generation remains under-explored.
+3 PRELIMINARY
+Joint Audio-Video Flow Matching.In joint audio-video generation, an audio latentx a and a video
+latentx v are denoised in parallel under a shared flow matching (Lipman et al., 2022) schedule.
+3
+
+arXiv preprint
+Each modality is independently perturbed by its own Gaussian priorx m
+1 ∼ N(0, I), while sharing
+a timestept∈[0,1]:
+xm
+t = (1−t)x m
+0 +t x m
+1 , m∈ {a, v}.(1)
+A dual-stream modelv θ = (v a
+θ , vv
+θ)jointly predicts the velocity of both modalities, where the two
+streams interact through cross-modal attention layers. During the sampling phase, both streams are
+integrated in parallel via a deterministic ODE solver:
+dxm
+t =v m
+θ (xa
+t , xv
+t , t, c)dt, m∈ {a, v},(2)
+wherecdenotes the text condition.
+Diffusion Negative-aware Finetuning (DiffusionNFT). In contrast to existing diffusion-based
+GRPO frameworks (Liu et al., 2025a; Xue et al., 2025), which typically necessitate a transition
+from deterministic ODEs to SDEs, DiffusionNFT (Zheng et al., 2025) performs policy optimization
+directly on the forward diffusion process. The method leverages a rewardr(x0, c)to determine pos-
+itive and negative policies, thereby defining a contrastive loss. The model’s velocity predictor,v θ,
+is encouraged toward the high-reward policy and away from the low-reward one. The core policy
+optimization loss is defined as:
+L(θ) =E c,πold(x0|c),t
+h
+r∥v+
+θ (xt, c, t)−v∥ 2
+2 + (1−r)∥v −
+θ (xt, c, t)−v∥ 2
+2
+i
+,(3)
+The implicit positive and negative policiesv +
+θ andv −
+θ are combinations of the old policyv old and
+the training policyv θ, weighted by a hyperparameterβ:
+v+
+θ (xt, c, t) := (1−β)v old(xt, c, t) +βv θ(xt, c, t),(4)
+v−
+θ (xt, c, t) := (1 +β)v old(xt, c, t)−βv θ(xt, c, t).(5)
+The optimality probabilityr∈[0,1]is transformed from the unconstrained raw reward signalr raw:
+r(x0, c) := 1
+2 + 1
+2clip[A(x 0, c),−1,1], A(x 0, c) = rraw(x0, c)−E πold(·|c)rraw(x0, c)
+Zc
+,(6)
+whereA(x 0, c)denotes the group-wise normalized advantage of samplex 0 under promptc,Z c >0
+is a normalizing factor, which could take the form of a global rewardstd.
+4 MOTIVATION
+4.1 ADVANTAGEINCONSISTENCY BETWEENAUDIO ANDVIDEO
+(-0.4,0.4)(0.2,0.5)
+(-0.3,-0.4)(0.1,-0.2)
+video,audioadvantage(-0.1,-0.1)video,audioadvantage(-0.4,0.3)
+(-0.4,0.4)(0.2,0.5)
+(-0.3,-0.4)(0.1,-0.2)
+Modality-basedSum(Separate)AllSum(Shared)
+Figure 3: Advantage conflict between
+audio and video modality
+In joint audio-video generation, the multimodal output
+needs to account for both video and audio quality simulta-
+neously, yet the relationship between these two qualities
+has not been sufficiently analyzed. To this end, we ana-
+lyze 1,400 generated samples (175 prompts, Group Size
+is 8) and calculate separate advantages for video and au-
+dio rewards.We observe that the rewards for video and
+audio of a single multimodal output are not often consis-
+tent, as illustrated in Fig. 2(a). Specifically, high-quality
+videos are not necessarily accompanied by high-quality
+audio. On the contrary, nearly half of the samples exhibit
+advantage conflicts. We further enumerate four rollouts within a group, each represented as (video
+advantage, audio advantage), as shown in Fig. 3. The All Sum (Shared) strategy collapses both
+modalities into a single scalar, yielding an indistinguishable and dilute advantage of (−0.1,−0.1).
+In contrast, the Modality-based Sum (Separate) strategy aggregates each modality independently,
+yielding (−0.4,0.3), which faithfully reflects that video should be penalized while audio should be
+encouraged, enabling more informative learning.
+4
+
+arXiv preprint
+4.2 GRADIENTSIMBALANCE ACROSSDIFFERENTMODALITIESBRANCHES
+The advantage inconsistency discussed above only reflects the issue in the output. We examine
+the internal information and gradients flow within the dual-stream model from bothforwardand
+backwardperspectives, as illustrated in Fig. 2.
+Forward Analysis.We identify the functional roles of the Transformer blocks at different depths by
+selectively blocking the key-value (KV) information exchanged through audio-video cross-attention.
+As shown in Fig. 2(b) and (d), ablating the KV flow in shallow blocks (blocks 0-19) causes only
+marginal degradation in A V synchronization. In contrast, disrupting the KV flow in middle or deep
+blocks (blocks 20-32 for audio and 25-47 for video) leads to a substantial drop in A V alignment,
+with the audio branch exhibiting a relative decrease of up to∆0.59. This indicates thatshallow
+blocks are primarily responsible for intra-modal generation, while middle-to-deep blocks handle
+cross-modal audio-video interaction and alignment (AV-Sync Zone).
+Backward Analysis.Within the A V-Sync Zone, gradients flowing through the cross-modal interac-
+tion paths are dominant, indicating that the RL signal is correctly concentrated on the blocks truly
+responsible for cross-modal alignment. Meanwhile, the magnitudes of these interaction gradients
+gradually decay toward shallower layers. However, we observe an anomalous gradient spike in the
+shallow layers (Fig. 2(c)) on the audio branch, implying that a large portion of the RL gradient is
+erroneously injected into layers dedicated to intra-modal generation. We argue that this gradient
+misalignment disrupts the intra-modal audio generation process, resulting in sub-optimal results.
+4.3 V2A CROSS-ATTENTION AS ANINTRINSICPROXY FORCRITICALREGIONS
+…Patrick says clearly: “Knowledge cannot replace friendship, SpongeBob!” ...SpongeBob smiles and responds: "I agree, but I also really want that Krabby Patty!"
+Figure 4: Visualization of V2A cross-
+attention maps.
+In joint audio-video generation, the local visual quality
+of sound-emitting regions plays a decisive role in shap-
+ing the subjective perceptual experience. However, uni-
+form updates overlook their unequal contributions to the
+overall quality. This motivates us to localize such criti-
+cal regions and apply differentiated levels of importance
+and exploration to them. While directly incorporating an
+external detection module offers a straightforward solu-
+tion, it is computationally expensive. Instead, we observe
+an intrinsic indicator by analyzing the attention maps of
+the cross-modal attention layers within the audio branch,
+as illustrated in Fig. 4. We observe that these attention
+maps effectively highlight the speaking subjects and their
+sound-emitting regions within video frames. This strong correlation suggests thatthe V2A cross-
+attention map naturally serves as an intrinsic proxy for identifying critical regions in video frames.
+5 METHODOLOGY
+Motivated by the three issues and observations discussed above in Sec. 4, we proposeOmniNFT,
+which performs fine-grained credit assignment at three corresponding levels: modality-wise advan-
+tage routing (Sec. 5.1), layer-wise gradient surgery (Sec. 5.2), and region-wise loss reweighting
+(Sec. 5.3). Fig. 5 illustrates the pipeline, and Alg. 1 summarizes the training procedure.
+5.1 MODALITY-WISEADVANTAGEROUTING
+Reward-wise advantage computation.Instead of deriving a single advantage from all rewards,
+OmniNFT computes an independent advantage for each reward. During each sampling step, the
+model generates a group ofGjoint audio-video pairs{(x (i)
+v , x(i)
+a )}G
+i=1 conditioned on promptc.
+For each reward functionk∈ {v, a, av}, we evaluate the group to obtain raw scores{R (i)
+k }G
+i=1 and
+compute a reward-wise advantageA (i)
+k following Eq. 6, which produces three decoupled advantage
+sets{A (i)
+v }G
+i=1,{A (i)
+a }G
+i=1, and{A (i)
+av }G
+i=1
+5
+
+arXiv preprint
+1-r
+SelfAttention
+T2ACrossAttention
+A2VCrossAttention
+FFN
+SelfAttention
+T2VCrossAttention
+V2ACrossAttention
+FFN
+𝑣!"|𝑥#𝑐−𝑣$$
+𝑣!"|𝑥#𝑐−𝑣$$
+SelfAttention
+T2ACrossAttention
+V2ACrossAttention
+FFN
+SelfAttention
+T2VCrossAttention
+A2VCrossAttention
+FFN
+𝑣!%|𝑥#𝑐−𝑣$$
+𝑣!%|𝑥#𝑐−𝑣$$
++𝑣
++𝑣
+policy
+old r
+1-r
+r𝑚𝑖𝑛!(')
+Prompt:SpongeBob and Patrick are sitting on a rock underwater, talking deeply.Patrick says clearly:“Knowledge cannot……
+OmniModel𝜋&'(
+VideoPromptAudioPrompt
+Sampling
+rVideoreward𝑅!"𝑅!#𝑅!$𝑅!%
+Audioreward𝑅&"𝑅&#𝑅&$𝑅&%AVreward𝑅&!"𝑅&!#𝑅&!$𝑅&!%
+Reward-wiseGroupComputation
+r
+Modality-wiseAdvantageRouting
+Videoadvantage𝐴!"𝐴!#𝐴!$𝐴!%
+Audioadvantage𝐴&"𝐴&#𝐴&$𝐴&%AVadvantage𝐴&!"𝐴&!#𝐴&!$𝐴&!%
+Layer-wise Gradient Surgery
+A2VCrossAttentionQ(video)
+Videolatentstate
+KV
+Audiolatentstate
+V2ACrossAttentionVK(audio)Q
+W
+Region-wiseReweighting
+Q(audio)K(video)
+SamplingSteps
+MaskW𝛼(")𝛼(")
+detachgradflow𝛼(")detachfactor
+𝐸𝑞.(7)
+𝐸𝑞.(8)
+𝐸𝑞.(12)
+𝐸𝑞.(11)
+layer𝑙
+Figure 5:Overview of OmniNFT.Given paired video and audio prompts, the Omni model first
+generates joint audio-video samples. Building on these samples, OmniNFT performs three coordi-
+nated operations: (i) independent advantages derived from video, audio, and cross-modal rewards
+are dispatched to their corresponding branches (Modality-wise Advantage Routing); (ii) the audio-
+to-video cross-attention cached from the final sampling steps is converted into a critical-region mask
+that reweights the RL loss (Region-wise Reweighting); and (iii) during loss backward, the key-value
+gradients of A2V cross-attention in the shallow audio layers are partially detached, while all other
+gradient flows remain intact (Layer-wise Gradient Surgery).
+Modality-decoupled advantage routing.With the reward-wise advantages, OmniNFT routes each
+advantage to the branch(es) whose output it evaluates. Specifically, the video advantageAv captures
+visual quality and motion, which are exclusively governed by the video branch. Analogously, the
+audio advantageA a reflects audio fidelity determined by the audio branch. In contrast, the synchro-
+nization advantageA av measures the synchronization alignment between the two modalities, and is
+thusbroadcastas shared supervision to both branches. The composite routed advantages are:
+˜A(i)
+v =A (i)
+v +A (i)
+av , ˜A(i)
+a =A (i)
+a +A (i)
+av .(7)
+This design enforces modality-specific supervision for uni-modal rewards while preserving shared
+cross-modal supervision, enabling more informative and less conflicting reward assignment.
+5.2 LAYER-WISEGRADIENTSURGERY
+For each Transformer blockl, the A2V cross-attention takes its queryQ (l)
+v from the video hidden
+states and its key-value pair(K (l)
+a , V (l)
+a )from the audio hidden states. We apply a layer-wise partial
+detach on the these KV:
+˜K (l)
+a =α (l) sg(K (l)
+a ) + (1−α (l))K (l)
+a ,
+˜V (l)
+a =α (l) sg(V (l)
+a ) + (1−α (l))V (l)
+a ,
+(8)
+wheresg(·)denotes the stop-gradient operator. This leaves the forward sampling unchanged but
+scales the backward gradient through the KV path by(1−α (l)). The detach ratioα (l) follows a
+simple schedule aligned with the identified layer functionality and the above observation:
+α(l) =
+αs, l < L(shallow layers),
+0, l≥L(deep layers), (9)
+withLdefaults to 10 andα s is 0.1. In this way, RL gradients flow freely through the deep layers
+responsible for cross-modal alignment, while leakage into shallow audio layers is suppressed.
+6
+
+arXiv preprint
+Algorithm 1OmniNFT: Modality-wise Omni Diffusion RL Fine-Tuning
+Require:Pretrained dual-stream policy(v ref
+v ,v ref
+a ), reward functions{R v, Ra, Rav}, prompt dataset
+{c}, detach ratioα s, shallow boundaryL, reweighting strengthw, later denoising stepsT.
+Initialize:v old
+m ←v ref
+m ,v θm ←v ref
+m form∈ {v, a}, data bufferD ← ∅.
+1:foreach iterationido
+2:foreach sampled promptcdo// Sampling Stage
+3: SampleGjoint outputs{(x v
+0,j,x a
+0,j)}G
+j=1 from(v old
+v ,v old
+a ).
+4: Evaluate rewards{R (j)
+v , R(j)
+a , R(j)
+av }G
+j=1 and cache V2A cross-attention maps{Attn (l,t)}.
+5:Modality-wise advantages & routing(Sec. 5.1): computeA (j)
+v , A(j)
+a , A(j)
+av , then route:
+˜A(j)
+v ←A (j)
+v +A (j)
+av , ˜A(j)
+a ←A (j)
+a +A (j)
+av .
+6: Convert ˜A(j)
+m to optimality probabilityr (j)
+m via Eq. 6 form∈ {v, a}.
+7:Region-wise weighting(Sec. 5.3): aggregate{Attn (j,l,t)}overl≥L, t∈ Tto obtain{w (j)}
+8:D ← D ∪ {c, x v
+0,j, xa
+0,j, r (j)
+v , r (j)
+a ,{w (j)}}.
+9:end for
+10:foreach mini batch{c, x v
+0, xa
+0, rv, ra,{w (j)}} ∈ Ddo// Training Stage
+11:Layer-wise gradient surgery(Sec. 5.2): replace audioKVin A2V cross-attention blocklwith
+˜K (l)
+a =α (l)sg(K (l)
+a ) + (1−α (l))K (l)
+a , whereα (l) =α s ifl < Lelse0, same for ˜V (l)
+a .
+12: Compute region-weighted video loss and standard audio loss, then updateθvia Eq. 12.
+13:end for
+14: Updateθ old ←η iθold + (1−η i)θ, and clearD ← ∅.// Online Update
+15:end for
+Output:(v θv ,v θa)
+5.3 REGION-WISEREWEIGHTING
+LetAttn (l,t) ∈R Nv×Na denote the V2A cross-attention map at blockland denoising stept, where
+Nv andN a are the numbers of video and audio tokens. Since the V2A attention becomes semanti-
+cally meaningful in the deep A V-Sync Zone and at the later denoising steps, we aggregate attention
+only over these informative timesteps to obtain a per-token score:
+si = 1
+|D| |T |
+X
+l∈D
+X
+t∈T
+NaX
+j=1
+Attn(l,t)
+i,j , i= 1, . . . , N v,(10)
+whereD={l|l≥L}indexes the deep cross-modal blocks andTdenotes the last few denoising
+steps. The score is then normalized and mapped into a region-wise weight:
+wi = 1 +λ· si −min j sj
+maxj sj −min j sj
+,(11)
+withλ >0controlling the reweighting strength.
+5.4 OVERALLTRAININGOBJECTIVE
+Following the DiffusionNFT formulation (Sec. 3), we convert the routed advantages into optimality
+probabilitiesr m for each branchm∈ {v, a}. The region-wise weightsw i are incorporated into the
+video branch loss to concentrate optimization capacity on perceptually critical regions, while the
+audio branch loss remains unchanged. Based on Eq. 3, the total training objective becomes:
+Lall(θ) = 1P
+i wi
+NvX
+i=1
+wi · L(i)
+video(θ)
+| {z }
+region-weighted video loss
++Laudio(θ).(12)
+6 EXPERIMENTS
+We first describe the experimental setup in Sec. 6.1, including reward models, evaluation metrics,
+and implementation details. We then present the main quantitative and qualitative results in Sec. 6.2,
+and conduct ablation studies to analyze the contribution of each component in Sec. 6.3.
+7
+
+arXiv preprint
+Table 1: Main results on JavisBench (Liu et al., 2025c). Best results in green , second-best
+underlined. VQ: Visual Quality, AQ: Audio Quality. (↑: higher is better;↓: lower is better).
+A V-Quality Text-Consistency A V-Consistency A V-Synchrony
+Model Size VQ↑AQ↑TV-IB↑TA-IB↑CLIP↑CLAP↑A V-IB↑A VHScore↑JavisScore↑DeSync↓
+−T2A+A2VTempoTkn (Yariv et al., 2024) 1.3B – – 0.084 – 0.205 – 0.139 0.122 0.103 1.532TPoS (Jeong et al., 2023) 1.0B – – 0.201 – 0.229 – 0.124 0.129 0.095 1.493
+−T2V+V2AReWaS (Jeong et al., 2025) 0.6B – – – 0.123 – 0.280 0.110 0.104 0.079 1.071See&Hear (Xing et al., 2024) 0.4B – – – 0.129 – 0.263 0.160 0.143 0.112 1.099FoleyCrafter (Zhang et al., 2026) 1.2B – – – 0.149 – 0.383 0.193 0.186 0.151 0.952MMAudio (Cheng et al., 2025) 0.1B – – – 0.160 – 0.407 0.198 0.182 0.150 0.849
+−T2AVJavisDiT (Liu et al., 2025c) 3.1B 1.291 4.478 0.263 0.143 0.302 0.391 0.197 0.179 0.154 1.039UniVerse-1 (Wang et al., 2025) 6.4B 1.357 4.839 0.272 0.111 0.309 0.245 0.104 0.098 0.077 0.929JavisDiT++ (Liu et al., 2026a) 2.1B 1.462 5.0490.282 0.164 0.316 0.424 0.198 0.184 0.159 0.832LTX-2 (HaCohen et al., 2026) 19B 2.038 5.197 0.272 0.170 0.3110.412 0.232 0.223 0.192 0.569
+LTX-2+ GDPO (Liu et al., 2026b) 19B 3.2095.523 0.265 0.184 0.308 0.428 0.233 0.223 0.185 0.412LTX-2+OmniNFT19B 3.326 5.715 0.261 0.189 0.310 0.445 0.262 0.257 0.220 0.269Our RL∆– +1.288 +0.518 -0.011 +0.019 -0.001 +0.033 +0.030 +0.034 +0.028 -0.300
+6.1 EXPERIMENTALSETUP
+Reward models.We utilize VideoAlign (Liu et al., 2025b) and HPSv3 (Ma et al., 2025) scores as
+rewards to evaluate video quality, while Audiobox Aesthetics (Tjandra et al., 2025) is employed as
+the reward for audio quality. To ensure cross-modal consistency, we adopt the CLAP (Wu et al.,
+2023b) score as the reward for audio-text alignment, and the synchronization score (Desync) (Iashin
+et al., 2024) as the reward for audio-visual synchronization.
+Evaluation Metrics.We report results across four complementary dimensions defined in Javis-
+Bench: (i)AV-Quality: Visual quality (VQ) and Audio quality (AQ) from VideoAlign score for
+uni-modal generation fidelity. Furthermore, we utilize VBench (Huang et al., 2024) as an additional
+benchmark to assess the quality of the generated videos. (ii)Text-Consistency: Text-Video and Text-
+Audio ImageBind (Girdhar et al., 2023) similarity (TV-IB, TA-IB), CLIP (Radford et al., 2021)
+score, and CLAP score for text-to-modal alignment; (iii)AV-Consistency: Audio-Video ImageBind
+similarity (A V-IB) and A VHScore for semantic coherence; (iv)AV-synchronization: JavisScore (Liu
+et al., 2025c) and DeSync for synchronization between audio and video.
+6.2 MAINRESULTS ANDANALYSIS
+Quantitative Analysis.Tab. 1 and Fig. 6 report results on JavisBench and VBench. Compared with
+LTX-2 (19B) and GDPO, OmniNFT achieves the best overall performance across perceptual qual-
+ity, cross-modal consistency, and temporal synchronization. For perceptual quality, VQ improves
+from 2.038 to 3.326 (+63.2%) and AQ from 5.197 to 5.715 (+10.0%) over LTX-2, with notable
+VBench gains in imaging quality (+10.5%). For cross-modal consistency, TA-IB surpasses both
+LTX-2 (+15.2%) and the larger LTX-2.3 (22B). For synchronization, OmniNFT reduces DeSync
+from 0.569 to 0.269 (-52.7%), substantially outperforming GDPO (0.412). We note that TV-IB
+and CLIP do not improve under either our method or GDPO, suggesting that text–video semantic
+alignment remains challenging.
+A V-Quality Text-Consistency A V-Consistency
+Setting VQ↑AQ↑CLIP↑CLAP↑A VHScore↑JavisScore↑
+(a) Gradient Surgery Layer Selection
+Shallow layers (default) 3.326 5.715 0.310 0.445 0.257 0.220Deep layers 3.083 5.5770.3120.427 0.242 0.204
+(b) Region-wise Reweighting Loss Weightλ
+λ= 1.253.150 5.495 0.308 0.429 0.249 0.212λ= 1.50(default)3.326 5.7150.3100.4450.257 0.220λ= 1.752.977 5.714 0.310 0.4380.260 0.223
+Table 2: Ablation study on detach layers and coefficientλ.
+0.56
+0.58
+0.60
+0.62
+0.64
+Aesthetic
+Quality
+0.5860.585
+0.631
+0.600
+0.625
+0.650
+0.675
+0.700
+0.725
+0.750
+0.775
+Imaging
+Quality
+0.646
+0.667
+0.747
+0.91
+0.92
+0.93
+0.94
+0.95
+0.96
+0.97
+0.98
+Subject
+Consistency
+0.9310.934
+0.967
+LTX-2 LTX-2.3 LTX-2+OmniNFT Figure 6: Vbench Results.
+Qualitative Analysis.Fig. 7 highlights four representative cases, each showcasing a distinct
+strength of OmniNFT: sharper frames and natural motion in the cartoon scene (visual quality),
+8
+
+arXiv preprint
+SpongeBob and Patrick are sitting on a rock underwater, talking deeply. Patrick looks at Patrick and says : “Knowledge cannot replace friendship, SpongeBob!”…A white rooster with a bright red comb and wattle stands on a weathered wooden beam that cuts diagonally across the lower frame. Its head is turned…
+In a medium close-up, a young woman with blonde shoulder-length hair stands in a lavender field under a twilight sky, her gaze directed toward the camera…A medium close-up frames two men facing each other in profile, standing nose-to-nose in a tense, cinematic confrontation within a dimly lit bank. The man on…
+Figure 7: Qualitative examples of joint audio-video generation by OmniNFT. The four cases illus-
+trate improvements across different aspects: enhanced visual quality, improved audio fidelity, better
+speech-lip synchronization, and coherent multi-speaker scenes.
+richer ambient textures in the rooster case (audio fidelity), tight waveform–lip alignment in the
+lavender-field close-up (speech–lip sync), and coherent identities with alternating vocal activity in
+the confrontation scene (multi-speaker consistency). These results confirm that OmniNFT produces
+temporally synchronized and semantically coherent audio–video content across diverse scenarios.
+6.3 ABLATIONSTUDIES
+Effectiveness of Each Component.We validate the three key designs of OmniNFT by progres-
+sively incorporating them into the vanilla RL baseline, as shown in Tab. 3. Decoupling advantages
+across modalities alleviates reward inconsistency, bringing clear improvements in cross-modal con-
+sistency and synchrony. Shielding shallow audio layers from dominant video gradients further en-
+hances audio fidelity and text-audio alignment, while focusing synchronization-critical regions pro-
+vides fine-grained credit assignment that pushes A V-consistency and synchrony to the best results.
+Notably, our designs introduce only a negligible overhead.
+Hyperparameter Analysis.For gradient surgery layerLselection, detaching video-to-audio gradi-
+ents at shallow layers (L <10) consistently outperforms detaching at deep layers(L >20) in Tab. 2,
+which aligns with our observation. For the region-wise reweighting coefficientλ, a moderate value
+(λ= 1.50) achieves the best trade-off: smaller values under-emphasize critical regions, while larger
+values influence visual quality.
+Table 3: Ablation results on each design (↑: higher is better;↓: lower is better). Best results inbold.
+A V-Quality Text-Consistency A V-Consistency A V-Synchrony Efficiency
+Model VQ↑AQ↑TV-IB↑TA-IB↑CLIP↑CLAP↑A V-IB↑A VHScore↑JavisScore↑DeSync↓Time↓
+LTX-2 (HaCohen et al., 2026) 2.038 5.1970.2720.1700.3110.412 0.232 0.223 0.192 0.569 –LTX-2 + vanilla RL 3.209 5.523 0.265 0.184 0.308 0.428 0.233 0.223 0.185 0.41223.9h
++ Modality-wise advantage routing 3.264 5.399 0.266 0.186 0.306 0.430 0.248 0.240 0.199 0.322 23.9h+ Layer-wise gradient surgery 3.2465.9170.2640.1920.311 0.438 0.252 0.247 0.209 0.334 24.1h+ Region-wise loss reweighting (Full)3.3265.715 0.261 0.189 0.3100.445 0.262 0.257 0.220 0.26924.1h
+9
+
+arXiv preprint
+7 CONCLUSION
+We present OmniNFT, a modality-aware online diffusion RL framework. Through three comple-
+mentary innovations: modality-wise advantage routing, layer-wise gradient surgery, and region-
+wise loss reweighting, OmniNFT effectively resolves advantage inconsistency, gradient imbalance,
+and uniform credit assignment. Extensive experiments on JavisBench and VBench demonstrate our
+effectiveness.
+REFERENCES
+Andreas Blattmann, Tim Dockhorn, Sumith Kulal, Daniel Mendelevitch, Maciej Kilian, Dominik
+Lorenz, Yam Levi, Zion English, Vikram V oleti, Adam Letts, et al. Stable video diffusion: Scaling
+latent video diffusion models to large datasets.arXiv preprint arXiv:2311.15127, 2023a.
+Andreas Blattmann, Robin Rombach, Huan Ling, Tim Dockhorn, Seung Wook Kim, Sanja Fidler,
+and Karsten Kreis. Align your latents: High-resolution video synthesis with latent diffusion
+models. InProceedings of the IEEE/CVF conference on computer vision and pattern recognition,
+pp. 22563–22575, 2023b.
+Tim Brooks, Bill Peebles, Connor Holmes, Will DePue, Yufei Guo, Leo Jing, David Schnurr, Joe
+Taylor, Troy Luhman, Eric Luhman, et al. Video generation models as world simulators.OpenAI
+Blog, 2024.
+Ho Kei Cheng, Masato Ishii, Akio Hayakawa, Takashi Shibuya, Alexander Schwing, and Yuki Mit-
+sufuji. Mmaudio: Taming multimodal joint training for high-quality video-to-audio synthesis.
+InProceedings of the Computer Vision and Pattern Recognition Conference, pp. 28901–28911,
+2025.
+Rohit Girdhar, Alaaeldin El-Nouby, Zhuang Liu, Mannat Singh, Kalyan Vasudev Alwala, Armand
+Joulin, and Ishan Misra. Imagebind: One embedding space to bind them all. InProceedings of
+the IEEE/CVF conference on computer vision and pattern recognition, pp. 15180–15190, 2023.
+Junmin Gong, Sean Zhao, Sen Wang, Shengyuan Xu, and Joe Guo. Ace-step: A step towards music
+generation foundation model.arXiv preprint arXiv:2506.00045, 2025.
+Google DeepMind. Veo: A text-to-video generation system. Technical report,
+Google, 2024. URLhttps://storage.googleapis.com/deepmind-media/veo/
+Veo-3-Tech-Report.pdf. Accessed: 2025-09-24.
+Daya Guo, Dejian Yang, Haowei Zhang, Junxiao Song, Peiyi Wang, Qihao Zhu, Runxin Xu, Ruoyu
+Zhang, Shirong Ma, Xiao Bi, et al. Deepseek-r1: Incentivizing reasoning capability in llms via
+reinforcement learning.arXiv preprint arXiv:2501.12948, 2025.
+Yuwei Guo, Ceyuan Yang, Anyi Rao, Zhengyang Liang, Yaohui Wang, Yu Qiao, Maneesh
+Agrawala, Dahua Lin, and Bo Dai. Animatediff: Animate your personalized text-to-image diffu-
+sion models without specific tuning.arXiv preprint arXiv:2307.04725, 2023.
+Yoav HaCohen, Nisan Chiprut, Benny Brazowski, Daniel Shalem, Dudu Moshe, Eitan Richardson,
+Eran Levin, Guy Shiran, Nir Zabari, Ori Gordon, et al. Ltx-video: Realtime video latent diffusion.
+arXiv preprint arXiv:2501.00103, 2024.
+Yoav HaCohen, Benny Brazowski, Nisan Chiprut, Yaki Bitterman, Andrew Kvochko, Avishai
+Berkowitz, Daniel Shalem, Daphna Lifschitz, Dudu Moshe, Eitan Porat, et al. Ltx-2: Efficient
+joint audio-visual foundation model.arXiv preprint arXiv:2601.03233, 2026.
+Xiaoxuan He, Siming Fu, Yuke Zhao, Wanli Li, Jian Yang, Dacheng Yin, Fengyun Rao, and
+Bo Zhang. Tempflow-grpo: When timing matters for grpo in flow models.arXiv preprint
+arXiv:2508.04324, 2025.
+Wenyi Hong, Ming Ding, Wendi Zheng, Xinghan Liu, and Jie Tang. Cogvideo: Large-scale pre-
+training for text-to-video generation via transformers.arXiv preprint arXiv:2205.15868, 2022.
+10
+
+arXiv preprint
+Ziqi Huang, Yinan He, Jiashuo Yu, Fan Zhang, Chenyang Si, Yuming Jiang, Yuanhan Zhang, Tianx-
+ing Wu, Qingyang Jin, Nattapol Chanpaisit, et al. Vbench: Comprehensive benchmark suite for
+video generative models. InProceedings of the IEEE/CVF Conference on Computer Vision and
+Pattern Recognition, pp. 21807–21818, 2024.
+Vladimir Iashin, Weidi Xie, Esa Rahtu, and Andrew Zisserman. Synchformer: Efficient synchro-
+nization from sparse cues. InICASSP 2024-2024 IEEE International Conference on Acoustics,
+Speech and Signal Processing (ICASSP), pp. 5325–5329. IEEE, 2024.
+Yujin Jeong, Wonjeong Ryoo, Seunghyun Lee, Dabin Seo, Wonmin Byeon, Sangpil Kim, and Jinkyu
+Kim. The power of sound (tpos): Audio reactive video generation with stable diffusion. In
+Proceedings of the IEEE/CVF international conference on computer vision, pp. 7822–7832, 2023.
+Yujin Jeong, Yunji Kim, Sanghyuk Chun, and Jiyoung Lee. Read, watch and scream! sound gen-
+eration from text and video. InProceedings of the AAAI Conference on Artificial Intelligence,
+volume 39, pp. 17590–17598, 2025.
+Dongzhi Jiang, Ziyu Guo, Renrui Zhang, Zhuofan Zong, Hao Li, Le Zhuo, Shilin Yan, Pheng-Ann
+Heng, and Hongsheng Li. T2i-r1: Reinforcing image generation with collaborative semantic-level
+and token-level cot.arXiv preprint arXiv:2505.00703, 2025.
+Weijie Kong, Qi Tian, Zijian Zhang, Rox Min, Zuozhuo Dai, Jin Zhou, Jiangfeng Xiong, Xin Li,
+Bo Wu, Jianwei Zhang, et al. Hunyuanvideo: A systematic framework for large video generative
+models.arXiv preprint arXiv:2412.03603, 2024.
+Junzhe Li, Yutao Cui, Tao Huang, Yinping Ma, Chun Fan, Yiming Cheng, Miles Yang, Zhao Zhong,
+and Liefeng Bo. Mixgrpo: Unlocking flow-based grpo efficiency with mixed ode-sde.arXiv
+preprint arXiv:2507.21802, 2025.
+Yaron Lipman, Ricky TQ Chen, Heli Ben-Hamu, Maximilian Nickel, and Matt Le. Flow matching
+for generative modeling.arXiv preprint arXiv:2210.02747, 2022.
+Jie Liu, Gongye Liu, Jiajun Liang, Yangguang Li, Jiaheng Liu, Xintao Wang, Pengfei Wan,
+Di Zhang, and Wanli Ouyang. Flow-grpo: Training flow matching models via online rl.arXiv
+preprint arXiv:2505.05470, 2025a.
+Jie Liu, Gongye Liu, Jiajun Liang, Ziyang Yuan, Xiaokun Liu, Mingwu Zheng, Xiele Wu, Qiulin
+Wang, Menghan Xia, Xintao Wang, et al. Improving video generation with human feedback.
+arXiv preprint arXiv:2501.13918, 2025b.
+Kai Liu, Wei Li, Lai Chen, Shengqiong Wu, Yanhao Zheng, Jiayi Ji, Fan Zhou, Jiebo Luo, Ziwei Liu,
+Hao Fei, et al. Javisdit: Joint audio-video diffusion transformer with hierarchical spatio-temporal
+prior synchronization.arXiv preprint arXiv:2503.23377, 2025c.
+Kai Liu, Yanhao Zheng, Kai Wang, Shengqiong Wu, Rongjunchen Zhang, Jiebo Luo, Dimitrios
+Hatzinakos, Ziwei Liu, Hao Fei, and Tat-Seng Chua. Javisdit++: Unified modeling and optimiza-
+tion for joint audio-video generation.arXiv preprint arXiv:2602.19163, 2026a.
+Shih-Yang Liu, Xin Dong, Ximing Lu, Shizhe Diao, Peter Belcak, Mingjie Liu, Min-Hung
+Chen, Hongxu Yin, Yu-Chiang Frank Wang, Kwang-Ting Cheng, et al. Gdpo: Group reward-
+decoupled normalization policy optimization for multi-reward rl optimization.arXiv preprint
+arXiv:2601.05242, 2026b.
+Chetwin Low, Weimin Wang, and Calder Katyal. Ovi: Twin backbone cross-modal fusion for audio-
+video generation.arXiv preprint arXiv:2510.01284, 2025.
+Yifu Luo, Xinhao Hu, Keyu Fan, Haoyuan Sun, Zeyu Chen, Bo Xia, Tiantian Zhang, Yongzhe
+Chang, and Xueqian Wang. Reinforcement learning meets masked generative models: Mask-
+grpo for text-to-image generation.arXiv preprint arXiv:2510.13418, 2025.
+Yuhang Ma, Xiaoshi Wu, Keqiang Sun, and Hongsheng Li. Hpsv3: Towards wide-spectrum human
+preference score. InProceedings of the IEEE/CVF International Conference on Computer Vision,
+pp. 15086–15095, 2025.
+11
+
+arXiv preprint
+Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal,
+Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, et al. Learning transferable visual
+models from natural language supervision. InInternational conference on machine learning, pp.
+8748–8763. PmLR, 2021.
+Team Seedance, Heyi Chen, Siyan Chen, Xin Chen, Yanfei Chen, Ying Chen, Zhuo Chen, Feng
+Cheng, Tianheng Cheng, Xinqi Cheng, et al. Seedance 1.5 pro: A native audio-visual joint
+generation foundation model.arXiv preprint arXiv:2512.13507, 2025.
+Andros Tjandra, Yi-Chiao Wu, Baishan Guo, John Hoffman, Brian Ellis, Apoorv Vyas, Bowen
+Shi, Sanyuan Chen, Matt Le, Nick Zacharov, et al. Meta audiobox aesthetics: Unified automatic
+quality assessment for speech, music, and sound.arXiv preprint arXiv:2502.05139, 2025.
+Team Wan, Ang Wang, Baole Ai, Bin Wen, Chaojie Mao, Chen-Wei Xie, Di Chen, Feiwu Yu,
+Haiming Zhao, Jianxiao Yang, et al. Wan: Open and advanced large-scale video generative
+models.arXiv preprint arXiv:2503.20314, 2025.
+Duomin Wang, Wei Zuo, Aojie Li, Ling-Hao Chen, Xinyao Liao, Deyu Zhou, Zixin Yin, Xili Dai,
+Daxin Jiang, and Gang Yu. Universe-1: Unified audio-video generation via stitching of experts.
+arXiv preprint arXiv:2509.06155, 2025.
+Jay Zhangjie Wu, Yixiao Ge, Xintao Wang, Stan Weixian Lei, Yuchao Gu, Yufei Shi, Wynne Hsu,
+Ying Shan, Xiaohu Qie, and Mike Zheng Shou. Tune-a-video: One-shot tuning of image diffusion
+models for text-to-video generation. InProceedings of the IEEE/CVF international conference
+on computer vision, pp. 7623–7633, 2023a.
+Yusong Wu, Ke Chen, Tianyu Zhang, Yuchen Hui, Taylor Berg-Kirkpatrick, and Shlomo Dubnov.
+Large-scale contrastive language-audio pretraining with feature fusion and keyword-to-caption
+augmentation. InICASSP 2023-2023 IEEE International Conference on Acoustics, Speech and
+Signal Processing (ICASSP), pp. 1–5. IEEE, 2023b.
+Yazhou Xing, Yingqing He, Zeyue Tian, Xintao Wang, and Qifeng Chen. Seeing and hearing: Open-
+domain visual-audio generation with diffusion latent aligners. InProceedings of the IEEE/CVF
+Conference on Computer Vision and Pattern Recognition, pp. 7151–7161, 2024.
+Zeyue Xue, Jie Wu, Yu Gao, Fangyuan Kong, Lingting Zhu, Mengzhao Chen, Zhiheng Liu, Wei
+Liu, Qiushan Guo, Weilin Huang, et al. Dancegrpo: Unleashing grpo on visual generation.arXiv
+preprint arXiv:2505.07818, 2025.
+Guy Yariv, Itai Gat, Sagie Benaim, Lior Wolf, Idan Schwartz, and Yossi Adi. Diverse and aligned
+audio-to-video generation via text-to-video model adaptation. InProceedings of the AAAI Con-
+ference on Artificial Intelligence, volume 38, pp. 6639–6647, 2024.
+Guohui Zhang, Hu Yu, Xiaoxiao Ma, Yaning Pan, Hang Xu, and Feng Zhao. Maskfocus: Fo-
+cusing policy optimization on critical steps for masked image generation.arXiv preprint
+arXiv:2512.18766, 2025a.
+Guohui Zhang, Hu Yu, Xiaoxiao Ma, JingHao Zhang, Yaning Pan, Mingde Yao, Jie Xiao, Lin-
+jiang Huang, and Feng Zhao. Group critical-token policy optimization for autoregressive image
+generation.arXiv preprint arXiv:2509.22485, 2025b.
+Yiming Zhang, Yicheng Gu, Yanhong Zeng, Zhening Xing, Yuancheng Wang, Zhizheng Wu, Bin
+Liu, and Kai Chen. Foleycrafter: Bring silent videos to life with lifelike and synchronized sounds.
+International Journal of Computer Vision, 134(1):46, 2026.
+Kaiwen Zheng, Huayu Chen, Haotian Ye, Haoxiang Wang, Qinsheng Zhang, Kai Jiang, Hang Su,
+Stefano Ermon, Jun Zhu, and Ming-Yu Liu. Diffusionnft: Online diffusion reinforcement with
+forward process.arXiv preprint arXiv:2509.16117, 2025.
+12

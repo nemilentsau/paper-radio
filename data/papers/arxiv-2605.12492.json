@@ -1,0 +1,35 @@
+{
+  "paper_id": "arxiv-2605.12492",
+  "source": "arxiv",
+  "source_id": "2605.12492",
+  "title": "Pion: A Spectrum-Preserving Optimizer via Orthogonal Equivalence Transformation",
+  "authors": [
+    "Kexuan Shi",
+    "Hanxuan Li",
+    "Zeju Qiu",
+    "Yandong Wen",
+    "Simon Buchholz",
+    "Weiyang Liu"
+  ],
+  "author_affiliations": [],
+  "abstract": "We introduce Pion, a spectrum-preserving optimizer for large language model (LLM) training based on orthogonal equivalence transformation. Unlike additive optimizers such as Adam and Muon, Pion updates each weight matrix through left and right orthogonal transformations, preserving its singular values throughout training. This yields an optimization mechanism that modulates the geometry of weight matrices while keeping their spectral norm fixed. We derive the Pion update rule, systematically examine its design choices, and analyze its convergence behavior along with several key properties. Empirical results show that Pion offers a stable and competitive alternative to standard optimizers for both LLM pretraining and finetuning.",
+  "published_at": "2026-05-12T17:59:34Z",
+  "updated_at": "2026-05-12T17:59:34Z",
+  "categories": [
+    "cs.LG",
+    "stat.ML"
+  ],
+  "pdf_url": "https://arxiv.org/pdf/2605.12492",
+  "abs_url": "https://arxiv.org/abs/2605.12492",
+  "source_types": [
+    "arxiv_recent"
+  ],
+  "status": "triaged",
+  "trusted_orgs": [],
+  "triage_decision": "queue_for_review",
+  "triage_rationale": "The paper proposes a clearly technical optimizer mechanism with a concrete mathematical constraint and claims both convergence analysis and empirical competitiveness, which makes it worth review. It is still a methods paper about training optimization rather than a broader result, so it is better queued than auto-advanced.",
+  "research_score_estimate": 6.5,
+  "podcast_score_estimate": 5.5,
+  "local_pdf_path": "data/papers/pdfs/arxiv-2605.12492.pdf",
+  "full_text_path": "data/papers/fulltext/arxiv-2605.12492.txt"
+}

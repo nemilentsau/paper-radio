@@ -50,7 +50,6 @@ PLACEHOLDER_MARKERS = (
     "research incomplete",
     "placeholder",
     "todo",
-    "too thin",
 )
 MIN_REVIEW_TEXT_CHARS = 24
 MIN_REVIEW_LIST_ITEM_CHARS = 20
