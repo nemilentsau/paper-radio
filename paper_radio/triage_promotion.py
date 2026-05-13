@@ -1,5 +1,6 @@
 import json
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -77,10 +78,12 @@ def promote_triage_results(
     root: Path,
     triage_dir: Path = Path("data/triage"),
     manifest_path: Path = Path("jobs/triage.jsonl"),
+    paper_ids: Iterable[str] | None = None,
 ) -> TriagePromotionResult:
     resolved_triage_dir = _resolve(root, triage_dir)
     resolved_manifest_path = _resolve(root, manifest_path)
     candidates_by_paper_id = _load_candidates_by_paper_id(resolved_manifest_path)
+    allowed_paper_ids = set(paper_ids) if paper_ids is not None else None
     promoted_paper_ids: list[str] = []
     skipped_paper_ids: list[str] = []
     unrecognized_paper_ids: list[str] = []
@@ -88,6 +91,8 @@ def promote_triage_results(
     for triage_path in sorted(resolved_triage_dir.glob("*.json")):
         triage_record = json.loads(triage_path.read_text(encoding="utf-8"))
         paper_id = str(triage_record["paper_id"])
+        if allowed_paper_ids is not None and paper_id not in allowed_paper_ids:
+            continue
         decision = normalize_triage_decision(triage_record.get("decision", ""))
 
         if decision in SELECTED_TRIAGE_DECISIONS:

@@ -131,6 +131,53 @@ class TriagePromotionTest(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "No triage job candidate"):
                 promote_triage_results(root)
 
+    def test_promote_triage_results_can_filter_to_current_paper_ids(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            selected = candidate_record("arxiv-2605.10912", "2605.10912", "Selected")
+            stale = candidate_record("arxiv-2605.10933", "2605.10933", "Stale")
+            write_jsonl(
+                root / "jobs" / "triage.jsonl",
+                [
+                    {
+                        "job_id": "triage-arxiv-2605.10912",
+                        "kind": "triage",
+                        "paper_id": "arxiv-2605.10912",
+                        "candidate": selected,
+                    },
+                    {
+                        "job_id": "triage-arxiv-2605.10933",
+                        "kind": "triage",
+                        "paper_id": "arxiv-2605.10933",
+                        "candidate": stale,
+                    },
+                ],
+            )
+            write_json(
+                root / "data" / "triage" / "arxiv-2605.10912.json",
+                {
+                    "paper_id": "arxiv-2605.10912",
+                    "title": selected["title"],
+                    "triage_rationale": "Selected for this run.",
+                    "decision": "advance_to_review",
+                },
+            )
+            write_json(
+                root / "data" / "triage" / "arxiv-2605.10933.json",
+                {
+                    "paper_id": "arxiv-2605.10933",
+                    "title": stale["title"],
+                    "triage_rationale": "Stale from another run.",
+                    "decision": "advance_to_review",
+                },
+            )
+
+            result = promote_triage_results(root, paper_ids=["arxiv-2605.10912"])
+
+            self.assertEqual(result.promoted_paper_ids, ["arxiv-2605.10912"])
+            self.assertTrue((root / "data" / "papers" / "arxiv-2605.10912.json").exists())
+            self.assertFalse((root / "data" / "papers" / "arxiv-2605.10933.json").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

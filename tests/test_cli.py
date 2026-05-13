@@ -95,6 +95,42 @@ class CliTest(unittest.TestCase):
         self.assertEqual(args.command, "create-episode")
         self.assertEqual(args.paper_id, ["arxiv-2604.01694"])
 
+    def test_parser_accepts_daily_run_command(self):
+        parser = build_parser()
+
+        args = parser.parse_args(
+            [
+                "daily-run",
+                "--run-date",
+                "2026-05-13",
+                "--category",
+                "cs.LG",
+                "--category",
+                "cs.CL",
+                "--max-results",
+                "10",
+                "--episode-slug",
+                "01_frontier_ml_roundup",
+                "--title",
+                "Daily frontier ML",
+                "--episode-type",
+                "frontier_ml_roundup",
+                "--agent",
+                "codex",
+                "--fresh",
+            ]
+        )
+
+        self.assertEqual(args.command, "daily-run")
+        self.assertEqual(args.run_date, "2026-05-13")
+        self.assertEqual(args.category, ["cs.LG", "cs.CL"])
+        self.assertEqual(args.max_results, 10)
+        self.assertEqual(args.episode_slug, "01_frontier_ml_roundup")
+        self.assertEqual(args.title, "Daily frontier ML")
+        self.assertEqual(args.episode_type, "frontier_ml_roundup")
+        self.assertEqual(args.agent, "codex")
+        self.assertTrue(args.fresh)
+
 
 if __name__ == "__main__":
     unittest.main()

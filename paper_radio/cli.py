@@ -7,6 +7,13 @@ from paper_radio.agent_jobs import write_agent_job_artifacts
 from paper_radio.agent_runner import run_job
 from paper_radio.arxiv import fetch_recent_candidates, ingest_arxiv_ids
 from paper_radio.config import PROJECT_ROOT
+from paper_radio.daily_run import (
+    DEFAULT_DAILY_MAX_RESULTS,
+    DEFAULT_EPISODE_SLUG,
+    DEFAULT_EPISODE_TYPE,
+    default_daily_title,
+    run_daily,
+)
 from paper_radio.episode_manifest import create_episode_manifest
 from paper_radio.episode_planning import write_episode_job_manifests
 from paper_radio.episode_runner import run_episode
@@ -117,6 +124,21 @@ def cmd_run_episode(args: argparse.Namespace) -> None:
         print(json.dumps(result, indent=2))
 
 
+def cmd_daily_run(args: argparse.Namespace) -> None:
+    report = run_daily(
+        root=PROJECT_ROOT,
+        run_date=args.run_date or date.today().isoformat(),
+        categories=args.category,
+        max_results=args.max_results,
+        episode_slug=args.episode_slug,
+        title=args.title,
+        episode_type=args.episode_type,
+        agent=args.agent,
+        fresh=args.fresh,
+    )
+    print(json.dumps(report.to_dict(), indent=2))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Paper Radio production pipeline")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -188,6 +210,34 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run_episode_parser.add_argument("--dry-run", action="store_true", help="Print ordered jobs without executing them")
     run_episode_parser.set_defaults(func=cmd_run_episode)
+
+    daily_run_parser = subparsers.add_parser("daily-run")
+    daily_run_parser.add_argument("--run-date", help="Run date, defaults to today")
+    daily_run_parser.add_argument(
+        "--category",
+        action="append",
+        help="arXiv category, e.g. cs.LG. Repeat for multiple categories.",
+    )
+    daily_run_parser.add_argument(
+        "--max-results",
+        type=int,
+        default=DEFAULT_DAILY_MAX_RESULTS,
+        help="Maximum arXiv results to fetch",
+    )
+    daily_run_parser.add_argument("--episode-slug", default=DEFAULT_EPISODE_SLUG, help="Episode directory slug")
+    daily_run_parser.add_argument(
+        "--title",
+        default=None,
+        help=f"Episode title, defaults to '{default_daily_title('YYYY-MM-DD')}'",
+    )
+    daily_run_parser.add_argument("--episode-type", default=DEFAULT_EPISODE_TYPE, help="Episode type")
+    daily_run_parser.add_argument("--agent", required=True, choices=("codex", "claude"), help="Headless agent backend")
+    daily_run_parser.add_argument(
+        "--fresh",
+        action="store_true",
+        help="Delete run-date candidates, episode folder, and candidate-derived artifacts before running",
+    )
+    daily_run_parser.set_defaults(func=cmd_daily_run)
 
     return parser
 

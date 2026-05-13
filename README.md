@@ -26,6 +26,23 @@ uv run python -m unittest discover -s tests -v
 
 ## Episode Runner
 
+Run one daily episode end to end:
+
+```bash
+uv run python -m paper_radio.cli daily-run \
+  --run-date 2026-05-13 \
+  --category cs.LG \
+  --category cs.CL \
+  --category cs.AI \
+  --max-results 10 \
+  --episode-slug 01_frontier_ml_roundup \
+  --title "Frontier ML roundup: agent memory, post-training, and multimodal generation" \
+  --episode-type frontier_ml_roundup \
+  --agent codex
+```
+
+Add `--fresh` to delete run-date candidates, the run-date episode directory, and candidate-derived triage/paper/source/review artifacts before rerunning.
+
 Discover recent arXiv candidates:
 
 ```bash
