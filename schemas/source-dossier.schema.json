@@ -13,6 +13,38 @@
     "research_dossier_markdown": {
       "type": "string"
     },
+    "recommended_upload_sources": {
+      "type": "array",
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "properties": {
+          "paper_id": {
+            "type": "string"
+          },
+          "source_path": {
+            "type": "string"
+          },
+          "source_type": {
+            "type": "string",
+            "enum": [
+              "paper_pdf",
+              "paper_markdown"
+            ]
+          },
+          "rationale": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "paper_id",
+          "source_path",
+          "source_type",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
     "citations": {
       "type": "array",
       "items": {
@@ -31,6 +63,7 @@
     "title",
     "episode_type",
     "research_dossier_markdown",
+    "recommended_upload_sources",
     "citations",
     "missing_inputs"
   ],

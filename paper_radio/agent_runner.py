@@ -7,6 +7,7 @@ from typing import Any
 
 from paper_radio.agent_jobs import build_job_prompt, find_job
 from paper_radio.config import PROJECT_ROOT
+from paper_radio.notebooklm_handoff import handoff_path_for_bundle, render_notebooklm_handoff
 from paper_radio.output_validation import (
     OutputValidationError,
     validate_job_output,
@@ -72,6 +73,25 @@ def _resolve_project_path(root: Path, path: object) -> Path:
     return root / candidate
 
 
+def _normalize_source_dossier_output(job: Mapping[str, object], output: Any) -> Any:
+    if job.get("kind") != "source_dossier" or not isinstance(output, dict):
+        return output
+    normalized = dict(output)
+    existing_citations = normalized.get("citations", [])
+    if not isinstance(existing_citations, list):
+        existing_citations = []
+    citations = [str(citation) for citation in existing_citations if str(citation)]
+    review_paths = job.get("review_paths", [])
+    if not isinstance(review_paths, list | tuple):
+        review_paths = []
+    for review_path in review_paths:
+        review_path_text = str(review_path)
+        if review_path_text not in citations:
+            citations.append(review_path_text)
+    normalized["citations"] = citations
+    return normalized
+
+
 def _extract_claude_output(stdout: str) -> Any:
     payload: Any = json.loads(stdout)
     if isinstance(payload, dict) and "structured_output" in payload:
@@ -104,9 +124,12 @@ def _write_source_dossier_bundle(job: Mapping[str, object], output: Any, root: P
     dossier_path = _resolve_project_path(root, bundle_output_path)
     dossier_path.parent.mkdir(parents=True, exist_ok=True)
     dossier_path.write_text(dossier, encoding="utf-8")
+    handoff_path = handoff_path_for_bundle(dossier_path)
+    handoff_path.write_text(render_notebooklm_handoff(job, output), encoding="utf-8")
 
 
 def _write_structured_output(job: Mapping[str, object], output: Any, root: Path) -> None:
+    output = _normalize_source_dossier_output(job, output)
     output_path = _resolve_project_path(root, job["output_path"])
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if isinstance(output, str):
@@ -124,6 +147,8 @@ def _write_codex_sidecar_outputs(job: Mapping[str, object], root: Path) -> None:
         output = json.loads(output_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return
+    output = _normalize_source_dossier_output(job, output)
+    output_path.write_text(json.dumps(output, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     _write_source_dossier_bundle(job, output, root)
 
 
@@ -131,6 +156,9 @@ def _remove_invalid_outputs(job: Mapping[str, object], root: Path) -> None:
     paths = [job.get("output_path")]
     if job.get("kind") == "source_dossier":
         paths.append(job.get("bundle_output_path"))
+        bundle_output_path = job.get("bundle_output_path")
+        if bundle_output_path:
+            paths.append(handoff_path_for_bundle(_resolve_project_path(root, bundle_output_path)))
     for path in paths:
         if not path:
             continue
@@ -158,7 +186,7 @@ def run_job(
     validate_review_job_sources(root, job)
     if not dry_run:
         check_agent_available(agent)
-    prompt = build_job_prompt(job)
+    prompt = build_job_prompt(job, root=root)
     if agent == "codex":
         command = build_codex_command(job, prompt)
     elif agent == "claude":
@@ -178,8 +206,9 @@ def run_job(
     else:
         result = subprocess.run(command, cwd=root, text=True, capture_output=True, check=True)
         output = _extract_claude_output(result.stdout)
+        output = _normalize_source_dossier_output(job, output)
         if job.get("kind") == "source_dossier" and isinstance(output, Mapping):
-            validate_source_dossier_record(job, output)
+            validate_source_dossier_record(job, output, root=root)
         _write_structured_output(job, output, root)
         _validate_written_job_output(job, root)
     return command

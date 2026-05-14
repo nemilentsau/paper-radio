@@ -182,6 +182,7 @@ class AgentRunnerTest(unittest.TestCase):
                             "episode_id": {"type": "string"},
                             "title": {"type": "string"},
                             "research_dossier_markdown": {"type": "string"},
+                            "recommended_upload_sources": {"type": "array"},
                             "citations": {"type": "array", "items": {"type": "string"}},
                             "missing_inputs": {"type": "array", "items": {"type": "string"}},
                         },
@@ -189,6 +190,7 @@ class AgentRunnerTest(unittest.TestCase):
                             "episode_id",
                             "title",
                             "research_dossier_markdown",
+                            "recommended_upload_sources",
                             "citations",
                             "missing_inputs",
                         ],
@@ -211,20 +213,25 @@ class AgentRunnerTest(unittest.TestCase):
                 "bundle_output_path": "episodes/2026-05-12/01_peft/notebooklm_bundle/research_dossier.md",
             }
             manifest_path.write_text(json.dumps(job) + "\n", encoding="utf-8")
-            structured_output = {
+            raw_structured_output = {
                 "episode_id": "episode-2026-05-12-01",
                 "title": "PEFT papers with stale baselines",
                 "episode_type": "paper_roundup",
                 "research_dossier_markdown": SUBSTANTIVE_DOSSIER,
-                "citations": ["data/reviews/arxiv-2604.01694.json", "data/reviews/arxiv-2604.09999.json"],
+                "recommended_upload_sources": [],
+                "citations": [],
                 "missing_inputs": [],
+            }
+            structured_output = {
+                **raw_structured_output,
+                "citations": ["data/reviews/arxiv-2604.01694.json", "data/reviews/arxiv-2604.09999.json"],
             }
             run.side_effect = [
                 subprocess.CompletedProcess(args=["claude", "--version"], returncode=0, stdout="2.1.138", stderr=""),
                 subprocess.CompletedProcess(
                     args=["claude", "-p"],
                     returncode=0,
-                    stdout=json.dumps({"result": structured_output}),
+                    stdout=json.dumps({"result": raw_structured_output}),
                     stderr="",
                 ),
             ]
@@ -240,8 +247,15 @@ class AgentRunnerTest(unittest.TestCase):
                 / "notebooklm_bundle"
                 / "research_dossier.md"
             )
+            handoff_path = root / "episodes" / "2026-05-12" / "01_peft" / "notebooklm_bundle" / "HANDOFF.md"
             self.assertEqual(json.loads(script_path.read_text(encoding="utf-8")), structured_output)
             self.assertEqual(dossier_path.read_text(encoding="utf-8"), structured_output["research_dossier_markdown"])
+            handoff = handoff_path.read_text(encoding="utf-8")
+            self.assertIn("Deep Dive", handoff)
+            self.assertIn("Long", handoff)
+            self.assertIn("Do not choose Debate", handoff)
+            self.assertIn("research_dossier.md", handoff)
+            self.assertIn("data/reviews/arxiv-2604.01694.json", handoff)
 
     @patch("paper_radio.agent_runner.subprocess.run")
     def test_run_claude_source_dossier_job_rejects_thin_dossier(self, run):
@@ -258,6 +272,7 @@ class AgentRunnerTest(unittest.TestCase):
                             "title": {"type": "string"},
                             "episode_type": {"type": "string"},
                             "research_dossier_markdown": {"type": "string"},
+                            "recommended_upload_sources": {"type": "array"},
                             "citations": {"type": "array", "items": {"type": "string"}},
                             "missing_inputs": {"type": "array", "items": {"type": "string"}},
                         },
@@ -266,6 +281,7 @@ class AgentRunnerTest(unittest.TestCase):
                             "title",
                             "episode_type",
                             "research_dossier_markdown",
+                            "recommended_upload_sources",
                             "citations",
                             "missing_inputs",
                         ],
@@ -293,6 +309,7 @@ class AgentRunnerTest(unittest.TestCase):
                 "title": "PEFT papers with stale baselines",
                 "episode_type": "paper_roundup",
                 "research_dossier_markdown": "Too thin.",
+                "recommended_upload_sources": [],
                 "citations": [],
                 "missing_inputs": [],
             }

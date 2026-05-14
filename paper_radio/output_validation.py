@@ -3,6 +3,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from paper_radio.notebooklm_handoff import validate_notebooklm_handoff
+
 REVIEW_STRING_FIELDS = (
     "one_line_claim",
     "what_they_tested",
@@ -42,6 +44,7 @@ SOURCE_DOSSIER_FIELDS = {
     "title",
     "episode_type",
     "research_dossier_markdown",
+    "recommended_upload_sources",
     "citations",
     "missing_inputs",
 }
@@ -54,6 +57,7 @@ PLACEHOLDER_MARKERS = (
 MIN_REVIEW_TEXT_CHARS = 24
 MIN_REVIEW_LIST_ITEM_CHARS = 20
 MIN_SOURCE_DOSSIER_CHARS = 1200
+MIN_UPLOAD_RATIONALE_CHARS = 24
 
 
 class OutputValidationError(RuntimeError):
@@ -153,7 +157,10 @@ def validate_review_file(root: Path, paper_id: str) -> None:
     validate_review_record(record, paper_id, label)
 
 
-def validate_source_dossier_record(job: Mapping[str, object], output: Mapping[str, Any]) -> None:
+def validate_source_dossier_record(
+    job: Mapping[str, object], output: Mapping[str, Any], root: Path | None = None
+) -> None:
+    project_root = root or Path.cwd()
     errors: list[str] = []
     missing = SOURCE_DOSSIER_FIELDS - set(output)
     extra = set(output) - SOURCE_DOSSIER_FIELDS
@@ -168,6 +175,52 @@ def validate_source_dossier_record(job: Mapping[str, object], output: Mapping[st
     missing_inputs = output.get("missing_inputs")
     if not isinstance(missing_inputs, list) or missing_inputs:
         errors.append("source dossier output must have missing_inputs == []")
+    recommended_upload_sources = output.get("recommended_upload_sources")
+    paper_ids = {str(paper_id) for paper_id in _job_items(job, "paper_ids")}
+    if not isinstance(recommended_upload_sources, list):
+        errors.append("source dossier output recommended_upload_sources must be a list")
+    elif len(recommended_upload_sources) > 2:
+        errors.append("source dossier output recommended_upload_sources must contain at most two sources")
+    else:
+        seen_upload_papers: set[str] = set()
+        for index, source in enumerate(recommended_upload_sources):
+            label = f"recommended_upload_sources[{index}]"
+            if not isinstance(source, Mapping):
+                errors.append(f"source dossier output {label} must be an object")
+                continue
+            allowed_fields = {"paper_id", "source_path", "source_type", "rationale"}
+            missing_fields = allowed_fields - set(source)
+            extra_fields = set(source) - allowed_fields
+            if missing_fields:
+                errors.append(f"source dossier output {label} is missing fields: {', '.join(sorted(missing_fields))}")
+            if extra_fields:
+                errors.append(f"source dossier output {label} has unexpected fields: {', '.join(sorted(extra_fields))}")
+            paper_id = str(source.get("paper_id", ""))
+            source_path = str(source.get("source_path", ""))
+            source_type = source.get("source_type")
+            rationale = source.get("rationale")
+            if paper_id not in paper_ids:
+                errors.append(f"source dossier output {label} has unknown paper_id {paper_id!r}")
+            if paper_id in seen_upload_papers:
+                errors.append(f"source dossier output {label} duplicates paper_id {paper_id!r}")
+            seen_upload_papers.add(paper_id)
+            expected_pdf_path = f"data/papers/pdfs/{paper_id}.pdf"
+            expected_markdown_path = f"data/papers/{paper_id}.md"
+            if source_type == "paper_pdf":
+                expected_path = expected_pdf_path
+            elif source_type == "paper_markdown":
+                expected_path = expected_markdown_path
+            else:
+                expected_path = ""
+                errors.append(f"source dossier output {label} has invalid source_type {source_type!r}")
+            if expected_path and source_path != expected_path:
+                errors.append(f"source dossier output {label} source_path must be {expected_path!r}")
+            if expected_path and not _resolve_project_path(project_root, expected_path).exists():
+                errors.append(f"source dossier output {label} source_path does not exist: {expected_path}")
+            if not isinstance(rationale, str) or len(rationale.strip()) < MIN_UPLOAD_RATIONALE_CHARS:
+                errors.append(f"source dossier output {label} rationale is too short")
+            elif _is_placeholder(rationale):
+                errors.append(f"source dossier output {label} rationale contains placeholder text")
     citations = output.get("citations")
     if not isinstance(citations, list) or not citations:
         errors.append("source dossier output must cite local review inputs")
@@ -186,9 +239,6 @@ def validate_source_dossier_record(job: Mapping[str, object], output: Mapping[st
         for paper_id in _job_items(job, "paper_ids"):
             if str(paper_id) not in dossier:
                 errors.append(f"source dossier output does not mention paper {paper_id}")
-        for review_path in _job_items(job, "review_paths"):
-            if str(review_path) not in dossier:
-                errors.append(f"source dossier output does not mention review path {review_path}")
         folded_dossier = dossier.casefold()
         forbidden = ("speaker 1:", "speaker 2:", "\nhost:", "cold open:", "stage direction:")
         if folded_dossier.startswith("host:") or any(marker in folded_dossier for marker in forbidden):
@@ -215,13 +265,17 @@ def validate_source_dossier_files(root: Path, job: Mapping[str, object]) -> None
             "Source dossier output is not production-ready:\n"
             f"- {_relative(output_path, root)} is not valid JSON: {error}"
         ) from error
-    validate_source_dossier_record(job, output)
+    validate_source_dossier_record(job, output, root=root)
     dossier = output["research_dossier_markdown"]
     if bundle_output_path.read_text(encoding="utf-8") != dossier:
         raise OutputValidationError(
             "Source dossier output is not production-ready:\n"
             "- NotebookLM bundle does not match research_dossier_markdown"
         )
+    try:
+        validate_notebooklm_handoff(root, job)
+    except RuntimeError as error:
+        raise OutputValidationError(f"Source dossier output is not production-ready:\n- {error}") from error
 
 
 def validate_job_output(root: Path, job: Mapping[str, object]) -> None:

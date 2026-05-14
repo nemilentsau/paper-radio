@@ -75,6 +75,21 @@ SOURCE_DOSSIER_SCHEMA: dict[str, Any] = {
         "title": {"type": "string"},
         "episode_type": {"type": "string"},
         "research_dossier_markdown": {"type": "string"},
+        "recommended_upload_sources": {
+            "type": "array",
+            "maxItems": 2,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "paper_id": {"type": "string"},
+                    "source_path": {"type": "string"},
+                    "source_type": {"type": "string", "enum": ["paper_pdf", "paper_markdown"]},
+                    "rationale": {"type": "string"},
+                },
+                "required": ["paper_id", "source_path", "source_type", "rationale"],
+                "additionalProperties": False,
+            },
+        },
         "citations": {"type": "array", "items": {"type": "string"}},
         "missing_inputs": {"type": "array", "items": {"type": "string"}},
     },
@@ -83,6 +98,7 @@ SOURCE_DOSSIER_SCHEMA: dict[str, Any] = {
         "title",
         "episode_type",
         "research_dossier_markdown",
+        "recommended_upload_sources",
         "citations",
         "missing_inputs",
     ],
@@ -133,9 +149,38 @@ def _prompt_text(value: object) -> str:
     return str(value).replace("\x00", "")
 
 
-def build_source_dossier_prompt(job: dict[str, Any]) -> str:
+def _resolve_prompt_path(root: Path | None, path: object) -> Path:
+    candidate = Path(str(path))
+    if candidate.is_absolute() or root is None:
+        return candidate
+    return root / candidate
+
+
+def _embedded_review_inputs(job: dict[str, Any], root: Path | None) -> str:
+    blocks: list[str] = []
+    for review_path in job.get("review_paths", []):
+        label = _prompt_text(review_path)
+        resolved = _resolve_prompt_path(root, review_path)
+        if not resolved.exists():
+            blocks.append(f"### {label}\n\nMISSING: {label}")
+            continue
+        review_text = resolved.read_text(encoding="utf-8")
+        try:
+            review_record = json.loads(review_text)
+        except json.JSONDecodeError:
+            rendered_review = review_text
+        else:
+            if isinstance(review_record, dict):
+                review_record.pop("citations", None)
+            rendered_review = json.dumps(review_record, indent=2, ensure_ascii=False)
+        blocks.append(f"### {label}\n\n```json\n{rendered_review}\n```")
+    return "\n\n".join(blocks)
+
+
+def build_source_dossier_prompt(job: dict[str, Any], root: Path | None = None) -> str:
     paper_ids = "\n".join(f"- {_prompt_text(paper_id)}" for paper_id in job.get("paper_ids", []))
     review_paths = "\n".join(f"- {_prompt_text(path)}" for path in job.get("review_paths", []))
+    embedded_reviews = _embedded_review_inputs(job, root)
     return f"""Write one factual NotebookLM source dossier for a Paper Radio episode.
 
 Job ID: {job["job_id"]}
@@ -150,6 +195,10 @@ Papers:
 
 Review inputs to read:
 {review_paths}
+
+Embedded review JSON inputs:
+
+{embedded_reviews}
 
 NotebookLM will generate the conversational audio. Do not write dialogue, speaker names, stage directions,
 banter, cold opens, finished narration, or host patter.
@@ -167,15 +216,29 @@ sections in this order:
 - ## Verdict For The Listener
 - ## Source Notes And Local Input Paths
 
+Also decide what original paper sources, if any, NotebookLM should receive in addition to
+research_dossier.md. Return this decision in recommended_upload_sources:
+- Choose zero, one, or two papers only.
+- Recommend an original paper only when it is an anchor for a specific mechanism, result, or critique that
+  would benefit from NotebookLM seeing the paper directly.
+- Use source_type `paper_pdf` with source_path `data/papers/pdfs/<paper_id>.pdf` when the PDF is likely to
+  import cleanly; otherwise use source_type `paper_markdown` with source_path `data/papers/<paper_id>.md`.
+- The rationale must explain why that paper deserves upload budget.
+- Do not recommend raw review JSON files for upload. The review JSONs are local provenance and compression
+  inputs; if they contain important details, synthesize those details into research_dossier_markdown.
+- Set missing_inputs to [] when the embedded review JSON inputs above are present. Do not claim review files
+  are unavailable after reading the embedded JSON.
+- Include every review input path listed above in citations exactly as written.
+
 Return only JSON matching the schema. The local runner writes research_dossier_markdown to the
 NotebookLM dossier markdown output path for upload.
 """
 
 
-def build_job_prompt(job: dict[str, Any]) -> str:
+def build_job_prompt(job: dict[str, Any], root: Path | None = None) -> str:
     kind = str(job.get("kind", ""))
     if kind == "source_dossier":
-        return build_source_dossier_prompt(job)
+        return build_source_dossier_prompt(job, root=root)
     if kind == "review":
         input_paths = "\n".join(f"- {_prompt_text(path)}" for path in job.get("input_paths", []))
         return f"""Critically review one ML paper for Paper Radio.

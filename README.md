@@ -99,4 +99,4 @@ Production episode runs should use the ordered runner:
 scripts/run_episode --episode-path episodes/2026-05-12/01_peft --agent codex
 ```
 
-The runner executes paper review jobs first, validates that review records are substantive, then creates the source dossier for NotebookLM.
+The runner executes paper review jobs first, validates that review records are substantive, then creates the source dossier for NotebookLM. The source-dossier job also decides whether zero, one, or two original paper sources should be uploaded as anchors. The final bundle contains `notebooklm_bundle/research_dossier.md` plus `notebooklm_bundle/HANDOFF.md` with the Deep Dive, Long, not-Debate settings, the exact recommended upload set, local provenance paths, the custom prompt, and the operator checklist. Raw review JSONs stay local provenance; important review details should be synthesized into the dossier instead of uploaded as machine-oriented JSON.

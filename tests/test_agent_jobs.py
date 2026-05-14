@@ -24,6 +24,8 @@ class AgentJobsTest(unittest.TestCase):
         self.assertIn("research_score", REVIEW_RECORD_SCHEMA["properties"])
         self.assertIn("podcast_score", REVIEW_RECORD_SCHEMA["properties"])
         self.assertIn("research_dossier_markdown", SOURCE_DOSSIER_SCHEMA["required"])
+        self.assertIn("recommended_upload_sources", SOURCE_DOSSIER_SCHEMA["required"])
+        self.assertEqual(SOURCE_DOSSIER_SCHEMA["properties"]["recommended_upload_sources"]["maxItems"], 2)
 
     def test_write_agent_job_artifacts_creates_schema_files(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -38,6 +40,7 @@ class AgentJobsTest(unittest.TestCase):
 
             source_schema = json.loads((root / "schemas" / "source-dossier.schema.json").read_text())
             self.assertIn("research_dossier_markdown", source_schema["required"])
+            self.assertIn("recommended_upload_sources", source_schema["required"])
 
     def test_source_dossier_prompt_keeps_notebooklm_as_renderer_not_script_writer(self):
         job = {
@@ -54,8 +57,14 @@ class AgentJobsTest(unittest.TestCase):
         prompt = build_source_dossier_prompt(job)
 
         self.assertIn("NotebookLM will generate the conversational audio", prompt)
+        self.assertIn("Embedded review JSON inputs", prompt)
         self.assertIn("Do not write dialogue", prompt)
         self.assertIn("research_dossier_markdown", prompt)
+        self.assertIn("recommended_upload_sources", prompt)
+        self.assertIn("Choose zero, one, or two papers only", prompt)
+        self.assertIn("Do not recommend raw review JSON files for upload", prompt)
+        self.assertIn("Do not claim review files", prompt)
+        self.assertIn("Include every review input path", prompt)
         self.assertIn("PEFT papers with stale baselines", prompt)
 
     def test_triage_prompt_includes_candidate_input_paths(self):
