@@ -1,0 +1,23 @@
+{
+  "paper_id": "arxiv-2605.18743",
+  "title": "Actionable World Representation",
+  "core_claim": "The paper proposes WorldString, a neural architecture that models the state manifold of real-world objects from point clouds or RGB-D video streams as a differentiable, actionable object representation intended for physical world models and future policy learning.",
+  "triage_rationale": "The abstract describes a concrete systems-style world-modeling idea with a potentially useful object-centric representation, but it is framed in broad, aspirational terms and provides no evidence of novelty, benchmarks, or empirical results here. It is worth review because the topic is relevant and could produce a good critique or comparison episode, but the current signal is too thin for immediate advancement.",
+  "topic_tags": [
+    "world models",
+    "object-centric representation",
+    "robotics",
+    "3D perception",
+    "RGB-D",
+    "point clouds",
+    "physical AI"
+  ],
+  "likely_red_flags": [
+    "Vague language and marketing-style phrasing in the abstract",
+    "No results, datasets, or evaluation metrics mentioned",
+    "Novelty claim is hard to verify from abstract alone"
+  ],
+  "research_score_estimate": 5.2,
+  "podcast_score_estimate": 6.4,
+  "decision": "queue_for_review"
+}

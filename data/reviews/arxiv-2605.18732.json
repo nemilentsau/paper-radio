@@ -1,0 +1,68 @@
+{
+  "paper_id": "arxiv-2605.18732",
+  "one_line_claim": "The paper claims that LLM factual recall for scholarly references follows a sigmoid in model parameter count plus topic representation, making confabulation predictable from scale and how common the topic is in training data.",
+  "what_they_tested": "They prompted 38 LLM runs to list 10 scholarly references for each of 24 English topics spanning broad fields to very niche topics, then scored 8,913 produced references with SourceVerify plus automated relevance judgments. The primary fit uses 16 dense Llama, Gemma, Qwen, and Mistral models across 384 model-topic cells and 3,661 analyzed references, fitting quality = authenticity x relevance as a logistic function of log10(parameters) and log10(OpenAlex topic work count).",
+  "strongest_point": "The empirical setup is unusually concrete for a hallucination-scaling paper: the task is easy to verify, the authors release data/code, validate SourceVerify against human reviewers, report exact reference accounting, test both continuous field-level quality and binary title recall, and show an additional within-real-reference citation-tail gradient.",
+  "weakest_point": "The causal interpretation is much weaker than the curve fitting. OpenAlex work count is an indirect and confounded proxy for actual training frequency, model size is entangled with training recipe and data quality, and the superposition/SNR story is explicitly a motivated latent model rather than something directly measured in model internals or controlled pretraining.",
+  "missing_baselines": [
+    "A retrieval-augmented baseline for the same prompts and topics, to quantify how much long-tail failure is specifically parametric recall rather than unavoidable reference ambiguity.",
+    "A search/API oracle or curated bibliography baseline per topic, to estimate task difficulty and the upper bound imposed by SourceVerify/OpenAlex coverage for obscure references, books, reports, and dissertations.",
+    "Prompting baselines beyond one zero-temperature list prompt: few-shot citation format examples, 'only cite papers you are certain exist', self-verification, and refusal-allowed prompting could shift the observed floor/ramp/ceiling.",
+    "A matched-family training-data baseline, such as models of similar parameter count but known different scholarly-corpus exposure, to separate parameter scale from data mix.",
+    "Alternative topic-frequency proxies such as Semantic Scholar counts, Common Crawl/web hit counts, arXiv/PubMed/Google Scholar counts, or direct n-gram/document frequency where available.",
+    "A calibration baseline measuring whether models know when they are fabricating references, since list-generation quality alone does not tell whether confabulations are predictable to the model itself."
+  ],
+  "missing_ablations": [
+    "Controlled pretraining or continued-pretraining experiments that vary concept/reference frequency while holding model size and architecture fixed; the paper itself notes this is needed for causality.",
+    "Topic set sensitivity: resample many more than 24 topics, use independently selected topics, and report whether the fitted beta and R2 survive different domain mixes.",
+    "Prompt and decoding sensitivity, including nonzero temperature, multiple samples, chain-of-thought/reflection, and citation-with-DOI constraints.",
+    "Cluster-robust or hierarchical uncertainty by model family and topic group; the paper warns its reported standard errors assume independent model-topic residuals.",
+    "Verification-score sensitivity to SourceVerify field weights, absent-field handling, contradiction penalties, and inclusion/exclusion of needs-human cases.",
+    "Family-specific and fine-tune-specific analyses with enough model sizes per family; current Mistral and Qwen within-family slopes rely on only three sizes.",
+    "MoE accounting ablations comparing total parameters, active parameters, and routing/architecture features rather than mainly plotting MoEs on total parameters.",
+    "Language and region ablations; all topics and references are English, while the strongest societal claims concern long-tail geographies and languages."
+  ],
+  "red_flags": [
+    "The headline 'training-data composition' is stronger than what is observed: the measured S is OpenAlex topic work count, not actual occurrence frequency in any model's training corpus.",
+    "The main sigmoid explains only 59.9% of dense-model model-topic variance, and the authors report up to 0.23 quality differences between same-size models that P and S cannot capture.",
+    "Reported standard errors, t statistics, and F statistics treat 384 model-topic cells as independent even though observations are clustered by model and topic group; the paper says clustered intervals would be wider.",
+    "The theoretical section stacks several unverified power-law assumptions and then fits only the compound exponents, so the data support a useful predictive form more than the proposed mechanism.",
+    "Free recall of 10 references is an order statistic over each model's most confident/canonical outputs, not a direct estimate of a topic's full factual recall distribution.",
+    "The primary domain is scholarly references, which are structured, indexable, citation-skewed, and likely overrepresented in training data relative to many factual domains.",
+    "SourceVerify is both central to the measurement and co-founded by an author; the disclosed human validation helps, but only 288 unique references were manually rated out of 8,913 evaluated.",
+    "Closed-source and future-model comparisons are exploratory because parameter counts and training data are unknown, yet they appear in the narrative about ceiling behavior.",
+    "Some appendix model identities and dates are inherently forward-looking for a 2026 preprint, so reproducibility depends heavily on the released local dataset and exact model snapshots."
+  ],
+  "positive_signals": [
+    "The paper states its theoretical caveats unusually clearly: it calls the superposition account motivated rather than derived and admits the power-law assumptions cannot be independently verified from these data.",
+    "The primary dataset has a clean factorial structure: 16 dense models, 24 topics, all model-topic cells populated, and 3,661 analyzed references after transparent shortfall and deduplication accounting.",
+    "SourceVerify validation is directionally reassuring: human agreement is 94.4%, binary precision/specificity are reported as 100%, and all 17 disagreements are false negatives rather than fabricated references certified as real.",
+    "The relevance judge is separately checked against human raters, and PARTIAL-weight sweeps preserve model ranking with Spearman rho at least 0.997.",
+    "The binary exact-title robustness check gives nearly the same R2 as the continuous field-weighted score, reducing concern that the result is only an artifact of the scoring formula.",
+    "The citation-count gradient is a good independent sanity check: larger dense models recall less-cited real papers, which matches the long-tail story more specifically than aggregate quality curves.",
+    "The low-end qualitative examples are concrete and memorable: Llama 1B repeatedly mutates Dahl's Polyarchy and Qwen3 8B reuses a tiny surname pool with Smith in all 24 topics.",
+    "The authors disclose the SourceVerify conflict of interest, AI-assisted writing, data/code availability, and the non-redistributability of raw closed-source outputs."
+  ],
+  "research_score": 7.2,
+  "podcast_score": 8.6,
+  "overclaim_score": 5.9,
+  "replication_interest": 8.3,
+  "verdict": "Worth covering. The paper has a strong Paper Radio hook: confabulations are not random; they track model scale and topic frequency in a simple curve, with small models fabricating citation-shaped templates and large models pushing further into the citation tail. Treat the empirical pattern as interesting and likely useful, but be firm that the mechanism and training-data-composition claims remain observational, proxy-based, and specific to English scholarly-reference recall.",
+  "citations": [
+    "data/papers/arxiv-2605.18732.md:1-22 gives the title, metadata, abstract, 38-model/8,900-reference claim, and triage context.",
+    "data/papers/fulltext/arxiv-2605.18732.txt:37-53 states the core setup and primary result: 38 LLMs, 24 topics, sigmoid in log parameter count and topic representation, N=384 dense-model cells, R2=0.599.",
+    "data/papers/fulltext/arxiv-2605.18732.txt:112-121 defines S as OpenAlex scholarly work count and explicitly notes it conflates concept frequency with the number of distinct facts in a topic.",
+    "data/papers/fulltext/arxiv-2605.18732.txt:174-191 says the three power-law assumptions cannot be independently verified and that the logistic link is motivated but not derived from the superposition account.",
+    "data/papers/fulltext/arxiv-2605.18732.txt:259-302 describes the primary 16 dense models, 38 total runs, 24-topic prompt design, deterministic decoding, and exact reference production/deduplication accounting.",
+    "data/papers/fulltext/arxiv-2605.18732.txt:315-348 defines SourceVerify scoring and reports human authentication validation: 288 unique references, 94.4% agreement, kappa 0.887, no fabricated reference certified as real.",
+    "data/papers/fulltext/arxiv-2605.18732.txt:379-391 describes Kimi K2 relevance scoring, human validation, PARTIAL-weight robustness, and quality as authenticity times relevance.",
+    "data/papers/fulltext/arxiv-2605.18732.txt:392-410 describes statistical methods, the OpenAlex proxy, independence caveat, binary-title robustness, and same-parameter-count model differences up to 0.23 quality.",
+    "data/papers/fulltext/arxiv-2605.18732.txt:432-494 reports log-linear size scaling, topic-frequency correlations, and the primary sigmoid parameters alpha=1.48, beta=0.46, gamma=-5.19 with R2=0.599.",
+    "data/papers/fulltext/arxiv-2605.18732.txt:495-566 reports the binary exact-title robustness check and citation-count gradient, including slope -0.35, R2=0.59, Spearman rho=-0.79, p=0.007.",
+    "data/papers/fulltext/arxiv-2605.18732.txt:567-624 gives the three-regime interpretation and concrete floor examples: Llama 1B's 22 verifiable references out of 215 and Qwen3 8B's narrow surname pool.",
+    "data/papers/fulltext/arxiv-2605.18732.txt:664-688 makes the long-tail capacity extrapolation, including DeepSeek V4 Pro scoring 0.90 on climate change but 0.43 on school-dropout prevention in rural areas and the approximately 50T-parameter estimate.",
+    "data/papers/fulltext/arxiv-2605.18732.txt:690-716 lists limitations: single factual domain, indirect training-frequency proxy, observational design, small within-family samples, English-only topics, and fixed prompt/decoding.",
+    "data/papers/fulltext/arxiv-2605.18732.txt:739-768 states data/code availability, closed-source raw-output restrictions, AI-tool use, and the SourceVerify co-founder conflict of interest with mitigation steps.",
+    "data/papers/fulltext/arxiv-2605.18732.txt:771-841 lists all 38 model scores and the 24 topic OpenAlex work counts, including the very low-count niche topics."
+  ]
+}

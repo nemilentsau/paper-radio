@@ -1,0 +1,42 @@
+{
+  "episode_id": "episode-2026-05-19-01-frontier-ml-roundup",
+  "title": "Frontier ML roundup for 2026-05-19",
+  "episode_type": "frontier_ml_roundup",
+  "paper_ids": [
+    "arxiv-2605.18732",
+    "arxiv-2605.18735",
+    "arxiv-2605.18738",
+    "arxiv-2605.18740",
+    "arxiv-2605.18743",
+    "arxiv-2605.18745",
+    "arxiv-2605.18746",
+    "arxiv-2605.18747",
+    "arxiv-2605.18750",
+    "arxiv-2605.18753"
+  ],
+  "paper_titles": {
+    "arxiv-2605.18732": "Predictable Confabulations: Factual Recall by LLMs Scales with Model Size and Topic Frequency",
+    "arxiv-2605.18735": "PIXLRelight: Controllable Relighting via Intrinsic Conditioning",
+    "arxiv-2605.18738": "What Does the AI Doctor Value? Auditing Pluralism in the Clinical Ethics of Language Models",
+    "arxiv-2605.18740": "Vision-OPD: Learning to See Fine Details for Multimodal LLMs via On-Policy Self-Distillation",
+    "arxiv-2605.18743": "Actionable World Representation",
+    "arxiv-2605.18745": "SURGE: Approximation-free Training Free Particle Filter for Diffusion Surrogate",
+    "arxiv-2605.18746": "ESI-Bench: Towards Embodied Spatial Intelligence that Closes the Perception-Action Loop",
+    "arxiv-2605.18747": "Code as Agent Harness",
+    "arxiv-2605.18750": "A Readiness-Driven Runtime for Pipeline-Parallel Training under Runtime Variability",
+    "arxiv-2605.18753": "DashAttention: Differentiable and Adaptive Sparse Hierarchical Attention"
+  },
+  "paper_paths": {
+    "arxiv-2605.18732": "data/papers/arxiv-2605.18732.md",
+    "arxiv-2605.18735": "data/papers/arxiv-2605.18735.md",
+    "arxiv-2605.18738": "data/papers/arxiv-2605.18738.md",
+    "arxiv-2605.18740": "data/papers/arxiv-2605.18740.md",
+    "arxiv-2605.18743": "data/papers/arxiv-2605.18743.md",
+    "arxiv-2605.18745": "data/papers/arxiv-2605.18745.md",
+    "arxiv-2605.18746": "data/papers/arxiv-2605.18746.md",
+    "arxiv-2605.18747": "data/papers/arxiv-2605.18747.md",
+    "arxiv-2605.18750": "data/papers/arxiv-2605.18750.md",
+    "arxiv-2605.18753": "data/papers/arxiv-2605.18753.md"
+  },
+  "script_job_id": "episode-2026-05-19-01-frontier-ml-roundup-dossier"
+}

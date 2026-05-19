@@ -1,0 +1,58 @@
+{
+  "paper_id": "arxiv-2605.18735",
+  "one_line_claim": "PIXLRelight claims that a feed-forward transformer can relight a single photograph with physically authored PBR-style lighting by conditioning on target intrinsic buffers rather than rendered RGB.",
+  "what_they_tested": "They train on paired multi-illumination scenes from MIIW, BigTime, and VIDIT, using frozen Marigold-IID target intrinsics as conditioning, then evaluate captured-target relighting on the MIIW test split and a 6-scene tripod set with PSNR/SSIM/LPIPS. They also run qualitative Blender-authored relighting on 20 DL3DV images with five preset light setups, plus ablations for removing the source branch and replacing the affine modulation head.",
+  "strongest_point": "The core interface is genuinely interesting: using albedo, diffuse shading, and non-diffuse residual as a shared bridge between real paired photos at training and PBR renders at inference is a clean way to combine controllability with direct supervised relighting, and the reported MIIW margin is large enough to be hard to ignore even after accounting for evaluation caveats.",
+  "weakest_point": "The most exciting claim, arbitrary physically controllable relighting of in-the-wild photos, is not quantitatively validated. The strong numbers are mostly on target-photo transfer where target intrinsics come from the ground-truth target image, while the actual Blender-authored setting has no ground truth and is judged qualitatively on 20 DL3DV images.",
+  "missing_baselines": [
+    "The closest prior work, Careaga and Aksoy 2025, is excluded because no code/model is released; that is understandable but leaves the main PBR-control comparison unresolved.",
+    "A version of the authors' own pipeline conditioned on rendered RGB, diffuse-only render, or Blender shading rather than the full intrinsic stack, to isolate whether the claimed intrinsic bridge is better than a simpler neural renderer input.",
+    "A target-intrinsics recomposition baseline using Marigold outputs directly, or an oracle-style upper/lower bound that shows how much of the MIIW score comes from the target intrinsic extractor already seeing the target photograph.",
+    "A controllability baseline in the authored-light setting for LightLab/ScribbleLight/GenLit/SyncLight-style local or parametric light control, even if their interfaces are not identical.",
+    "A runtime comparison that includes all required preprocessing: Depth Anything, Marigold appearance/intrinsics, mesh construction, Blender/Cycles rendering, and model forward pass."
+  ],
+  "missing_ablations": [
+    "Remove or vary conditioning corruption augmentations; this is central to the train-inference gap but only specified, not ablated.",
+    "Condition on albedo only, shading only, residual only, and pairwise combinations to quantify the value of each intrinsic component, especially the non-diffuse residual.",
+    "Train without MIIW, without BigTime, and without VIDIT to show which data source drives the MIIW and in-the-wild gains.",
+    "Swap Depth Anything 3 and Marigold-IID-Appearance for weaker/stronger geometry and material estimators to measure how brittle authored relighting is to upstream reconstruction quality.",
+    "Evaluate model size and resolution scaling; a 640M-parameter model trained on H200s may hide whether the interface or sheer capacity drives the result.",
+    "Stress-test authored lights beyond five presets: multiple colored near-field lights, hard shadows, mirrors/glass, emissive geometry, outdoor sun changes, and extreme exposure differences."
+  ],
+  "red_flags": [
+    "The quantitative comparison gives PIXLRelight richer target information than several baselines: it consumes a 9-channel target intrinsic stack including non-diffuse residuals, while RGBX/Ouroboros/V-RGBX are driven by target diffuse shading and their own inverse-rendered source buffers.",
+    "The headline 0.09 second speed excludes intrinsic estimation and other preprocessing, and Table 1 explicitly excludes intrinsic estimation even though the full inference workflow requires geometry, material estimation, Blender rendering, and intrinsic composition.",
+    "The physically authored relighting evaluation has no ground-truth images or user/control metrics, so the paper cannot demonstrate physical accuracy, only visual plausibility and identity preservation in selected examples.",
+    "Per-image, per-channel least-squares scale correction is applied to all methods, which is common in relighting papers but can mask important exposure/color failures in a task about illumination control.",
+    "The held-out real benchmark is only six tripod scenes under two lighting conditions each, so the 8-9 dB gap there is suggestive but too small to carry broad generalization claims.",
+    "The method inherits frozen Marigold and Depth Anything failure modes; the authors show a bicycle-depth collapse case, but do not quantify how often such global geometry/material failures break user-authored lighting.",
+    "Training and evaluation are centered on static paired scenes; dynamic objects, camera motion, nonrigid changes, and real editing workflows are outside the evidence base."
+  ],
+  "positive_signals": [
+    "The paper states concrete training data, losses, model size, hyperparameters, hardware, and wall-clock training time, making the method more reproducible than many generative vision papers.",
+    "The main MIIW table compares against five recent released-checkpoint baselines and reports PSNR, SSIM, LPIPS, and wall-clock forward time under a uniform scale-correction protocol.",
+    "Ablations are trained from scratch and show both the source-image transformer branch and affine modulation head matter, while also implying direct paired supervision is doing much of the work.",
+    "The authors explicitly acknowledge that single-image geometry and material estimates are coarse, and they design conditioning corruptions to target holes, cracks, noise, blur, posterization, and color/exposure shifts.",
+    "The limitations section is unusually relevant: it names frozen intrinsic-decomposition bias, upstream geometry/material errors, global reconstruction failures, and the small paired training corpus.",
+    "The method has a clear production story for Paper Radio: a fast neural renderer wrapped around Blender-authored lighting, with a good tension between artist control and learned photorealism."
+  ],
+  "research_score": 7.3,
+  "podcast_score": 7.6,
+  "overclaim_score": 5.7,
+  "replication_interest": 7.8,
+  "verdict": "Worth covering, but frame it as a promising bridge between PBR authoring and learned relighting rather than a solved arbitrary-relighting system. The quantitative captured-target results are strong and the interface is elegant, but the actual user-authored PBR claim is still mostly qualitative and depends heavily on upstream reconstruction and intrinsic decomposition. Best podcast angle: impressive feed-forward relighting numbers versus the uncomfortable fact that the physically controlled setting has no hard accuracy test yet.",
+  "citations": [
+    "data/papers/arxiv-2605.18735.md: Abstract and metadata state the paper's claim: feed-forward physically controllable single-image relighting, intrinsic conditioning from paired photos at training and path-traced coarse reconstruction at inference, under 0.1 s forward runtime, and code/model availability.",
+    "data/papers/fulltext/arxiv-2605.18735.txt:206-218 describes training on MIIW, BigTime, and VIDIT paired multi-illumination data and using frozen Marigold-IID-Lighting to produce target intrinsics.",
+    "data/papers/fulltext/arxiv-2605.18735.txt:225-237 gives the 640M-parameter ViT/ConvNeXt/transformer architecture, 200K-iteration training recipe, 2x H200 four-day compute budget, and conditioning corruption motivation.",
+    "data/papers/fulltext/arxiv-2605.18735.txt:261-283 details the inference pipeline: Depth Anything geometry, Marigold materials, Blender-authored lights, Cycles intrinsic passes, and a single PIXLRelight forward pass.",
+    "data/papers/fulltext/arxiv-2605.18735.txt:286-304 lists the five baselines, the exclusion of Careaga and Aksoy due to unreleased code/model, the scale-corrected PSNR/SSIM/LPIPS protocol, and the MIIW plus 6-scene held-out datasets.",
+    "data/papers/fulltext/arxiv-2605.18735.txt:319-335 reports Table 1: DiffusionRenderer 15.02 PSNR, UniRelight 16.71, RGBX 16.20, Ouroboros 19.38, V-RGBX 17.79, and PIXLRelight 29.18/0.893/0.195 with 0.09 s forward time, excluding intrinsic estimation.",
+    "data/papers/fulltext/arxiv-2605.18735.txt:340-349 describes the authored-light protocol on 20 DL3DV images, five preset Blender lighting setups, exclusion of environment-map baselines, and qualitative-only evaluation due to no ground truth.",
+    "data/papers/fulltext/arxiv-2605.18735.txt:387-399 summarizes the qualitative authored-light result and admits coarse reconstruction/material drift in the path-traced render.",
+    "data/papers/fulltext/arxiv-2605.18735.txt:401-430 reports ablations: removing the source branch drops to 25.82 PSNR/0.374 LPIPS, direct RGB regression drops to 27.77/0.359, versus 29.18/0.195 for the full model.",
+    "data/papers/fulltext/arxiv-2605.18735.txt:672-713 specifies the stochastic conditioning corruption pipeline and probabilities for holes, edge cracks, noise, blur, posterization, gamma, and color cast.",
+    "data/papers/fulltext/arxiv-2605.18735.txt:716-740 lists limitations and a concrete failure case: frozen decomposer bias, Depth Anything/Marigold material errors, global reconstruction failures, and a bicycle collapsed into the floor.",
+    "data/papers/fulltext/arxiv-2605.18735.txt:730-736 notes the small paired training corpus of about 1,500 scenes and identifies scaling paired multi-illumination supervision as future work."
+  ]
+}

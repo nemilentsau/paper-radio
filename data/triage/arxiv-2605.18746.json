@@ -1,0 +1,22 @@
+{
+  "paper_id": "arxiv-2605.18746",
+  "title": "ESI-Bench: Towards Embodied Spatial Intelligence that Closes the Perception-Action Loop",
+  "core_claim": "The paper introduces ESI-BENCH, a benchmark for embodied spatial intelligence where agents must actively choose perception, locomotion, and manipulation actions to gather evidence, and reports that active exploration outperforms passive or random multi-view approaches on these tasks.",
+  "triage_rationale": "This looks like a substantive benchmark paper with a clear problem setting, broad task coverage, and experimental comparisons against strong baselines. The abstract also suggests an interesting mismatch between 2D/3D grounding, action choice, and human-like metacognition, which should make it valuable to review and discuss.",
+  "topic_tags": [
+    "embodied-ai",
+    "spatial-reasoning",
+    "benchmark",
+    "multimodal-models",
+    "robotics",
+    "vision-language-models"
+  ],
+  "likely_red_flags": [
+    "Benchmark paper may overstate generalization beyond OmniGibson-based tasks",
+    "Claims rely on reported experiments in the abstract without visible evidence here",
+    "Human-study conclusions may depend heavily on study design and participant pool"
+  ],
+  "research_score_estimate": 7.8,
+  "podcast_score_estimate": 8.4,
+  "decision": "advance_to_review"
+}

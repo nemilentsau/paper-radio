@@ -1,0 +1,68 @@
+{
+  "paper_id": "arxiv-2605.18746",
+  "one_line_claim": "ESI-Bench claims that embodied spatial intelligence should be evaluated as active evidence acquisition, not passive image understanding, and that current MLLM failures are dominated by poor action selection, premature commitment, and weak belief revision.",
+  "what_they_tested": "The authors build 3,081 OmniGibson/BEHAVIOR-1K tasks across 10 categories and 29 subcategories, covering occlusion, containment, reflection, counting, metric comparison, cognitive mapping, temporal change, and action sequencing. They evaluate GPT-5 and Gemini 3.1 under passive single-view, passive random multi-view, active exploration, and ground-truth trajectory views; compare VGGT-derived and oracle 3D scene-graph variants; and collect human trajectories with the same high-level action interface.",
+  "strongest_point": "The benchmark isolates a real missing piece in spatial-agent evaluation: more views are not the same as useful views. The passive, active, and ground-truth-trajectory split makes the action-selection bottleneck visible, and the paper gives memorable diagnostics for confirmation-seeking, high-confidence early stopping, and failures to seek falsifying viewpoints.",
+  "weakest_point": "The benchmark is synthetic and heavily scaffolded. GPT-4o proposes objects, placements, questions, and trajectories; actions are high-level commands rather than low-level control; and most reported claims are accuracy comparisons inside OmniGibson rather than evidence that real robots or web-scale embodied agents can close the perception-action loop.",
+  "missing_baselines": [
+    "A deliberate active-view planning baseline using explicit uncertainty, information gain, or frontier-style exploration, to compare against zero-shot MLLM action choice.",
+    "A random active policy and simple scripted task-specific policies, not just passive random multi-view, to separate the value of action from the value of model reasoning.",
+    "A retrieval or memory baseline that accumulates structured observations across steps before answering, since the observed failures may partly be state-tracking failures.",
+    "A model given the ground-truth high-level action plan but not ground-truth rendered views, to separate action-order knowledge from visual perception along the executed route.",
+    "A stronger 3D baseline using oracle depth, object masks, or production-quality reconstruction before jumping from VGGT failure to the general risk of imperfect 3D.",
+    "A low-level embodied-control benchmark slice, even small, to show which conclusions survive once pick/place/navigation execution noise is included."
+  ],
+  "missing_ablations": [
+    "Task-generation dependence on GPT-4o: compare more human-authored tasks, alternative generator models, and generator-blind wording to test shortcut and style bias.",
+    "Prompt sensitivity for active agents, including explicit instructions to seek disconfirming evidence, maintain uncertainty, or avoid early stopping.",
+    "Step-budget curves by category and model, beyond the Gemini 3.1 appendix summary, to show which tasks need longer exploration versus better first actions.",
+    "Confidence calibration metrics tied to correctness and evidence quality, not only qualitative claims about high-confidence premature commitment.",
+    "Action vocabulary sensitivity: remove manipulation, restrict locomotion, add look-around macros, or vary high-level affordances to see how benchmark conclusions change.",
+    "Human interface and sample-size details by task category, including variance across participants and how answer disagreements were resolved.",
+    "Realism sensitivity across simulator rendering quality, object categories, lighting, clutter, and physics settings.",
+    "Statistical uncertainty for the large accuracy table, especially when comparing many subcategories and paradigms."
+  ],
+  "red_flags": [
+    "The benchmark construction uses GPT-4o as a proposal engine for task-relevant objects, initial poses, questions, and ground-truth trajectories; human filtering helps, but generator bias remains a central risk.",
+    "The action space is deliberately high-level, so the benchmark excludes major embodied failure modes such as grasp errors, collision recovery, locomotion drift, controller tuning, and actuation noise.",
+    "Several model names and dates are very current/future-looking, making exact reproducibility depend on snapshot access and prompt details.",
+    "The paper's broad language about embodied spatial intelligence can overstate what is proven by a simulator benchmark with synthetic tasks and structured answer formats.",
+    "Passive multi-view is random, so its poor performance does not by itself prove passive methods are weak; it may prove that uncurated image accumulation is a bad baseline.",
+    "The 3D conclusion risks overgeneralization: VGGT-derived scene graphs can be worse than 2D, but oracle 3D helps substantially, so the real message is reconstruction quality and representation design, not that 3D grounding is generally harmful.",
+    "Human comparison is useful but not a perfect upper bound: participants use the same high-level UI in synthetic scenes, not real-world embodied interaction.",
+    "Free-form answers are treated as correct if they match ground truth, but the paper does not foreground parser/evaluator ambiguity for all answer types."
+  ],
+  "positive_signals": [
+    "The taxonomy is broad and grounded in Spelke-style core knowledge systems, covering object, geometry, number, physics, and agent/action reasoning rather than one narrow spatial skill.",
+    "The benchmark has a concrete formal setup with a scene, initial pose, question, answer, egocentric observations, action budget, and terminal confidence.",
+    "The task-construction pipeline includes simulator-state labels, physics settling, object-existence checks, trajectory verification, and three-annotator human verification.",
+    "The four evaluation paradigms are well chosen: passive single view, passive random multi-view, active exploration, and ground-truth passive trajectories each answer a distinct diagnostic question.",
+    "The active-versus-oracle gap gives a crisp way to distinguish action blindness from perceptual blindness; Rigid Containment and Physical Contact show large oracle jumps.",
+    "The 3D ablation is balanced: oracle 3D helps depth-sensitive tasks, while imperfect VGGT reconstruction can actively mislead.",
+    "The human study targets behavior, not only final answers, by recording action sequences, observations, final confidence, and intermediate confidence signals.",
+    "The paper makes the metacognitive failure concrete: models often seek confirming views, move redundantly, and answer with high confidence despite ambiguous evidence."
+  ],
+  "research_score": 7.4,
+  "podcast_score": 8.5,
+  "overclaim_score": 5.8,
+  "replication_interest": 8.0,
+  "verdict": "Worth covering as one of the strongest anchors for the episode. The clean podcast hook is that spatial intelligence is not just seeing; it is knowing what to look at next. ESI-Bench gives a good diagnostic split between perception, action selection, 3D representation, and metacognitive calibration. The skeptical frame should emphasize simulator/task-generator dependence and high-level actions, but the benchmark is still valuable because it makes a real agent failure mode measurable: models often can see the answer from the right evidence but do not know how to go get that evidence.",
+  "citations": [
+    "data/papers/arxiv-2605.18746.md:1-24 gives the metadata, abstract, triage rationale, and the main claim about active exploration, action blindness, imperfect 3D, and metacognitive gaps.",
+    "data/papers/fulltext/arxiv-2605.18746.txt:62-89 states the abstract claim: 10 categories, 29 subcategories, active exploration outperforming passive, random multi-view adding noise, 3D helping only when accurate, and models committing prematurely.",
+    "data/papers/fulltext/arxiv-2605.18746.txt:106-140 describes the benchmark scope, 3,081 tasks, Spelke grounding, passive/active/oracle experiments, action blindness, 3D findings, and human metacognitive contrast.",
+    "data/papers/fulltext/arxiv-2605.18746.txt:142-164 compares ESI-Bench to prior spatial and embodied benchmarks and lists its active L/P/M action space, hidden-state focus, and core-knowledge coverage.",
+    "data/papers/fulltext/arxiv-2605.18746.txt:208-218 defines the task tuple, environment, observation/action loop, 30-step budget, high-level action space, terminal answer, and confidence.",
+    "data/papers/fulltext/arxiv-2605.18746.txt:222-235 describes the OmniGibson/BEHAVIOR-1K environment, 51 scenes, 300 rooms, 9k object instances, physics, transparency, lighting, reflections, and simulator-derived scene graphs.",
+    "data/papers/fulltext/arxiv-2605.18746.txt:237-301 explains GPT-4o proposal of objects, positions, questions, trajectories, simulator validation, human verification by three annotators, and generator-bias audits.",
+    "data/papers/fulltext/arxiv-2605.18746.txt:341-345 reports 3,081 tasks across 10 categories and 29 subcategories.",
+    "data/papers/fulltext/arxiv-2605.18746.txt:348-371 defines passive single-view, passive multi-view, active exploration, ground-truth passive, VGGT+Gemini, oracle 3D+Gemini, and human comparisons.",
+    "data/papers/fulltext/arxiv-2605.18746.txt:422-433 reports active exploration gains and passive multi-view degradation, including View Hallucination and Rigid Containment examples.",
+    "data/papers/fulltext/arxiv-2605.18746.txt:434-470 reports the active-to-oracle gap and hard perceptual ceilings, including Rigid Containment, Physical Contact, Geometric Configuration, Specular Reflection, Counting w Occlusion, and Structural Enclosure.",
+    "data/papers/fulltext/arxiv-2605.18746.txt:479-488 reports the 3D finding: ground-truth 3D improves Geometric Configuration and Counting w Occlusion, while VGGT+Gemini can fall below 2D baselines.",
+    "data/papers/fulltext/arxiv-2605.18746.txt:523-555 describes human versus model behavior: humans seek falsifying viewpoints, reduce confidence under ambiguity, and revise beliefs, while models commit early and anchor.",
+    "data/papers/fulltext/arxiv-2605.18746.txt:749-762 lists broader impacts and limitations, including synthetic OmniGibson scenes and rendering realism gaps.",
+    "data/papers/fulltext/arxiv-2605.18746.txt:768-783 describes the human study interface, participants, action vocabulary, 30-step budget, and pixel-level egocentric rendering.",
+    "data/papers/fulltext/arxiv-2605.18746.txt:864-872 says each human task instance was completed by at least five participants, with action sequence, frames, final answer, and confidence recorded."
+  ]
+}

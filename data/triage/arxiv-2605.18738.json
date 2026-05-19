@@ -1,0 +1,22 @@
+{
+  "paper_id": "arxiv-2605.18738",
+  "title": "What Does the AI Doctor Value? Auditing Pluralism in the Clinical Ethics of Language Models",
+  "core_claim": "The paper argues that frontier language models used for medical advice exhibit stable, systematic ethical value preferences that can differ from the distribution of physician views, including underweighting patient autonomy in some cases.",
+  "triage_rationale": "This is a timely cs.AI paper with a concrete benchmark and an auditable clinical-ethics framing, which makes it likely to yield a substantive review. The abstract suggests a real empirical finding rather than generic safety claims, and the topic has both research and discussion value.",
+  "topic_tags": [
+    "medical-ai",
+    "language-models",
+    "ethics",
+    "evaluation",
+    "pluralism",
+    "clinical-decision-support"
+  ],
+  "likely_red_flags": [
+    "Abstract-only evidence here; claims about benchmark quality and attribution method are unverified",
+    "Clinical ethics framing may overstate generality beyond the sampled dilemmas",
+    "Affiliation and author prominence should not be treated as evidence of correctness"
+  ],
+  "research_score_estimate": 7.6,
+  "podcast_score_estimate": 8.3,
+  "decision": "advance_to_review"
+}

@@ -1,0 +1,35 @@
+{
+  "paper_id": "arxiv-2605.18732",
+  "source": "arxiv",
+  "source_id": "2605.18732",
+  "title": "Predictable Confabulations: Factual Recall by LLMs Scales with Model Size and Topic Frequency",
+  "authors": [
+    "Matthew L. Smith",
+    "Jonathan P. Shock",
+    "Samuel T. Segun",
+    "Iyiola E. Olatunji",
+    "Tegawendé F. Bissyandé"
+  ],
+  "author_affiliations": [],
+  "abstract": "While scaling laws govern aggregate large language model performance, no scaling law has linked factual recall to both model size and training-data composition. We evaluated 38 models on over 8,900 scholarly references evaluated by an automated reference verification system. Recall quality follows a sigmoid in the log-linear combination of model parameter count and topic representation in training data. These two variables alone explain 60% of the variance across 16 dense models from four families, rising to 74-94% within individual families. The form matches a superposition-inspired account in which recall is gated by a signal-to-noise ratio: signal strength scales with concept frequency and the noise floor with model capacity.",
+  "published_at": "2026-05-18T17:53:44Z",
+  "updated_at": "2026-05-18T17:53:44Z",
+  "categories": [
+    "cs.CL",
+    "cs.AI",
+    "cs.LG"
+  ],
+  "pdf_url": "https://arxiv.org/pdf/2605.18732",
+  "abs_url": "https://arxiv.org/abs/2605.18732",
+  "source_types": [
+    "arxiv_recent"
+  ],
+  "status": "triaged",
+  "trusted_orgs": [],
+  "triage_decision": "advance_to_review",
+  "triage_rationale": "The abstract proposes a concrete scaling relationship for factual recall and reports evaluation across many models and references, which makes it methodologically interesting and potentially useful for comparison. It is also likely to be a good episode topic because the claim is simple, testable, and directly relevant to LLM behavior, even though the evidence is only from the abstract at this stage.",
+  "research_score_estimate": 7.8,
+  "podcast_score_estimate": 8.2,
+  "local_pdf_path": "data/papers/pdfs/arxiv-2605.18732.pdf",
+  "full_text_path": "data/papers/fulltext/arxiv-2605.18732.txt"
+}

@@ -1,0 +1,22 @@
+{
+  "paper_id": "arxiv-2605.18745",
+  "title": "SURGE: Approximation-free Training Free Particle Filter for Diffusion Surrogate",
+  "core_claim": "The paper proposes a gradient-free, inference-time resampling method for diffusion models using Girsanov-based path-wise importance weights, claiming it avoids repeated score, gradient, Hessian, or PDE evaluations while matching particle-level SMC behavior and improving sample quality.",
+  "triage_rationale": "This looks like a technically substantive methods paper in a current ML area, with a clear algorithmic contribution and a plausible experimental payoff. It is worth review because the abstract makes a strong claim about an unbiased equivalence and simpler inference-time guidance, which is both research-relevant and potentially useful to critique on podcast.",
+  "topic_tags": [
+    "diffusion models",
+    "particle filters",
+    "sequential Monte Carlo",
+    "inference-time guidance",
+    "importance weighting",
+    "generative modeling"
+  ],
+  "likely_red_flags": [
+    "Strong theoretical equivalence claim in the abstract without visible qualification",
+    "Performance claims are broad and benchmark-based but unsupported here",
+    "Title/abstract suggest a renamed method and may hide incremental overlap with prior guidance/resampling work"
+  ],
+  "research_score_estimate": 7.4,
+  "podcast_score_estimate": 6.8,
+  "decision": "queue_for_review"
+}

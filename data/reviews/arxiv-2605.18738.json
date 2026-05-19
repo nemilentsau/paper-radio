@@ -1,0 +1,69 @@
+{
+  "paper_id": "arxiv-2605.18738",
+  "one_line_claim": "The paper argues that frontier medical LLMs can discuss multiple clinical-ethics values, but their actual forced-choice recommendations are near-deterministic and encode stable value profiles that can diverge from physician pluralism, especially by underweighting autonomy.",
+  "what_they_tested": "They build 50 clinician-reviewed binary clinical ethics dilemmas tagged by autonomy, beneficence, nonmaleficence, and justice; query 12 frontier LLMs 10 times per case at temperature 1.0; compare against 20 physicians; infer value profiles with a no-intercept binomial GLM over value-difference vectors; and analyze decision entropy, paraphrase robustness, value calibration to physician consensus, Overton-style reasoning coverage, and model-ecosystem diversity.",
+  "strongest_point": "The benchmark is unusually well matched to the claim: each case is designed as a real value trade-off, value tags are withheld from decision-makers, the physician panel shows measurable disagreement, and the main finding separates what models say in free text from what they consistently choose in action.",
+  "weakest_point": "The central empirical object is still narrow and heavily constructed: 50 LLM-generated, Western/US-leaning, forced-binary dilemmas calibrated against a 20-physician convenience sample. That is enough to audit this benchmark, but not enough to make broad claims about clinical pluralism, global physician values, or deployed medical advice.",
+  "missing_baselines": [
+    "A patient-value-conditioned baseline, where the model is explicitly given a patient's stated priorities and measured for whether it shifts decisions appropriately.",
+    "A clinician-team or ethics-committee baseline, not just individual physicians, because the deployment-monoculture argument compares single models to real safeguards such as deliberation and second opinions.",
+    "A simple distributional sampler baseline that samples choices according to physician case-level vote proportions, to anchor what successful distributional pluralism would look like on the same metric.",
+    "Prompted multi-model jury baselines with transparent aggregation rules, since the discussion proposes juries but the experiments only evaluate individual models and ecosystem diversity after the fact.",
+    "Existing medical ethics QA or dilemma benchmarks evaluated with the same attribution pipeline, to show whether the value-profile conclusions are specific to this new benchmark design.",
+    "A non-LLM decision model fitted directly to physician votes, to quantify how much predictive structure is captured by the four-value tag matrix alone."
+  ],
+  "missing_ablations": [
+    "Prompt/persona sensitivity: the system prompt forces an experienced physician persona and a recommendation, but the paper does not test patient-facing, clinician-assistant, uncertainty-allowed, or shared-decision prompts.",
+    "Temperature and sampling sensitivity beyond 10 samples at temperature 1.0; near-determinism may differ under top-p, temperature sweeps, or explicit diversity instructions.",
+    "Case-generation model bias: all case generation, rubric evaluation, value tagging, and validation use GPT-5.2, while GPT-5.2 is also one of the audited models.",
+    "Value-tag sensitivity: perturb, re-annotate, or use multiple independent taggers to test whether the inferred value profiles survive plausible disagreements about which values each choice promotes or violates.",
+    "Benchmark-size sensitivity: resample the 50 cases or add held-out cases to test whether model rankings and outlier status are stable.",
+    "Parser validation at scale: decisions are extracted by GPT-4o-mini, but the paper does not report a large manual audit of parser errors for ambiguous free-form clinical recommendations.",
+    "Cultural and specialty stratification: the paper notes a Western/US bioethics grounding, but does not test non-US physicians, non-English vignettes, or specialty-specific physician consensus profiles.",
+    "Steerability experiments, which the authors identify as the key path forward but do not run."
+  ],
+  "red_flags": [
+    "The paper's strongest normative phrase, 'deployment monoculture,' is plausible but not directly tested in a deployed workflow with patients, clinicians, institutional policies, liability constraints, or the ability to seek another opinion.",
+    "The physician reference distribution is based on only 20 unpaid physicians recruited mainly from North American academic centers, so 'physician consensus' is a calibration target rather than a population ground truth.",
+    "The benchmark construction pipeline depends heavily on GPT-5.2 for case generation, refinement, tagging, and validation; that creates a possible shared-generator prior even with later physician review.",
+    "The value attribution model assumes additive linear contributions from four principlist tags and then softmax-normalizes unbounded coefficients; this is elegant but may overcompress case context into a stable value profile.",
+    "Individual physicians contribute only one response per case, while LLMs get 10 stochastic queries per case, so physician within-person consistency is not measured and the human/model comparison is asymmetric.",
+    "Forced binary choices intentionally remove deferral, compromise, consultation, additional information gathering, and patient deliberation, which are often exactly how real clinical ethics is practiced.",
+    "Data and code are only available upon request at the time of the paper, so immediate independent replication is limited despite the stated future release plan.",
+    "The Overton pluralism result is classifier-mediated and sentence-level; high coverage of value mentions does not prove patients would receive balanced, understandable, or clinically appropriate counseling."
+  ],
+  "positive_signals": [
+    "The paper asks a crisp and important question that accuracy/safety benchmarks usually miss: what value trade-offs are encoded in medical advice when no single ethically correct answer exists.",
+    "The benchmark has explicit structural constraints to prevent dominated choices and require real cross-value tension.",
+    "Cases are reviewed in two blinded physician stages, and the final set has evidence of real disagreement: 21 of 50 cases lack a 70% physician majority and Fleiss' kappa is 0.236.",
+    "The main behavioral result is concrete: 11 of 12 models have median per-case decision entropy of zero, and model entropy is uncorrelated with physician disagreement.",
+    "The paraphrase experiment is a useful sanity check: surface rewording barely changes decisions, while reversed ethical valence produces a much larger flip rate.",
+    "The paper reports exact model list, access dates, query counts, refusal handling, parser setup, and numeric value profiles, making the analysis unusually inspectable.",
+    "The calibration analysis uses a leave-one-out bootstrap reference distribution rather than declaring divergence from physician consensus by eyeballing radar plots.",
+    "The limitations section is direct about the small nonrepresentative physician sample, Western/English grounding, binary-choice compression, linear-attribution assumption, and model-version snapshot."
+  ],
+  "research_score": 7.6,
+  "podcast_score": 8.7,
+  "overclaim_score": 5.4,
+  "replication_interest": 8.2,
+  "verdict": "Worth covering. This is a strong Paper Radio paper because the core finding is both empirical and discussable: medical LLMs can sound pluralistic while making the same value-laden call repeatedly. Treat the benchmark and attribution method as promising audit machinery, not as a definitive map of medical ethics. The best critique angle is that the paper convincingly measures value commitments inside a constructed forced-choice world, while the jump from that world to real patient-facing deployment needs patient values, steering tests, representative clinicians, and actual workflow safeguards.",
+  "citations": [
+    "data/papers/arxiv-2605.18738.md: Abstract and metadata state the main claim: clinician-verified dilemmas, attribution from decisions, near-deterministic model behavior, physician-level ecosystem heterogeneity, and some models underweighting autonomy.",
+    "data/papers/fulltext/arxiv-2605.18738.txt:64-81 summarizes the claimed framework, 50 dilemmas, near-zero entropy, uncorrelated physician disagreement, value attribution, autonomy underweighting, and deployment-monoculture risk.",
+    "data/papers/fulltext/arxiv-2605.18738.txt:164-189 describes the LLM-assisted case pipeline, physician review, forced binary decisions, withheld value annotations, free-form model responses, 10 queries per model/case, and 20-physician survey.",
+    "data/papers/fulltext/arxiv-2605.18738.txt:190-197 states the benchmark's pluralistic properties and reports physician disagreement: N=20, Fleiss' kappa 0.236, and 21 of 50 cases without a 70% majority.",
+    "data/papers/fulltext/arxiv-2605.18738.txt:199-219 reports the key decision-consistency result: 11 of 12 models have median entropy zero, median 82% of cases produce 9/10 or 10/10 identical responses, and entropy does not correlate with physician disagreement.",
+    "data/papers/fulltext/arxiv-2605.18738.txt:245-268 describes the value-attribution GLM, softmax calibration, likelihood-ratio test, and the finding that 10 of 12 LLMs plus the physician consensus have non-uniform value priorities.",
+    "data/papers/fulltext/arxiv-2605.18738.txt:287-308 reports value calibration: most models fall within physician variation, while GPT-5.2, Grok 4, and Perplexity Sonar Pro exceed the 95th percentile and assign 6.1%-12.8% autonomy versus 44.4% for physician consensus.",
+    "data/papers/fulltext/arxiv-2605.18738.txt:390-399 reports Overton pluralism: mean choice-balanced coverage 0.86, emphasis 0.61, and the tension that models discuss both sides but resolve dilemmas consistently.",
+    "data/papers/fulltext/arxiv-2605.18738.txt:419-427 reports ecosystem diversity: LLM within-group JSD 0.0916 versus physician 0.1089, no significant difference, but patients encounter a single model rather than the ecosystem.",
+    "data/papers/fulltext/arxiv-2605.18738.txt:467-478 lists limitations: N=20 nonrepresentative physicians, Western/US English bioethics, binary-choice compression, linear value attribution, no context-sensitive value modulation measurement, and model-version snapshot.",
+    "data/papers/fulltext/arxiv-2605.18738.txt:490-493 says benchmark, responses, and analysis code are available upon request and planned for CC-BY/MIT release.",
+    "data/papers/fulltext/arxiv-2605.18738.txt:692-699 states all case generation, rubric evaluation, value tagging, and validation steps use GPT-5.2 with structured Pydantic outputs.",
+    "data/papers/fulltext/arxiv-2605.18738.txt:825-844 details blinded interdisciplinary review and pipeline yield: 287 automated cases, 110 sent to review, 50 approved for the final benchmark.",
+    "data/papers/fulltext/arxiv-2605.18738.txt:930-955 lists the 12 evaluated models, OpenRouter access in January 2026, 500 responses per model, 6,000 target-model queries, 6,120 GPT-4o-mini parser queries, and refusal handling.",
+    "data/papers/fulltext/arxiv-2605.18738.txt:1000-1024 describes the paraphrase and value-reversal experiment: surface paraphrases remain below 9% flip rate and indistinguishable from a 3% retest baseline, while value reversal sharply increases flips.",
+    "data/papers/fulltext/arxiv-2605.18738.txt:1111-1127 provides exact inferred value profiles, including GPT-5.2 autonomy 0.061 and physician consensus autonomy 0.444.",
+    "data/papers/fulltext/arxiv-2605.18738.txt:1183-1221 describes the 200,000-sample physician-to-consensus JSD reference distribution and per-model p-values, with GPT-5.2 p=0.0086, Grok 4 p=0.0200, and Perplexity Sonar Pro p=0.0320."
+  ]
+}

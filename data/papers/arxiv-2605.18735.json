@@ -1,0 +1,32 @@
+{
+  "paper_id": "arxiv-2605.18735",
+  "source": "arxiv",
+  "source_id": "2605.18735",
+  "title": "PIXLRelight: Controllable Relighting via Intrinsic Conditioning",
+  "authors": [
+    "Miguel Farinha",
+    "Ronald Clark"
+  ],
+  "author_affiliations": [],
+  "abstract": "We present PIXLRelight, a feed-forward approach for physically controllable single-image relighting. Existing methods either provide limited lighting control (e.g. through text or environment maps), accumulate errors when chaining inverse and forward rendering, or require costly per-image optimization. Our key idea is to bridge physically based rendering (PBR) and learned image synthesis through a shared intrinsic conditioning that can be obtained from either real photographs or PBR renders. At training time, paired multi-illumination photographs are decomposed into albedo, diffuse shading, and non-diffuse residuals, which condition the model. At inference time, the same conditioning is computed from a path-traced render of a coarse 3D reconstruction of the input under user-specified PBR lights. A transformer-based neural renderer then applies the target illumination to the source photograph, preserving fine image detail through a per-pixel affine modulation. PIXLRelight enables arbitrary PBR-style lighting control, achieves state-of-the-art relighting quality, and runs in under a tenth of a second per image. Code and models are available at https://mlfarinha.github.io/pixl-relight/.",
+  "published_at": "2026-05-18T17:55:03Z",
+  "updated_at": "2026-05-18T17:55:03Z",
+  "categories": [
+    "cs.CV",
+    "cs.GR",
+    "cs.LG"
+  ],
+  "pdf_url": "https://arxiv.org/pdf/2605.18735",
+  "abs_url": "https://arxiv.org/abs/2605.18735",
+  "source_types": [
+    "arxiv_recent"
+  ],
+  "status": "triaged",
+  "trusted_orgs": [],
+  "triage_decision": "queue_for_review",
+  "triage_rationale": "The abstract describes a concrete method with a clear technical contribution at the intersection of CV, graphics, and generative rendering, and it claims both controllability and real-time speed. It looks strong enough to merit review, but the claims are still purely self-reported here and the contribution is specialized rather than broadly episode-defining.",
+  "research_score_estimate": 7.2,
+  "podcast_score_estimate": 6.8,
+  "local_pdf_path": "data/papers/pdfs/arxiv-2605.18735.pdf",
+  "full_text_path": "data/papers/fulltext/arxiv-2605.18735.txt"
+}

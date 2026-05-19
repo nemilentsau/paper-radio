@@ -1,0 +1,40 @@
+{
+  "paper_id": "arxiv-2605.18753",
+  "one_line_claim": "DashAttention replaces fixed top-k block routing in hierarchical sparse attention with differentiable alpha-entmax routing, then uses the routed block probabilities as a prior for token-level sparse softmax attention.",
+  "what_they_tested": "The paper adapts MiniCPM-4 1B, 3B, and 8B models with long-context continual pretraining, compares against full attention, NSA, and InfLLMv2 on RULER and HELMET at 16K context, checks short-context/general benchmarks, sweeps sparsity for Pareto curves, and benchmarks custom Triton kernels against FlashAttention-3, NSA, and InfLLMv2.",
+  "strongest_point": "The work is unusually complete for a sparse-attention paper: it gives an algorithmic reason fixed top-k routing is brittle, backs the claim with long-context benchmark tables across three model sizes, includes efficiency measurements for both prefill and decoding, and reports ablations for chunk size, local summarization, prior strength, and sparsity trade-offs.",
+  "weakest_point": "The headline systems claim is still an isolated-kernel result rather than an end-to-end serving result, and the method has not yet been integrated into vLLM, SGLang, or a production scheduler, so real token throughput and latency under paged KV cache management remain unproven.",
+  "missing_baselines": [
+    "No direct comparison to HSA in the main experiments; the paper argues it is less compatible with pretrained full-attention models, but the omission leaves one strong hierarchical-sparse alternative outside the empirical table.",
+    "Element-wise sparse attention methods such as DSA/CSA/HCA are discussed as architecturally different, but not experimentally compared.",
+    "No end-to-end serving benchmark against vLLM or SGLang full attention with realistic batching, paged KV cache behavior, and scheduler overhead."
+  ],
+  "missing_ablations": [
+    "A larger sweep of alpha values would help separate the effect of entmax sparsity from the chosen alpha=1.5 kernel convenience.",
+    "The kernel benchmark randomizes active-block masks to isolate Stage 2 cost; an additional benchmark using router-produced masks would better capture full Stage 1 plus Stage 2 behavior.",
+    "The paper does not fully isolate how much of the performance gain comes from differentiable routing versus adaptive variable support versus the local chunk-summary design."
+  ],
+  "red_flags": [
+    "The abstract-level speedup could be overread because the paper itself says the benchmark excludes request scheduling, paged KV cache management, projections, and other serving overhead.",
+    "The strongest accuracy claims are at 16K context after long-context continual pretraining on MiniCPM-4 variants, so generalization to other architectures and longer production contexts is still open.",
+    "Some comparisons depend on matching sparsity levels, but DashAttention's effective sparsity is input-dependent while NSA and InfLLMv2 use deterministic top-k budgets, making exact fairness subtle."
+  ],
+  "positive_signals": [
+    "Baselines include full attention, NSA, and InfLLMv2, which are the relevant GQA hierarchical sparse-attention comparators for the paper's stated target.",
+    "The paper reports RULER, HELMET, general-task results, sparsity sweeps, chunk-size ablations, prior-strength ablations, and both prefill and decoding kernel timings.",
+    "It explicitly states the current serving-framework limitation instead of hiding it.",
+    "The method is designed to adapt from pretrained softmax full-attention models, which makes the practical story more plausible than a sparse architecture requiring training from scratch."
+  ],
+  "research_score": 8.0,
+  "podcast_score": 7.2,
+  "overclaim_score": 5.2,
+  "replication_interest": 8.6,
+  "verdict": "Strong queue item and likely one of the better technical anchors for this episode. The story is crisp: long-context attention should decide how much evidence each query needs, not spend a fixed top-k budget everywhere. The caveat to emphasize in audio is that the most exciting speed numbers are kernel-level, not a completed serving-system result.",
+  "citations": [
+    "Abstract: claims comparable accuracy to full attention at 75% sparsity and up to 3.3x inference speedup over FlashAttention-3.",
+    "Section 3: describes the three-stage design: local chunk summarization, alpha-entmax chunk routing, and prior-induced sparse softmax attention.",
+    "Tables 1 and 2: compare RULER and HELMET at 16K across FullAttn, NSA, InfLLMv2, and DashAttention for 1B, 3B, and 8B models.",
+    "Table 5: reports wall-clock attention-kernel speedups over FlashAttention for prefill and decoding across 16K to 96K contexts and multiple sparsity levels.",
+    "Section 7 and Appendix B.2: state that integration into vLLM or SGLang is future work and that the efficiency benchmark excludes full serving-stack overhead."
+  ]
+}

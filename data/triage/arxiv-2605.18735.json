@@ -1,0 +1,21 @@
+{
+  "paper_id": "arxiv-2605.18735",
+  "title": "PIXLRelight: Controllable Relighting via Intrinsic Conditioning",
+  "core_claim": "The paper proposes a feed-forward relighting method that uses intrinsic conditioning shared between real photos and PBR renders to enable physically controllable single-image relighting with fast inference and strong image detail preservation.",
+  "triage_rationale": "The abstract describes a concrete method with a clear technical contribution at the intersection of CV, graphics, and generative rendering, and it claims both controllability and real-time speed. It looks strong enough to merit review, but the claims are still purely self-reported here and the contribution is specialized rather than broadly episode-defining.",
+  "topic_tags": [
+    "computer_vision",
+    "graphics",
+    "relighting",
+    "intrinsic_decomposition",
+    "feed_forward_rendering"
+  ],
+  "likely_red_flags": [
+    "Performance and state-of-the-art claims are unverified in the abstract",
+    "Reliance on coarse 3D reconstruction may limit generality",
+    "The key novelty may depend on engineering integration rather than a fundamentally new learning paradigm"
+  ],
+  "research_score_estimate": 7.2,
+  "podcast_score_estimate": 6.8,
+  "decision": "queue_for_review"
+}

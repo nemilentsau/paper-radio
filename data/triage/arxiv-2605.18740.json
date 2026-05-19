@@ -1,0 +1,21 @@
+{
+  "paper_id": "arxiv-2605.18740",
+  "title": "Vision-OPD: Learning to See Fine Details for Multimodal LLMs via On-Policy Self-Distillation",
+  "core_claim": "A multimodal LLM can improve fine-grained visual understanding by self-distilling from its crop-conditioned predictions to its full-image predictions using on-policy rollouts, without external labels, teachers, or inference-time tools.",
+  "triage_rationale": "The paper appears technically coherent and methodologically specific, with a clear self-supervised distillation setup and evaluation across multiple fine-grained vision benchmarks. It is a worthwhile review candidate because it targets a real failure mode in MLLMs and claims competitive results against stronger baselines, but the contribution is still relatively incremental and benchmark-driven rather than obviously field-defining.",
+  "topic_tags": [
+    "multimodal-llm",
+    "computer-vision",
+    "self-distillation",
+    "fine-grained-visual-understanding",
+    "on-policy-learning"
+  ],
+  "likely_red_flags": [
+    "Benchmark-centric claim with no external evidence of real-world robustness",
+    "Competitive-against-larger-models language may reflect a narrow evaluation setup",
+    "Novelty may be moderate if the main gain comes from leveraging crop-conditioned self-supervision"
+  ],
+  "research_score_estimate": 7.2,
+  "podcast_score_estimate": 6.8,
+  "decision": "queue_for_review"
+}

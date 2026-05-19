@@ -1,0 +1,22 @@
+{
+  "paper_id": "arxiv-2605.18747",
+  "title": "Code as Agent Harness",
+  "core_claim": "The paper argues that code should be viewed as the operational harness for agentic systems, organizing a survey of interfaces, mechanisms, and scaling patterns for code-centered agents across single-agent and multi-agent settings.",
+  "triage_rationale": "This is a broad survey rather than a novel empirical result, so it is unlikely to merit deep technical review on research novelty alone. It may still be useful for Paper Radio because it synthesizes an active area and spans many application domains, but the abstract reads as a framing survey rather than a claim-heavy paper.",
+  "topic_tags": [
+    "survey",
+    "agentic systems",
+    "LLMs",
+    "code generation",
+    "tool use",
+    "multi-agent systems"
+  ],
+  "likely_red_flags": [
+    "Survey paper with limited apparent novelty",
+    "Broad framing language without concrete benchmarks in the abstract",
+    "Likely to be more synthesis than primary evidence"
+  ],
+  "research_score_estimate": 4,
+  "podcast_score_estimate": 6,
+  "decision": "queue_for_review"
+}

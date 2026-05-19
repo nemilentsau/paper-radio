@@ -1,0 +1,73 @@
+{
+  "paper_id": "arxiv-2605.18747",
+  "one_line_claim": "This survey argues that code should be treated not merely as an LLM output, but as the executable, inspectable, stateful harness through which agents reason, act, verify, remember, coordinate, and evolve.",
+  "what_they_tested": "This is a taxonomy and position survey, not an empirical paper. The authors synthesize agentic-code work into three layers: harness interface, harness mechanisms, and multi-agent scaling; then map the framing onto coding assistants, GUI/OS agents, scientific discovery, personalization/recommendation, and embodied agents, ending with open problems around evaluation, verification, regression-free harness evolution, shared state, safety oversight, multimodal grounding, and a broader science of harness engineering.",
+  "strongest_point": "The paper is useful when it stays architectural: separating model-internal capability, system-provided harness infrastructure, and agent-initiated code artifacts is a good lens for discussing why real agents fail or improve. Its best sections repeatedly stress that planning, memory, tool use, and multi-agent coordination cannot be judged apart from execution environments, feedback quality, oracle adequacy, state synchronization, and governance.",
+  "weakest_point": "The central framing is more organizing language than demonstrated science. Many categories are broad enough to absorb almost any agent system with tools, tests, logs, scripts, or APIs, and the paper offers no systematic inclusion protocol, quantitative meta-analysis, taxonomy reliability check, or empirical validation that the proposed layers predict system behavior better than existing agent/harness/software-engineering survey frames.",
+  "missing_baselines": [
+    "A direct comparison against prior surveys on code LLMs, software-engineering agents, agent harnesses, memory, tool use, multi-agent systems, GUI agents, and scientific agents, showing exactly what this taxonomy explains that those frames do not.",
+    "A table mapping the same representative systems under alternative taxonomies, such as model/tool/environment/memory/evaluator or plan/act/observe/reflect, to test whether 'code as harness' is actually sharper.",
+    "A reproducible literature-selection baseline: search queries, databases, inclusion/exclusion criteria, cutoff dates, and coverage checks against known benchmark suites and system families.",
+    "A small empirical case study where two or more agent systems are analyzed with the proposed harness-state metrics and compared to ordinary end-task success.",
+    "A negative-control set of agent systems where code is present but not meaningfully the harness, to make the scope boundary operational rather than rhetorical.",
+    "An engineering framework comparison against existing production agent observability/evaluation approaches, not just academic papers and named systems."
+  ],
+  "missing_ablations": [
+    "Remove one layer at a time from the taxonomy and show which systems become hard to classify or which open problems become invisible.",
+    "Inter-annotator agreement for assigning papers to interface, mechanism, scaling, and application-domain categories.",
+    "Sensitivity of conclusions to the broad definition of code; narrower definitions excluding logs, APIs, schemas, and traces would test whether the thesis still holds.",
+    "Timeline analysis separating older program-aided reasoning and robotics work from newer agent-harness systems, to show whether the framing captures a real shift rather than retroactive relabeling.",
+    "Author-curated representative-system bias: include a random or protocol-driven sample of papers and see whether the same bottlenecks emerge.",
+    "Ablation of execution feedback versus linguistic simulation in the survey's conclusions, since the paper itself notes that some systems predict execution outcomes well without running code.",
+    "Application-domain weighting: coding assistants dominate the conceptual machinery, so the paper should test whether the same harness claims hold equally for GUI, embodied, scientific, and personalization agents."
+  ],
+  "red_flags": [
+    "The paper claims existing surveys typically treat code as the end product of LLMs, but it does not provide a rigorous related-survey comparison to support that contrast.",
+    "The definition of code is very broad: programs, scripts, formal specs, APIs, tests, repositories, simulators, configurations, traces, and logs can all count when produced by or consumed by executable systems. That breadth makes the thesis easy to apply but hard to falsify.",
+    "Several sections read as a curated taxonomy of named systems rather than a systematic survey; there is no visible protocol for why works were included, excluded, or categorized.",
+    "The paper often treats 'objective oracle signals' from execution as a strength, while later acknowledging that tests, simulators, static analyzers, GUI checkers, and scientific scripts can be incomplete or misleading. That tension is real, but it weakens any simple claim that executable feedback grounds correctness.",
+    "Because there are no experiments, benchmark re-analyses, or case studies, the research contribution depends almost entirely on whether readers find the vocabulary and taxonomy clarifying.",
+    "The multi-agent discussion is heavily shaped by software-engineering examples; claims about shared code substrates in embodied, GUI, scientific, and personalization domains are plausible but less operationally pinned down.",
+    "Some future-work sections are strong but generic: metrics, telemetry, provenance, safety invariants, regression suites, human oversight, and multimodal grounding are broadly accepted needs across agent research, not unique consequences of this framing.",
+    "The paper's title and abstract promise a unified roadmap toward reliable, executable, verifiable, and stateful agent systems, but the survey does not deliver design rules precise enough to build or evaluate a harness from the taxonomy alone."
+  ],
+  "positive_signals": [
+    "The paper clearly distinguishes model-internal capabilities, system-provided harness infrastructure, and agent-initiated code artifacts, which is a useful decomposition for Paper Radio discussion.",
+    "The scope boundary explicitly says code is broad but not metaphorical, and excludes raw perception, physical state, human intent, and latent model reasoning from being code themselves.",
+    "The three-layer organization is coherent: code as interface for reasoning/action/environment, code-supported mechanisms for planning/memory/tool use/control, and code as shared substrate for multi-agent coordination.",
+    "The strongest discussions repeatedly warn against naive final-success metrics and emphasize execution conditions, feedback quality, tool access, trajectory budgets, and benchmark design.",
+    "The open-problems section is concrete enough to be useful: harness-level metrics, oracle adequacy, scoped verification stacks, evidence bundles, rollback semantics, transactional shared state, and permission tiers are real engineering concerns.",
+    "The paper surfaces a good podcast theme: modern agent progress may depend less on one more clever prompt and more on the runtime substrate around the model.",
+    "The survey identifies an important shared-state gap in multi-agent coding systems: many systems rely on implicit conversation or file-only state instead of explicit, synchronized harness representations.",
+    "The authors avoid the most naive execution-is-truth position by acknowledging weak oracles, biased self-generated tests, simulator gaps, and the need for semantic verification beyond pass/fail."
+  ],
+  "research_score": 5.2,
+  "podcast_score": 6.8,
+  "overclaim_score": 6.4,
+  "replication_interest": 2.5,
+  "verdict": "Good as an episode context-setter, weak as a standalone research result. I would not center a Paper Radio episode on it unless paired with empirical papers on coding agents, GUI agents, or harness evaluation. The useful angle is the vocabulary: code as the agent's runtime substrate, not just its answer. The skeptical angle is that the taxonomy is broad, mostly unfalsified, and light on systematic survey methodology. Treat it as a map of concerns and a source of critique prompts, not as evidence that a unified science of harness engineering already exists.",
+  "citations": [
+    "data/papers/arxiv-2605.18747.md:1-22 gives the title, metadata, abstract, triage rationale, and the core survey claim around code as operational substrate for reasoning, acting, environment modeling, and verification.",
+    "data/papers/fulltext/arxiv-2605.18747.txt:16-33 states the abstract claim: code as agent harness, three connected layers, application domains, and open challenges around evaluation, verification, shared state, safety, and multimodal environments.",
+    "data/papers/fulltext/arxiv-2605.18747.txt:95-108 motivates the framing by arguing that code is an executable, inspectable, stateful medium and that autonomy bottlenecks include the surrounding harness, not only model reasoning.",
+    "data/papers/fulltext/arxiv-2605.18747.txt:109-124 distinguishes model-internal capabilities, system-provided harness infrastructure, and agent-initiated code artifacts such as tests, temporary tools, workflows, reusable skills, and intermediate program states.",
+    "data/papers/fulltext/arxiv-2605.18747.txt:125-132 says existing surveys usually treat code as an end product and positions this survey around code as the organizing center for closed-loop agentic behavior.",
+    "data/papers/fulltext/arxiv-2605.18747.txt:133-161 defines the three survey layers: harness interface, harness mechanisms, and feedback-driven planning/memory/tool/control mechanisms.",
+    "data/papers/fulltext/arxiv-2605.18747.txt:165-202 lists the formal survey scope and contributions: conceptual framing, taxonomy/synthesis, applications, and future agenda.",
+    "data/papers/fulltext/arxiv-2605.18747.txt:270-277 lists the open-problem subsections: harness-level evaluation, semantic verification, regression-free self-evolution, transactional shared state, human oversight, multimodal systems, and science of harness engineering.",
+    "data/papers/fulltext/arxiv-2605.18747.txt:281-308 gives the scope boundary: code includes executable or machine-checkable artifacts, APIs, tests, repositories, simulators, configurations, traces, and logs, while raw perception, physical state, human intent, and latent reasoning are not themselves code.",
+    "data/papers/fulltext/arxiv-2605.18747.txt:945-962 argues that planning gains depend on execution environment, feedback quality, tool access, trajectory budgets, and benchmark design, and calls for long-horizon evaluation beyond final-pass accuracy.",
+    "data/papers/fulltext/arxiv-2605.18747.txt:1173-1180 makes the parallel point for memory: reported gains depend on evaluation reliability, test sufficiency, log parsing, contamination, and whether memory keeps agents grounded and verifiable.",
+    "data/papers/fulltext/arxiv-2605.18747.txt:1360-1374 describes the Plan-Execute-Verify loop and deterministic sensors such as linters, compilers, type checkers, tests, static analyzers, fuzzers, monitors, and CI as harness control surfaces.",
+    "data/papers/fulltext/arxiv-2605.18747.txt:1572-1587 motivates multi-agent code harnesses by context-window limits, specialization needs, and missing independent verification channels, then frames shared code artifacts as the substrate for planning, acting, verifying, and improvement.",
+    "data/papers/fulltext/arxiv-2605.18747.txt:2072-2077 identifies the central gap that most systems lack a formal shared harness substrate and rely on natural-language reasoning about code quality.",
+    "data/papers/fulltext/arxiv-2605.18747.txt:2139-2155 says many surveyed systems operate without explicit shared-harness representations and warns that code-mediated channels still trade off fidelity, latency, scope, authority, and consistency.",
+    "data/papers/fulltext/arxiv-2605.18747.txt:2156-2167 gives a nuanced view of execution feedback: objective signals matter, but simulated reasoning can sometimes predict outcomes, so mature harnesses should combine fast linguistic reasoning with execution oracles for failure modes that require it.",
+    "data/papers/fulltext/arxiv-2605.18747.txt:2171-2180 says no surveyed system fully unifies repository-based static structure and execution-based dynamic behavior into a single harness substrate.",
+    "data/papers/fulltext/arxiv-2605.18747.txt:2248-2260 introduces the five application domains and names evaluation, verification, safety, coordination, multimodal grounding, and harness evolution as common unresolved challenges.",
+    "data/papers/fulltext/arxiv-2605.18747.txt:2801-2824 explains harness-level evaluation and oracle adequacy, arguing that end-task success conflates model capability, harness quality, tools, feedback, and environment difficulty.",
+    "data/papers/fulltext/arxiv-2605.18747.txt:2825-2852 warns that executable feedback can create a false sense of correctness and calls for scoped verification stacks, evidence bundles, and epistemically aware feedback.",
+    "data/papers/fulltext/arxiv-2605.18747.txt:2853-2884 discusses self-evolving harnesses and the need for change contracts, held-out regression suites, safety invariants, rollback semantics, and separating harness improvements from base-model improvements.",
+    "data/papers/fulltext/arxiv-2605.18747.txt:3004-3014 concludes that the object of study should be the full closed-loop system of context, memory, tools, execution, feedback, safety, coordination, and evaluation."
+  ]
+}

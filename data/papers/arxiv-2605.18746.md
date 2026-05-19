@@ -1,0 +1,22 @@
+# ESI-Bench: Towards Embodied Spatial Intelligence that Closes the Perception-Action Loop
+
+## Metadata
+- Paper ID: arxiv-2605.18746
+- Source: arxiv
+- Source ID: 2605.18746
+- Authors: Yining Hong, Jiageng Liu, Han Yin, Manling Li, Leonidas Guibas, Li Fei-Fei, Jiajun Wu, Yejin Choi
+- Published: 2026-05-18T17:59:02Z
+- Updated: 2026-05-18T17:59:02Z
+- Categories: cs.CV, cs.AI, cs.CL, cs.LG, cs.RO
+- Source signals: arxiv_recent
+- Triage decision: advance_to_review
+- Triage rationale: This looks like a substantive benchmark paper with a clear problem setting, broad task coverage, and experimental comparisons against strong baselines. The abstract also suggests an interesting mismatch between 2D/3D grounding, action choice, and human-like metacognition, which should make it valuable to review and discuss.
+- Research score estimate: 7.8
+- Podcast score estimate: 8.4
+- Local PDF path: data/papers/pdfs/arxiv-2605.18746.pdf
+- Full text path: data/papers/fulltext/arxiv-2605.18746.txt
+- Abstract URL: https://arxiv.org/abs/2605.18746
+- PDF URL: https://arxiv.org/pdf/2605.18746
+
+## Abstract
+Spatial intelligence unfolds through a perception-action loop: agents act to acquire observations, and reason about how observations vary as a function of action. Rather than passively processing what is seen, they actively uncover what is unseen - occluded structure, dynamics, containment, and functionality that cannot be resolved from passive sensing alone. We move beyond prior formulations of spatial intelligence that assume oracle observations by recasting the observer as an actor. We introduce ESI-BENCH, a comprehensive benchmark for embodied spatial intelligence spanning 10 task categories and 29 subcategories built on OmniGibson, grounded in Spelke's core knowledge systems. Agents must decide what abilities to deploy - perception, locomotion, and manipulation - and how to sequence them to actively accumulate task-relevant evidence. We conduct extensive experiments on state-of-the-art MLLMs and find that active exploration substantially outperforms passive counterparts, with agents spontaneously discovering emergent spatial strategies without explicit instructions, while random multi-view often adds noise rather than signal despite consuming far more images. Most failures stem not from weak perception but from action blindness: poor action choices lead to poor observations, which in turn drive cascading errors. While explicit 3D grounding stabilizes reasoning on depth-sensitive tasks, imperfect 3D representation proves more harmful than 2D baselines by distorting spatial relations. Human studies further reveal that unlike humans who seek falsifying viewpoints and revise beliefs under contradiction, models commit prematurely with high confidence regardless of evidence quality, exposing a metacognitive gap that neither better perception nor more embodied interaction alone can close.

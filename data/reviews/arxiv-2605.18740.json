@@ -1,0 +1,68 @@
+{
+  "paper_id": "arxiv-2605.18740",
+  "one_line_claim": "Vision-OPD claims that an MLLM can internalize the benefit of zooming by distilling its own crop-conditioned next-token distributions into its full-image policy on on-policy rollouts, improving fine-grained visual benchmarks without external teachers, labels, verifiers, or inference-time tools.",
+  "what_they_tested": "They synthesize 6.2K full-image/crop/question triplets from small detected regions, train Qwen3.5-4B and Qwen3.5-9B with crop-conditioned self-teacher supervision over full-image student rollouts, and evaluate on V* Bench, ZoomBench, HR Bench 4K/8K, MME-RealWorld Lite/CN, plus holdout MMVP, CV-Bench, MMStar, and POPE. They compare against larger open-source models, closed-source models, agentic zooming systems, and same-data training baselines including SFT on self-teacher, GRPO, DAPO, and OPSD.",
+  "strongest_point": "The experimental design targets a real and measurable failure mode: the same model does much better on evidence-centered crops than full images, and Vision-OPD directly attacks that regional-to-global gap while comparing against both inference-time zoom agents and alternative post-training objectives on the same Qwen3.5 backbones.",
+  "weakest_point": "The headline comparisons are stronger than the evidence warrants because the training data, evaluation tasks, and baseline framing all revolve around boxed/cropped fine-grained multiple-choice perception; there is little proof that the learned behavior transfers to unmarked real-world images where the model must localize evidence without an explicit red box or benchmark-style answer options.",
+  "missing_baselines": [
+    "A simple supervised baseline trained on the same full-image inputs with generated answer labels only, separate from crop-conditioned SFT, to isolate whether gains come from OPD or just exposure to boxed fine-grained examples.",
+    "A baseline that uses the same synthetic questions but only overlays the red box at inference/training without crop-teacher distillation, to quantify the value of the crop teacher beyond spatial prompting.",
+    "A region-crop augmentation baseline where the model is trained on both crop and full-image views with ordinary cross-entropy on generated labels.",
+    "A training-free high-resolution or tiling baseline on the exact Qwen3.5-4B/9B backbones, since the claimed advantage is internalizing zooming rather than using more pixels differently.",
+    "A compute-matched RL/SFT baseline with the same number of model forward passes and generated tokens as OPD, because token-level distribution matching may be buying more supervision/compute than the objective comparison suggests.",
+    "A localization-required evaluation baseline with no bounding-box overlay in the prompt, to test whether Vision-OPD learns to find evidence or mainly learns to exploit marked regions."
+  ],
+  "missing_ablations": [
+    "Training-data scale and composition: 6.2K examples are used, but the paper does not show learning curves over substantially smaller/larger datasets or different source-image distributions.",
+    "Bounding-box dependence: remove the red box, vary box color/thickness, use noisy boxes, or evaluate with natural referring expressions to test whether improvements are tied to synthetic box cues.",
+    "Crop quality dependence: perturb crop tightness, include distractor regions, or use detector/segmenter errors to measure robustness of the privileged teacher signal.",
+    "Question-generator and answer-generator dependence: vary the MLLM used to synthesize questions and labels, and audit whether benchmark leakage or generator style affects results.",
+    "Top-K sensitivity beyond K=100 and the tail-mass claim, including full-vocabulary distillation on a small run and smaller K values for memory/performance tradeoffs.",
+    "EMA coefficient and teacher update schedule sensitivity; the paper reports only alpha=0.05 for EMA/trust-region comparisons.",
+    "Backbone generality beyond Qwen3.5-4B/9B; the method is presented broadly for MLLMs but only trained on one model family.",
+    "Free-form answer and open-vocabulary settings, since most reported benchmarks are multiple choice and may understate calibration or hallucination failures."
+  ],
+  "red_flags": [
+    "The paper repeatedly says no ground-truth labels are required, but it still uses Qwen3.5-397B-generated labels for competing SFT/RL/OPSD baselines; those baselines may be disadvantaged or advantaged by the quality and format of generated labels rather than by the objective alone.",
+    "The training pipeline relies on object recognition/segmentation, synthetic question generation, box overlays, crop-resize operations, and majority-consensus filtering, yet the paper gives limited detail on image sources, detector quality, question diversity, or manual data audits.",
+    "The strongest table claims Vision-OPD-9B beats Gemini-3.1-Pro and much larger open-source models, but the margin over Gemini is only 0.96 average points and is concentrated in the selected fine-grained benchmark mix.",
+    "Some results are uneven: Vision-OPD-9B trails Gemini-3.1-Pro on HR Bench 4K, HR Bench 8K, MME-RealWorld CN, and nearly ties MME-RealWorld Lite, so the broad 'superior to closed-source models' wording is too sweeping.",
+    "The paper does not report statistical uncertainty, confidence intervals, bootstrap tests, or per-question significance for the benchmark improvements.",
+    "The regional-to-global gap analysis is persuasive conceptually but is measured on ZoomBench-style crop comparisons; it may partly reflect the benchmark's construction rather than a universal MLLM bottleneck.",
+    "The method's practical cost is under-discussed: on-policy rollouts plus teacher/student logit evaluation over up to 1024 tokens and top-K distillation may be expensive even if inference is single-pass.",
+    "The claimed compatibility with arbitrary image corpora is not established unless the object/segmentation/question pipeline reliably finds small evidence regions and produces answerable, unambiguous questions across domains."
+  ],
+  "positive_signals": [
+    "The regional-vs-global diagnostic is clear and useful: regional inputs outperform full-image inputs by 18-22 points across Qwen3.5-4B/9B, GLM-4.6V, GPT-5.4, and Gemini-3.1-Pro.",
+    "The method is technically coherent: same backbone, different visual conditioning, student on-policy prefixes, stop-gradient crop teacher, and dense per-token distribution matching.",
+    "Same-data comparisons against SFT, GRPO, DAPO, and OPSD are more informative than only comparing against unrelated frontier models.",
+    "Holdout evaluations on MMVP, CV-Bench, MMStar, and POPE suggest the fine-grained specialization does not obviously destroy general multimodal behavior.",
+    "Teacher-regularization ablation catches an important instability: using the current policy as the teacher collapses, while frozen/EMA teachers work.",
+    "The paper includes meaningful objective ablations: forward KL vs reverse KL vs JSD, 512 vs 1024 rollout length, and sampled-token vs top-K logit distillation.",
+    "The inference-speed appendix at least checks the practical motivation against agentic zooming baselines on ZoomBench.",
+    "The qualitative failure case is concrete: the baseline admits it cannot see a small boat number and guesses, while Vision-OPD recovers the visual detail."
+  ],
+  "research_score": 7.1,
+  "podcast_score": 7.4,
+  "overclaim_score": 6.8,
+  "replication_interest": 7.8,
+  "verdict": "Worth covering, with a skeptical frame. The paper has a strong hook for Paper Radio: can a model teach itself to use the visual details it already recognizes when zoomed in? The answer is plausibly yes for boxed, benchmark-style fine-grained perception, and the ablations make the method more than a one-table trick. The critique should focus on whether this is true visual attention/localization or mostly distillation from synthetic crop-and-box supervision, and on whether the closed-source/larger-model comparisons oversell a narrow benchmark win.",
+  "citations": [
+    "data/papers/arxiv-2605.18740.md:1-24 gives the title, metadata, abstract, paper inputs, and the claim that Vision-OPD transfers crop-conditioned perception to full-image inference without external teachers, labels, verifiers, or inference-time tools.",
+    "data/papers/fulltext/arxiv-2605.18740.txt:10-27 states the abstract claim: regional-to-global gap, crop-conditioned teacher, full-image student, on-policy rollouts, token-level divergence, and competitive results against larger/open/closed/agentic models.",
+    "data/papers/fulltext/arxiv-2605.18740.txt:72-101 lays out the motivation, differentiates SFT/RL/OPD, and claims 6.2K synthetic training examples let 4B/9B models beat larger and closed-source models while preserving holdout ability.",
+    "data/papers/fulltext/arxiv-2605.18740.txt:180-186 reports the regional-input advantage on ZoomBench: regional accuracy exceeds global accuracy by 18-22 points across multiple MLLMs, including closed-source models.",
+    "data/papers/fulltext/arxiv-2605.18740.txt:224-243 describes the synthetic triplet construction: object recognition/segmentation, small-region filtering, MLLM question generation, red-box grounding, 2x crop resize, Qwen3.5-397B answer generation for comparison baselines, and 6.2K samples.",
+    "data/papers/fulltext/arxiv-2605.18740.txt:245-316 describes the core method: crop-conditioned teacher and full-image student from the same model, student on-policy rollouts, per-token divergence, stop-gradient teacher, and dense supervision without labels/verifiers.",
+    "data/papers/fulltext/arxiv-2605.18740.txt:319-326 gives training settings: Qwen3.5-4B/9B, JSD beta=0.5, top-K=100 distillation, EMA teacher, max generation length 1024, and one epoch.",
+    "data/papers/fulltext/arxiv-2605.18740.txt:331-378 lists the main benchmark suite and baselines, including V* Bench, ZoomBench, HR Bench, MME-RealWorld, holdout tasks, agentic models, closed-source models, open-source models, and same-data SFT/RL/OPSD baselines.",
+    "data/papers/fulltext/arxiv-2605.18740.txt:337-357 reports the central SOTA comparison: Vision-OPD-4B average 73.83 and Vision-OPD-9B average 75.70 versus Gemini-3.1-Pro 74.74, Qwen3.5-397B 72.54, and Qwen3.5-9B 69.16.",
+    "data/papers/fulltext/arxiv-2605.18740.txt:385-403 reports same-backbone training-strategy comparisons and holdout scores; Vision-OPD beats SFT, GRPO, DAPO, and OPSD on the fine-grained tasks and mostly preserves holdout metrics.",
+    "data/papers/fulltext/arxiv-2605.18740.txt:404-411 and 455-466 report the teacher-regularization ablation: current-policy teacher collapses to 0.51 average, frozen initial teacher reaches 75.43, and EMA reaches 75.70.",
+    "data/papers/fulltext/arxiv-2605.18740.txt:438-453 reports objective ablations: JSD beats forward/reverse KL, 1024-token rollouts beat 512, and top-K logits distillation beats sampled-token distillation.",
+    "data/papers/fulltext/arxiv-2605.18740.txt:497-533 describes the regional-to-global gap tracking during training and claims Vision-OPD ends with a smaller gap than larger or closed-source models.",
+    "data/papers/fulltext/arxiv-2605.18740.txt:781-800 gives the inference-speed comparison against DeepEyes, Thyme, DeepEyesV2, and SenseNova-MARS and states Vision-OPD-9B is fastest on ZoomBench.",
+    "data/papers/fulltext/arxiv-2605.18740.txt:801-847 provides benchmark prompts, showing the evaluations are largely multiple-choice or short-answer formats.",
+    "data/papers/fulltext/arxiv-2605.18740.txt:848-858 gives the qualitative boat-number case where Qwen3.5 guesses while Vision-OPD identifies answer C, 15."
+  ]
+}

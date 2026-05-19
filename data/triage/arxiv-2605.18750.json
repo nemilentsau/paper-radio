@@ -1,0 +1,22 @@
+{
+  "paper_id": "arxiv-2605.18750",
+  "title": "A Readiness-Driven Runtime for Pipeline-Parallel Training under Runtime Variability",
+  "core_claim": "The paper proposes RRFP, a readiness-driven runtime for pipeline-parallel training that treats schedules as non-binding hints and dispatches currently ready work to reduce idle bubbles under runtime variability.",
+  "triage_rationale": "This looks like a substantive systems contribution with a clear technical mechanism and evaluation at scale, so it is worth review. The topic is also likely useful for Paper Radio because it combines distributed training performance, runtime scheduling, and multimodal workload behavior.",
+  "topic_tags": [
+    "distributed training",
+    "pipeline parallelism",
+    "systems",
+    "scheduling",
+    "runtime variability",
+    "large language models"
+  ],
+  "likely_red_flags": [
+    "Performance claims rely on the paper's own benchmark setup and comparisons against specific baselines",
+    "The abstraction depends on readiness-driven scheduling, which may be framework- and implementation-specific",
+    "Affiliations are a weak positive signal but do not validate the reported speedups"
+  ],
+  "research_score_estimate": 7.8,
+  "podcast_score_estimate": 7.1,
+  "decision": "queue_for_review"
+}

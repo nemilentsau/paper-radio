@@ -1,0 +1,22 @@
+{
+  "paper_id": "arxiv-2605.18753",
+  "title": "DashAttention: Differentiable and Adaptive Sparse Hierarchical Attention",
+  "core_claim": "DashAttention replaces fixed top-k sparse attention with an adaptive, differentiable alpha-entmax-based hierarchy that chooses a variable number of KV blocks and claims better long-context efficiency, including strong sparsity-speed tradeoffs.",
+  "triage_rationale": "This looks like a technically substantive long-context attention paper with a clear algorithmic contribution and plausible systems angle, so it is worth review. The abstract is still self-asserted on key claims like non-dispersiveness and speedup, so it should be queued rather than auto-advanced.",
+  "topic_tags": [
+    "long-context",
+    "attention",
+    "sparse-attention",
+    "transformers",
+    "llm-efficiency",
+    "systems"
+  ],
+  "likely_red_flags": [
+    "Performance and speedup claims are only from the abstract and may depend heavily on setup",
+    "Likely incremental relative to existing hierarchical sparse attention methods",
+    "No clear evidence in the abstract of broad evaluation beyond long-context LLM settings"
+  ],
+  "research_score_estimate": 7.2,
+  "podcast_score_estimate": 6.4,
+  "decision": "queue_for_review"
+}

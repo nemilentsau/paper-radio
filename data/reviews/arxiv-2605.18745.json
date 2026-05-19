@@ -1,0 +1,69 @@
+{
+  "paper_id": "arxiv-2605.18745",
+  "one_line_claim": "SURGE claims to make diffusion-surrogate data assimilation approximation-free by using guided diffusion trajectories only as proposals, then correcting them with Girsanov path weights and SMC resampling at inference time.",
+  "what_they_tested": "They plug SURGE into SDA and FlowDAS-style diffusion/flow data-assimilation backbones and evaluate on Lorenz 1963 partial observation, 2D forced Navier-Stokes super-resolution and sparse recovery, and SEVIR VIL weather forecasting. Metrics include RMSE, W1, kinetic energy spectrum relative error, CSI at weather thresholds, ESS diagnostics, a small guidance-vs-plain-diffusion ESS ablation, and Lorenz ablations removing reward or Girsanov guidance terms.",
+  "strongest_point": "The core framing is coherent and useful: approximate likelihood guidance is treated as a proposal on diffusion-time path space, and the paper explicitly derives the Radon-Nikodym/Girsanov correction needed to target the observation-tilted posterior rather than pretending the guided sampler is exact.",
+  "weakest_point": "The headline 'approximation-free' and 'outperforms all baselines' language is too strong for the evidence: the actual algorithm is finite-particle, self-normalized, Euler-discretized SMC using very small particle counts and sensitive hyperparameters, and several reported tables show SURGE variants or even FlowDAS+SURGE failing to dominate all baselines on every metric.",
+  "missing_baselines": [
+    "Compute-matched FlowDAS and SDA ensembles with the same number of generated trajectories, particles, and diffusion steps as SURGE, since the reported FlowDAS AVG rows are often close to SURGE and may explain part of the gain.",
+    "A standard auxiliary/regularized particle filter or ensemble transform particle filter using the learned diffusion surrogate, not only BPF with N=20 and EnKF.",
+    "A guided proposal with terminal likelihood reweighting but without intermediate resampling, to isolate the value of path-space resampling from ordinary importance sampling.",
+    "A plain diffusion surrogate plus SMC reweighting at matched particle count across all main metrics, not only an ESS subset ablation.",
+    "Runtime-normalized baselines, especially for weather where SURGE reports about 100 seconds per time step.",
+    "Stronger operational weather/data-assimilation baselines beyond diffusion-model papers, at least for SEVIR VIL where EnKF and BPF are weak reference points."
+  ],
+  "missing_ablations": [
+    "Particle-count scaling for accuracy and cost: the paper reports N=3 or N=4 for main SURGE experiments but does not show metric curves over N.",
+    "Sensitivity to resampling threshold, guidance strength, diffusion coefficient, Euler-Maruyama step count, and likelihood temperature; the conclusion admits sensitivity but the main evidence is limited.",
+    "Discretization bias from the Euler-Maruyama approximation to the Girsanov integral, despite using 'approximation-free' language.",
+    "Resampling scheme comparison: multinomial versus systematic, stratified, residual, or transport resampling.",
+    "Robustness to observation noise levels and observation sparsity percentages beyond the chosen Lorenz x-only, Navier-Stokes 5%, and SEVIR 10% settings.",
+    "Base-model quality dependence across more than one pretrained surrogate per task; the appendix itself shows SURGE can overshoot when the Lorenz proposal is unstable.",
+    "Posterior calibration or distributional coverage, not just posterior-mean RMSE/CSI, since the method is presented as posterior-correct SMC."
+  ],
+  "red_flags": [
+    "The title/abstract metadata and paper text are inconsistent: the markdown abstract says URGE, derivative-free, no score/gradient, and diffusion benchmarks broadly, while the full paper is SURGE for data assimilation and Algorithm 1 explicitly uses a gradient guidance term.",
+    "The proof supports asymptotic exactness of a continuous-time importance sampler under Novikov and absolute-continuity assumptions, but the practical claims slide into 'approximation-free' for a finite-particle, self-normalized, discretized algorithm.",
+    "The paper repeatedly says SURGE outperforms all baselines, but Table 3 shows SDA+SURGE has CSI(τ20)=0.4089, below BPF 0.4146 and EnKF 0.4970; Table 5 shows FlowDAS+SURGE on Navier-Stokes sparse recovery has KES-RE 0.278, worse than SDA 0.231 and SDA+SURGE 0.207.",
+    "Main SURGE results use only N=3 particles for Lorenz and N=4 for Navier-Stokes/weather, which makes the posterior-correctness story fragile and puts heavy weight on favorable proposal guidance.",
+    "Weather evaluation relies on official FlowDAS pretrained weights because retraining from open-source code did not converge acceptably; this is understandable but weakens claims about reproducibility and controlled comparisons.",
+    "The method is not clearly cheaper in practice: reported inference is about 30 seconds per Lorenz step and 100 seconds per weather step, while the paper still frames SURGE as an inference-time enhancement without fully accounting for cost.",
+    "Several parts of the text contain mathematical and presentation errors or ambiguities, including inconsistent noise levels for Lorenz process noise, malformed likelihood notation in the gradual update, and 'approximation-free approximation' phrasing.",
+    "The authors' own appendix documents a failure mode where SURGE can amplify proposal instability near Lorenz x≈0 through aggressive reweighting and overshooting."
+  ],
+  "positive_signals": [
+    "The path-measure proposal-correction formulation is mathematically natural and gives a clear target distribution: terminal observation likelihood times the uncontrolled diffusion-surrogate path measure.",
+    "The paper evaluates on three qualitatively different dynamical settings: low-dimensional chaotic ODEs, high-dimensional fluid vorticity, and real-world radar/weather imagery.",
+    "SURGE is tested as a plug-in improvement on both SDA and FlowDAS backbones, rather than only as a standalone method.",
+    "The main FlowDAS+SURGE rows improve over FlowDAS on the headline metrics in Lorenz, Navier-Stokes super-resolution/sparse RMSE, and SEVIR RMSE/CSI.",
+    "The appendix includes useful diagnostics that many method papers omit: ESS under N=4 and N=100, guidance-vs-DM ESS ablation, failure-case analysis, and component ablations for reward and guidance terms.",
+    "The limitation discussion is more candid than the abstract: it admits dependence on base-model quality, high variance under bad proposals, ensemble smoothing in Navier-Stokes, and hyperparameter sensitivity.",
+    "Using the same FlowDAS guidance mechanism and pretrained models attempts to isolate SURGE as an inference-time correction rather than a retraining contribution."
+  ],
+  "research_score": 6.4,
+  "podcast_score": 7.0,
+  "overclaim_score": 8.2,
+  "replication_interest": 7.2,
+  "verdict": "Worth covering if framed as a promising but overclaimed SMC-correction paper, not as a solved 'approximation-free' data-assimilation method. The podcast angle is strong because the paper sits at the intersection of diffusion guidance, particle filters, digital twins, and the recurring gap between asymptotic correctness and practical finite-compute behavior. The strongest critique is simple: SURGE's math is a valid importance-sampling story, but the empirical package needs compute-matched ensembles, particle-scaling curves, calibration tests, and cleaner claims before the universal approximation-free language is justified.",
+  "citations": [
+    "data/papers/arxiv-2605.18745.md:1-28 gives the metadata and abstract, including the inconsistent URGE/SURGE naming and the claim of derivative-free, no-score, no-gradient inference-time scaling.",
+    "data/papers/fulltext/arxiv-2605.18745.txt:13-32 states the main data-assimilation claim: diffusion surrogate forecasts are corrected with particle weights and resampling to produce an approximation-free particle filtering method.",
+    "data/papers/fulltext/arxiv-2605.18745.txt:135-157 motivates SURGE as particle filtering over diffusion trajectories with Girsanov change-of-measure and progressive likelihood incorporation.",
+    "data/papers/fulltext/arxiv-2605.18745.txt:421-439 gives Algorithm 1, where propagation explicitly uses Σ(sk)∇xG guidance and the incremental weight contains the Girsanov correction terms.",
+    "data/papers/fulltext/arxiv-2605.18745.txt:504-615 derives the path-space importance weight correcting guided trajectories toward the posterior path measure.",
+    "data/papers/fulltext/arxiv-2605.18745.txt:621-688 describes gradual likelihood incorporation and Euler-Maruyama discretization, which are practical approximations behind the claimed method.",
+    "data/papers/fulltext/arxiv-2605.18745.txt:690-760 reports the Lorenz setup and Table 1: FlowDAS+SURGE improves RMSE/W1 to 0.0502/0.0363 versus FlowDAS 0.0545/0.0388.",
+    "data/papers/fulltext/arxiv-2605.18745.txt:779-830 describes the Navier-Stokes dataset, 128^2 reconstruction tasks, 5% sparse observations, 4x temporal downsampling, and RMSE/KES-RE metrics.",
+    "data/papers/fulltext/arxiv-2605.18745.txt:948-959 reports Navier-Stokes Table 2, including FlowDAS+SURGE gains but also sparse-recovery KES-RE where SDA and SDA+SURGE beat FlowDAS+SURGE.",
+    "data/papers/fulltext/arxiv-2605.18745.txt:848-899 describes the SEVIR VIL weather task, 10% sparse grid observations, L=6 history, t+10min prediction, and CSI/RMSE metrics.",
+    "data/papers/fulltext/arxiv-2605.18745.txt:967-972 reports Weather Table 3, where FlowDAS+SURGE is best overall but SDA+SURGE does not beat EnKF or BPF on CSI(τ20).",
+    "data/papers/fulltext/arxiv-2605.18745.txt:1261-1466 provides the appendix proof: Girsanov correction yields asymptotic exactness under assumptions, likelihood factorization telescopes, and resampling preserves expectations conditionally.",
+    "data/papers/fulltext/arxiv-2605.18745.txt:1539-1546 says the weather experiment used official FlowDAS pretrained weights because retraining from the open-source code did not converge acceptably.",
+    "data/papers/fulltext/arxiv-2605.18745.txt:1567-1589 gives implementation details and hyperparameters, including FlowDAS gradient guidance, reward residuals, N=3 or N=4 particles, ESS thresholds, and Euler-Maruyama step counts.",
+    "data/papers/fulltext/arxiv-2605.18745.txt:1691-1705 documents the Lorenz failure case where proposal instability near x≈0 causes high-variance estimates and overshooting.",
+    "data/papers/fulltext/arxiv-2605.18745.txt:1707-1722 reports ESS diagnostics and guidance-vs-DM ESS ablation, showing proposal guidance is central to avoiding collapse.",
+    "data/papers/fulltext/arxiv-2605.18745.txt:1731-1740 discusses ensemble smoothing in Navier-Stokes and the trade-off between particle averaging and high-frequency flow detail.",
+    "data/papers/fulltext/arxiv-2605.18745.txt:1756-1808 reports Lorenz component ablations: SURGE 0.0502 RMSE versus 0.0647 without reward and 0.0608 without guidance.",
+    "data/papers/fulltext/arxiv-2605.18745.txt:1822-1831 reports computational resources and inference time: about 30 seconds per Lorenz step, 0.5 seconds per Navier-Stokes step, and 100 seconds per weather step."
+  ]
+}

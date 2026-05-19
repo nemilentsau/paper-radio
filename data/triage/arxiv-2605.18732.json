@@ -1,0 +1,21 @@
+{
+  "paper_id": "arxiv-2605.18732",
+  "title": "Predictable Confabulations: Factual Recall by LLMs Scales with Model Size and Topic Frequency",
+  "core_claim": "Factual recall in LLMs appears to follow a sigmoid relationship with a log-linear combination of model size and topic frequency in training data, with those variables explaining a substantial share of variance across models and families.",
+  "triage_rationale": "The abstract proposes a concrete scaling relationship for factual recall and reports evaluation across many models and references, which makes it methodologically interesting and potentially useful for comparison. It is also likely to be a good episode topic because the claim is simple, testable, and directly relevant to LLM behavior, even though the evidence is only from the abstract at this stage.",
+  "topic_tags": [
+    "large-language-models",
+    "scaling-laws",
+    "factual-recall",
+    "training-data",
+    "evaluation"
+  ],
+  "likely_red_flags": [
+    "Automated reference verification may introduce measurement noise or systematic bias.",
+    "The claims depend on topic-frequency estimates from training data, which may be hard to validate and may confound model family differences.",
+    "High explanatory variance within families may not generalize across architectures or data regimes."
+  ],
+  "research_score_estimate": 7.8,
+  "podcast_score_estimate": 8.2,
+  "decision": "advance_to_review"
+}

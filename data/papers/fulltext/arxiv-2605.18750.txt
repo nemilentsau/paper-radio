@@ -1,0 +1,3322 @@
+A Readiness-Driven Runtime for Pipeline-Parallel
+Training under Runtime Variability
+Ruitao Liu1 Xinyang Tian1 Shuo Chen1 Tingrui Zhang1
+Guang Yang1 Alan Zhao2 Wei Xu1
+1Tsinghua University 2Scitix AI
+{liurt23,tianxy22,s-chen25,zhang-tr22,yangg22}@mails.tsinghua.edu.cn
+Alan02@scitix.ai, weixu@tsinghua.edu.cn
+Key insight: Apply the hint order 
+only after readiness filtering.
+Runtime-Readiness First
+External schedule
+(hint order) of rank 1
+Ready set of rank 1
+(available now)
+F4
+B1 is preferred but unavailable → 
+dispatch F4; recheck, then F5; ...
+b)B1,B2,...
+f) F4,F5,...
+F4 F5
+...
+F6 F7
+Pre-Committed Order Pipeline
+Next scheduled step is B1, 
+but its input has not arrived.
+F4Forward microbatches such as F4 and F5 are already 
+ready for rank 1, but pre-committed order execution 
+still waits for B1, leading to pipeline bubbles.
+Time
+Rank 1 F1
+Rank 2 F2
+Rank 3
+BubbleF1
+F2
+F1
+F3
+F2
+B1
+Bubble
+F2
+B1
+B2
+F3
+Time
+Time
+B1
+Runtime-Readiness-First Pipeline (RRFP)
+F4
+Instead of waiting for B1, run 
+ready work: F4, then F5, ...
+Up to 1.77× faster on language-only workloads.
+Up to 2.77× faster on multimodal workloads.
+vs. fixed-order 1F1B baseline
+Time
+Rank 1 F1
+Rank 2 F2
+Rank 3
+F1
+F2
+F1
+F3
+F2
+B1 F2
+B1
+B2
+F3
+Time
+Time
+B1F4 F5 F6
+F4 F5
+F7
+End Loop
+Start Loop
+No Backward
+Figure 1. RRFP overview.RRFP treats a pre-committed pipeline schedule as a non-binding hint order over currently ready
+work rather than as an execution sequence to wait for. By skipping unavailable tasks and dispatching ready work, RRFP
+reduces bubbles and stage misalignment, improving end-to-end training performance over fixed-order 1F1B by up to 1.77× on
+language-only workloads and 2.77×on multimodal workloads when using the BFW hint.
+Abstract
+Pipeline parallelism is a key technique for scaling large-
+model training, but modern workloads exhibit runtime vari-
+ability in computation and communication. Existing pipeline
+systems typically consume static, profiled, or adaptively gen-
+erated schedules as pre-committed execution orders. When
+realized task readiness diverges from the pre-committed or-
+der, stages may wait for not-yet-ready work even though
+other executable work is available, creating stage misalign-
+ment, idle bubbles, and reduced utilization.
+We present Runtime-Readiness-First Pipeline (RRFP), a
+readiness-driven runtime for pipeline-parallel training. RRFP
+changes how schedules are consumed at runtime: instead
+of treating a schedule as a sequence that stages must wait
+to follow, it treats the schedule as a non-binding hint order
+for ranking currently ready work. To support this model,
+RRFP combines message-driven asynchronous communica-
+tion, lightweight tensor-parallel coordination for collective
+consistency, and ready-set arbitration for low-overhead dis-
+patch.
+We implement RRFP in a Megatron-based training frame-
+work and evaluate it on language-only and multimodal work-
+loads at up to 128 GPUs. RRFP improves over fixed-order
+pipeline baselines across all settings. Using the BFW hint,
+RRFP achieves up to 1.77× speedup on language-only work-
+loads and up to 2.77 × on multimodal workloads. In cross-
+framework comparisons, RRFP with the default BF hint out-
+performs the faster available external system by up to 1.84×
+while preserving training correctness.
+Keywords:pipeline parallelism, distributed training, run-
+time systems, readiness-driven execution, asynchronous com-
+munication, large-model training, multimodal training
+1 Introduction
+Large-scale distributed training has become the standard ap-
+proach for training modern deep learning models [2, 17, 24–
+26, 30, 42, 43, 47], especially large language and multimodal
+models [1, 3–6, 14] that exceed the memory and compute ca-
+pacity of a single device, making distributed execution neces-
+sary. Among various parallelization strategies,pipeline par-
+allelismis a key technique for scaling such models across
+multiple accelerators [18, 20, 23, 29, 36, 56].
+However, modern distributed training workloads exhibit
+runtime variability in both computation and communica-
+tion. Factors such as computation and communication jitter
+introduce temporal variations that are difficult to predict,
+arXiv:2605.18750v1  [cs.DC]  18 May 2026
+
+especially at scale [ 45, 54]. In addition, model- and input-
+dependent execution can further amplify variation across mi-
+crobatches, particularly in multimodal pipelines [12, 48, 51].
+As a result, latency across pipeline stages and overall system
+performance evolve over time during execution.
+This dynamic behavior exposes a fundamental limitation
+in how pipeline execution is currently structured. Modern
+systems typically organize pipeline execution around an
+order chosen before the corresponding work is executed.
+Prior work has explored both offline profiling [12, 27, 48, 49]
+and online adaptation [15, 16, 21, 33, 50, 51, 53] to improve
+pipeline execution order. These techniques provide valuable
+scheduling signals and can effectively reduce bubbles when
+their assumptions match realized execution. However, exist-
+ing systems still ultimately produce or select an execution
+order that the runtime treats as apre-committed execution
+order: stages are expected to follow the chosen sequence
+during execution, even when readiness has changed.
+Under runtime variability, this pre-commitment becomes
+fragile. Task readiness can change at finer granularity than
+scheduling decisions, so the pre-committed order may be-
+come stale and inconsistent with realized execution. When
+this happens, stages may wait for not-yet-ready work even
+though other executable work is available, creating stage
+misalignment, idle bubbles, and reduced utilization. Thus,
+the limitation does not arise from any particular scheduling
+strategy, but from making a planned order a requirement
+for runtime progress. Even a short mismatch between the
+planned order and the current ready set can force a stage to
+idle despite available executable work.
+To decouple runtime progress from a fixed order chosen
+ahead of execution, we propose aruntime-readiness-firstde-
+sign. At each stage, the runtime first constructs the current
+ready set and uses a schedule only as a non-binding hint
+order to rank ready candidates. If a higher-ranked task is
+not ready, the runtime skips it and dispatches another ready
+task instead of waiting. The key change is not to compute
+a different schedule, but to change how schedules are con-
+sumed at runtime: schedule guidance is preserved without
+enforcing a planned fixed execution order, broadening the
+space of schedules usable as runtime hints.
+We instantiate this design with Runtime-Readiness-First
+Pipeline (RRFP), a runtime system for correct out-of-order
+pipeline execution based on task readiness. RRFP combines
+three mechanisms: message-driven asynchronous communi-
+cation decouples data transfer from the compute loop and
+updates ready buffers as messages arrive; lightweight tensor-
+parallel coordination preserves collective consistency when
+tensor-parallel ranks observe different ready sets; and ready-
+set arbitration scans the non-binding hint order over ready
+work and dispatches the selected task with low overhead. To-
+gether, these mechanisms preserve the benefits of schedule
+guidance when it matches realized readiness, while falling
+back to readiness-driven progress without blocking on stale
+choices.
+RRFP extends Megatron-LM [30] as a configurable runtime
+layer, without modifying model definitions or training work-
+flows. Our evaluation focuses on end-to-end performance,
+robustness to jitter, and runtime breakdown under dynamic
+execution conditions. This design lets existing schedules re-
+main useful when their predicted order matches realized
+readiness, while avoiding stalls when it does not. It therefore
+separates schedule quality from runtime progress.
+Contributions.Overall, this paper makes the following
+contributions:
+• We identify a mismatch between pipeline execution
+orders chosen ahead of time and realized task readiness
+under computation and communication variability.
+• We introduce RRFP, a readiness-driven runtime that
+decouples pipeline progress from fixed global execution
+sequences while consuming existing schedules as non-
+binding hint orders over the ready set.
+• We develop three mechanisms for correct, low-overhead
+out-of-order execution: message-driven communica-
+tion decouples data transfer from computation, tensor-
+parallel coordination preserves collective consistency,
+and ready-set arbitration dispatches ready work.
+• We show that RRFP improves end-to-end training per-
+formance. Using the BFW hint, RRFP achieves up to
+1.77× speedup on language-only workloads and up to
+2.77× on multimodal workloads over the fixed-order
+1F1B. In representative cross-framework comparisons,
+RRFP’s default BF configuration outperforms the faster
+applicable external baseline by up to 1.84×, while pre-
+serving training correctness.
+2 Characterizing Runtime Variability
+2.1 Runtime Variability Beyond Workload
+Dynamicity
+Execution time in distributed training is influenced by mul-
+tiple sources of variability. A substantial body of prior work
+emphasizesworkload dynamicity[ 41, 44, 50, 51], where input
+composition (e.g., sequence length or modality mix) changes
+per microbatch and leads to execution-time differences.
+In this paper, we focus on a complementary source that
+appears even when the workload is fixed:runtime variabil-
+ity, including kernel-level jitter, resource contention, and
+communication fluctuation [45, 54]. These effects introduce
+timing variation in both computation and communication
+under identical model and input settings.
+We show that this source of unpredictability challenges
+existing fixed-order approaches and is sufficient to disrupt
+pipeline execution, even under fixed configurations.
+Specifically, runtime variability leads to run-to-run differ-
+ences in computation and communication latency, which in
+2
+
+Sample 1 Sample 2 Sample 3 Sample 4
+25
+30
+35
+40
+45Latency (ms)
+(a) Forward Compute
+Sample 1 Sample 2 Sample 3 Sample 4
+10
+15
+20
+25Latency (ms)
+(b) Backward Compute
+Sample 1 Sample 2 Sample 3 Sample 4
+0
+10
+20
+30Latency (ms)
+(c) Comm to Next
+Sample 1 Sample 2 Sample 3 Sample 4
+0
+10
+20
+30Latency (ms)
+(d) Comm to Prev
+Figure 2. Run-to-run latency variability under identical
+training conditions.We repeat the same training proce-
+dure 300 times with the same model, input data, data order,
+hardware, pipeline configuration, and number of training
+iterations. We select 4 fixed samples and track them across
+all runs. Each boxplot summarizes the latency distribution
+of one tracked sample for one event type. Boxes span the
+interquartile range, from p25 to p75, with the center line in-
+dicating the median. Whiskers indicate p5 and p95 latencies.
+Expected Execution (Optimal)
+Under Runtime Variability (Suboptimal)
+Under Runtime Variability (Optimal)
+F1 F2
+F1 B1
+Stage 1
+Stage 2
+B1
+F2
+F3
+B2 F3
+B2
+B3
+B3
+Stage 1
+Stage 2
+F1 F2
+F1 B1
+B1
+F2
+F3
+B2 F3
+B2
+B3
+B3
+Stage 1
+Stage 2
+F1 F2
+F1 B1
+B1
+F2
+F3
+B2 F3
+B2
+B3
+B3
+Figure 3. Effect of runtime variability on execution
+decisions.A planned order can be favorable under expected
+timing but become suboptimal when realized timing changes.
+Here, scheduling B1 before F3 creates idle gaps under run-
+time variability, while dispatching the ready F3 task earlier
+better matches the realized state and reduces idle time.
+turn changes when tasks become ready and shifts favorable
+execution decisions. We characterize these effects below.
+2.2 Runtime Variability Changes Task Readiness
+To make the measurement concrete while isolating runtime
+variability from input and configuration changes, we repeat
+one fixed 1F1B training procedure 300 times under identical
+settings. The repeated runs use PP=8 and TP=1, and keep the
+model, input data, data order, hardware placement, pipeline
+configuration, number of training iterations, and 1F1B execu-
+tion order unchanged. We select four fixed samples and track
+the same samples across all runs. For each sample in each
+run, we record four event latencies: forward computation,
+backward computation, communication to the next pipeline
+stage, and communication to the previous pipeline stage.
+Therefore, the measured spread reflects run-to-run runtime
+effects rather than workload or configuration differences.
+Figure 2 shows that noticeable latency variation remains
+even under these fixed conditions. The spread appears across
+multiple samples and across both computation and com-
+munication events, showing that jitter is not limited to a
+particular sample or operation type. Quantitatively, the nor-
+malized p95–p5 spread, (𝑝95 −𝑝 5)/𝑝 50, reaches0.73for
+computation and58.74for communication, while the nor-
+malized interquartile spread, (𝑝75 −𝑝 25)/𝑝 50, reaches0.35
+for computation and50.80for communication.
+These results show that runtime variability persists even
+when the input data and execution context are fixed. This
+makes it fragile to treat profiled or estimated execution times
+as a hard basis for runtime ordering, motivating a runtime
+layer that can react to realized readiness.
+This variability matters because pipeline decisions depend
+critically on when tasks become ready. Figure 3 illustrates
+that an order favored under planned timing, such as sched-
+uling B1 before F3, can become suboptimal when runtime
+jitter changes realized timing. In the example, B1 takes longer
+than expected, so following the same committed order cre-
+ates idle gaps. Dispatching the ready F3 task earlier instead
+better matches the realized execution state and reduces idle
+time. Such local waiting can also delay neighboring stages,
+amplifying bubbles through pipeline dependencies.
+This motivates a runtime-readiness-first design. Instead of
+waiting for a planned task that is not yet ready, the runtime
+re-evaluates the ready set as execution state evolves.
+3 Method Overview
+3.1 Execution Model and Constraints
+We model pipeline execution within a training iteration as
+a dependency-constrained execution process over compu-
+tation tasks. For each task 𝑣, let 𝑠𝑣 and 𝑒𝑣 denote its start
+and end time, and let 𝑝𝑣 denote its execution time, such that
+𝑒𝑣 =𝑠 𝑣 +𝑝 𝑣. We use iteration completion time, or makespan,
+𝐶max =max
+𝑣∈𝑉
+𝑒𝑣,
+as the primary efficiency objective.
+A task can start only after all required predecessors have
+completed. These include inter-stage dependencies, where
+forward tasks depend on activations from the previous stage
+and backward tasks depend on gradients from the next stage,
+and intra-stage dependencies, where the backward task of a
+microbatch at a stage depends on its local forward task. We
+write these precedence constraints as
+𝑠𝑣 ≥𝑒 𝑢,∀(𝑢→𝑣) ∈𝐸,
+where 𝐸 denotes the set of dependency edges. Each pipeline
+stage can execute at most one task at a time, so tasks assigned
+to the same stage must be serialized.
+3
+
+This model exposes the runtime decision problem faced by
+each stage. At any point, only a subset of tasks is executable,
+and this ready set changes as computation finishes and mes-
+sages arrive. A fixed global order can therefore become in-
+consistent with the local ready set observed at runtime.
+3.2 RRFP Overview
+RRFP is a readiness-driven runtime for out-of-order pipeline-
+parallel training. Its core principle is readiness-first execu-
+tion: each stage makes progress on currently executable
+work, while correctness and communication are handled by
+runtime mechanisms rather than a globally fixed step order.
+This execution model introduces three runtime challenges:
+communication-order divergence across neighboring stages,
+collective-order divergence across tensor-parallel ranks, and
+frequent arbitration among ready microbatches. RRFP ad-
+dresses them with three corresponding mechanisms: (1) asyn-
+chronous message-based communication decouples data trans-
+fer from computation; (2) tensor-parallel coordination pre-
+serves collective consistency by coordinating only within
+each tensor-parallel group before collective-relevant compu-
+tation; and (3) ready-set arbitration dispatches executable
+work using simple priorities while allowing external sched-
+ules to act as non-binding hint orders. Figure 4 summarizes
+how these mechanisms interact at one pipeline stage. Sec-
+tions 4.1–4.2 describe the first two mechanisms for correct
+out-of-order execution, and Section 5 describes the arbitra-
+tion layer.
+4 Runtime Mechanisms for Correct
+Out-of-Order Execution
+RRFP enables stages to execute microbatches according to ob-
+served readiness rather than a globally fixed order. Section 4.1
+addresses communication-order divergence across neighbor-
+ing stages, and Section 4.2 addresses collective-order consis-
+tency across tensor-parallel ranks.
+4.1 Message-Driven Asynchronous Communication
+Communication challenge.Out-of-order pipeline exe-
+cution breaks the fixed send/receive order assumed by con-
+ventional pipeline communication. In a fixed schedule, neigh-
+boring stages issue sends and receives in the same predeter-
+mined microbatch order, so communication can be matched
+by sequence. Under readiness-driven execution, however,
+stages may progress on different microbatches. A sender
+may finish and issue transfers for several microbatches be-
+fore the receiver reaches the corresponding receives, or a
+receiver may wait for data whose sender is still computing.
+Low-level communication stacks can move data efficiently,
+but the runtime must still match each activation or gradi-
+ent to the correct microbatch and update readiness when
+messages arrive out of order. If the runtime instead waits for
+sends and receives in a predetermined sequence, such order
+divergence can cause stalls or deadlocks.
+Message-driven model.RRFP decouples data transfer
+from the compute loop with a message-driven communica-
+tion model. When a forward or backward task completes, the
+produced tensor is submitted as a message carrying the mi-
+crobatch identifier and direction. Receivers use this metadata
+to route out-of-order arrivals into per-microbatch buffers. A
+forward task becomes ready when its activation arrives from
+the previous stage. A backward task becomes ready only af-
+ter the corresponding local forward task has completed and
+the gradient from the next stage has arrived. Thus, message
+arrival directly updates the local ready set.
+Runtime implementation.RRFP implements the C++
+communication backend with dedicated send and receive
+threads. At each pipeline stage, the runtime consists of a
+compute thread that executes forward/backward tasks and
+communication threads that move tensors asynchronously,
+decoupling computation from data transfer. Each stage main-
+tains four buffers: forward-ready, forward-finished, backward-
+ready, and backward-finished. The compute thread polls the
+ready buffers, runs F/B tasks, inserts completed tensors and
+metadata into the corresponding finished buffers, and wakes
+sender threads. Sender threads submit outgoing transfers,
+while receiver threads accept incoming messages, route them
+by microbatch identifier, and update the ready buffers.
+RRFP exposes the buffer-size limit as a configurable param-
+eter and enforces it via a backpressure policy when forward
+computation runs far ahead of backward computation. The
+detailed buffer-size policy analysis and deadlock-free guar-
+antee are provided in Appendix C.
+We study the effect of this buffer-size limit on training
+iteration time in Figure 5 using Qwen3-4B + ViT-Big [39, 52]
+with global batch size 192. We sweep the buffer limit over
+{4, 8, 16, 32, 48}. In this configuration, the worst-case demand
+is 192 entries if forward execution runs far ahead without
+backpressure. Increasing the limit gives the runtime more
+room to keep ready work, improving scheduling flexibility
+and reducing iteration time at small limits. The benefit satu-
+rates once the limit reaches 16 entries, far below the worst-
+case demand, indicating that a moderate limit exposes most
+readiness-driven opportunities without unnecessary mem-
+ory growth. We choose 32 as a conservative value within the
+saturated range. Based on this sensitivity study, all experi-
+ments use a buffer-size limit of 32 unless otherwise stated.
+4.2 Tensor-Parallel Coordination
+Tensor-parallel constraint.Out-of-order execution in-
+troduces a correctness constraint under tensor parallelism.
+In Megatron-LM, ranks in the same tensor-parallel group
+must invoke collectives in the same microbatch order. Under
+4
+
+Backward Ready Buffer
+Backward Finished Buffer
+Forward Finished Buffer
+Forward Ready Buffer
+Hint Order & Computation
+Sync with
+other TP ranks
+Async forward recv 
+from PP stage 𝒊 − 𝟏
+Async backward recv 
+from PP stage 𝒊 + 𝟏
+Async forward send to 
+PP stage 𝒊 + 𝟏
+Async backward send 
+to PP stage 𝒊 − 𝟏
+PP Stage 𝒊
+or          or          or ∅ each round
+Computation
+BF Hint
+Backward Ready Buffer
+Scan
+Forward Ready Buffer
+Scan
+Repetitively 
+Polling
+Repetitively 
+Polling
+i
+iiiii
+iv
+Hint Order & 
+Computation
+i
+ii iv
+iii
+Figure 4. Workflow of RRFP at one pipeline stage.Asynchronous send/receive threads update forward/backward-ready
+buffers and drain finished buffers to neighboring pipeline stages. The arbitration layer repeatedly polls ready buffers and scans
+them according to a hint order, shown here with the backward-forward (BF) example, selecting only executable microbatches.
+Tensor-parallel ranks then synchronize the selected work item, and consistent selections proceed to computation.
+4 8 16 32 48
+Buffer Size (Num Microbatches)
+8
+9
+10
+11
+12
+13
+14
+15Avg Iter Time (s)
+Figure 5. Performance sensitivity to buffer-size limit.
+With global batch size 192, the worst-case demand is the full
+batch size if forward execution runs far ahead. Iteration time
+saturates at a limit of 16 entries, indicating that a moderate
+limit exposes most readiness-driven opportunities.
+readiness-driven execution, however, ranks may observe dif-
+ferent ready sets and select different microbatches, causing
+mismatched collective calls, incorrect results, or deadlock.
+Coordination protocol.RRFP enforces this constraint
+with a lightweight group-local coordination step. Before a
+forward or backward task that may invoke tensor-parallel
+collectives, each rank proposes its selected ready microbatch,
+and the group exchanges these identifiers using a scalar all-
+gather. If all ranks agree, execution proceeds. Otherwise, the
+task is deferred until readiness changes expose a common
+candidate. This preserves collective-order consistency with-
+out forcing a global pipeline order. We provide additional
+details on the coordination protocol and progress argument
+in Appendix D.
+5 Ready-Set Arbitration
+This section describes the local arbitration layer that selects
+the next microbatch to execute from the runtime ready buffer,
+without placing an expensive scheduler on the critical path.
+At each pipeline stage, local completion and message-arrival
+events continuously update forward/backward-ready buffers,
+while completed tasks enter finished buffers that feed the
+asynchronous communication runtime in Section 4.1. Thus,
+arbitration operates only over microbatches whose depen-
+dencies have actually been satisfied at runtime.
+Hint-based arbitration.The arbitration layer is parame-
+terized by a hint order Π over microbatches and directions.
+The hint may come from a static schedule, offline profiling,
+or online adaptation, as long as it defines an ordered pref-
+erence over candidates. When the compute thread becomes
+available, RRFP scans Π and dispatches the first entry that is
+present in the current ready buffer. If no candidate is ready,
+the thread waits for the next readiness event. Completed
+tasks are inserted into the corresponding finished buffers. In
+this way, schedules guide local arbitration without requiring
+the runtime to wait for unavailable work. The loop is light-
+weight because it scans bounded ready buffers under a fixed
+hint order rather than solving an online scheduling problem.
+5
+
+Lightweight instantiation.The arbitration layer is inde-
+pendent of the specific hint order Π. Different schedules can
+be used to rank the current ready set. For analysis and evalu-
+ation, we use a simplebackward-forward (BF)hint as the de-
+fault lightweight instantiation. Inspired by the standard 1F1B
+pattern, BF first considers a backward-ready microbatch and
+then a forward-ready microbatch in each arbitration round,
+subject to runtime readiness. Within each direction, BF fol-
+lows pipeline dependencies: forward prefers lower-index
+model chunks, while backward prefers higher-index chunks.
+This frees model chunks earlier and allows subsequent com-
+munication collectives to overlap with other computation
+work. The detailed BF hint algorithm is presented in Appen-
+dix A. Section 6 characterizes BF under a simplified setting,
+and Section 7.7 evaluates the effect of alternative hint orders
+on training performance.
+6 Analytical Characterization
+We analyze the backward-forward (BF) hint introduced in
+Section 5 under a simplified setting. The purpose is not to
+model the full RRFP runtime, but to understand the behavior
+of ready-set arbitration in isolation. We therefore consider
+a non-interleaved pipeline and ignore communication time,
+tensor-parallel coordination, collectives such as parameter
+gather, and implementation overhead. This setting lets us re-
+late the local choices made by the BF hint to pipeline progress
+and stage imbalance. Proofs and detailed bottleneck statistics
+are provided in Appendix B.
+Let 𝑁 be the number of stages, 𝑀 the number of micro-
+batches, and C the iteration completion time. For each mi-
+crobatch 𝑗, let 𝐹 𝑗
+max and 𝐵 𝑗
+max denote the slowest forward and
+backward computation time across all stages, and let 𝐹 𝑗
+last
+and 𝐵 𝑗
+last denote the corresponding computation time at the
+last stage. We also define two reference makespans: F is
+the time needed to finish all forward work when the first
+stage initially has all forward microbatches available, and B
+is the time needed to finish all backward work when the last
+stage initially has all backward microbatches available. Both
+forward-only and backward-only reference executions still
+respect inter-stage pipeline dependencies.
+Theorem 6.1(Upper bound for BF hint arbitration).The
+makespanCof RRFP under the BF hint satisfies
+C ≤ F + B +
+𝑀−1∑︁
+𝑗=1
+ 𝐹 𝑗
+max −𝐹 𝑗
+last
+ +
+𝑀−2∑︁
+𝑗=0
+ 𝐵 𝑗
+max −𝐵 𝑗
+last
+.
+The bound separates two effects: idealized forward and
+backward pipeline progress and extra delay caused by stage
+imbalance. To interpret this bound, we compare it with the
+total amount of work that must be executed at the last stage:
+𝐿=
+𝑀−1∑︁
+𝑗=0
+ 𝐹 𝑗
+last +𝐵 𝑗
+last
+.
+This quantity lower bounds the makespan of any valid sched-
+ule, offline or online, because every schedule must execute
+all last-stage forward and backward computations. When
+the last stage is the dominant bottleneck, this lower bound
+is close to the relevant amount of unavoidable work, leading
+to the following approximation-style characterization.
+Corollary 6.2.Assume that for each microbatch 𝑗, the last
+stage is the bottleneck with probability at least1 −𝑝 , and
+otherwise the deviation from the last-stage time is bounded by
+a constant factor 𝜌≥ 1. Further assume that each microbatch
+execution time is bounded by constants𝑚 𝑙 and𝑚 ℎ. Then
+E
+ C
+OPT
+
+≤1+2𝑝(𝜌−1) +𝑂
+ 𝑁
+𝑀
+
+.
+The corollary suggests that the arbitration rule remains
+close to optimal when the last stage is often the bottleneck.
+This matches our measured workloads: across 100 iterations,
+the last stage is the bottleneck for 96.8% of forward micro-
+batches in the LLM setting and 85.9% in the multimodal
+setting. These measurements explain why the BF hint is a rea-
+sonable default for our workloads. The full system, including
+communication, tensor parallelism, and runtime overhead,
+is evaluated in the end-to-end experiments.
+7 Experiments
+7.1 Experimental Setup
+System setup.RRFP extends a Megatron-based training
+framework. Our experiments run on up to 128 NVIDIA RTX
+4090 GPUs across 16 nodes, with 8 GPUs per node. GPUs
+within each node communicate over PCIe, while nodes are
+connected through InfiniBand. RRFP uses shared memory
+for intra-node transfers and RDMA for inter-node transfers.
+All experiment runs use FP16 precision.
+Workloads.We evaluate RRFP on both language-only and
+multimodal training workloads. The representative suite in-
+cludesLLM(GPT3-Large [ 5, 22]),Mid-scale LMM(Qwen3-
+1.7B + ViT-H [11, 52]), andHeavy LMM(Qwen3-4B + ViT-
+Big [11, 52]). We additionally evaluate larger multimodal
+workloads in the large-scale experiments, including LLaMA3-
+8B + ViT-5B [ 10], Qwen3-32B + InternViT [ 7–9, 13], and
+LLaMA3-70B + ViT-22B [10]. We denote parallel configura-
+tions as TP/PP/DP, with total GPU count TP×PP×DP . The
+exact TP/PP/DP configurations and global batch sizes used
+in each experiment are specified in Sections 7.3–7.8.
+Baselines.For same-codebase comparison, we evaluate
+1F1B[ 29],ZeroBubble (ZB)[ 37],RRFP with the default
+BF hint (RRFP), andRRFP with the BFW hint vari-
+ant (RRFP+BFW).RRFPuses the backward-forward (BF)
+hint from Sections 5 and 6: after readiness filtering, each
+round considers backward-ready work first.RRFP+BFW
+keeps the same runtime, but augments the task set with
+6
+
+backward/weight-update decomposition and uses the result-
+ing B/F/W hint order. This variant is inspired by ZeroBub-
+ble’s backward/weight-update separation, but still treats
+the hint order as a non-binding preference over currently
+ready tasks. When neither backward nor forward compu-
+tation is ready, RRFP+BFW dispatches an available weight-
+update task and then returns to the next arbitration round.
+In both RRFP and RRFP+BFW, unavailable tasks are skipped
+rather than waited on. For cross-framework comparison, we
+additionally compare withDeepSpeed[ 2, 40] andCorn-
+starch[ 19]. DeepSpeed is a widely used distributed train-
+ing framework with mature pipeline-parallel support, while
+Cornstarch is a recent multimodal training system with
+modality-aware pipeline scheduling.
+Metrics.We use iteration time as the primary metric
+across experiments. All measurements discard the first itera-
+tion and start timing from the second iteration. In RQ1, we
+also report throughput for completeness. For RQ2, we collect
+compute time, blocking time, and tensor-parallel coordina-
+tion overhead for runtime breakdown. Experiment-specific
+details are reported in the corresponding subsections.
+Correctness validation.We validate training correctness
+by comparing RRFP with the corresponding 1F1B baseline
+under matched seeds and data order. RRFP follows the same
+loss trend without divergence, confirming that readiness-
+driven execution changes only runtime ordering while pre-
+serving training semantics. Detailed loss curves are provided
+in Appendix E.
+7.2 Evaluation Questions
+We evaluate RRFP using six research questions:RQ1end-
+to-end performance at representative and large scale,RQ2
+runtime breakdown,RQ3comparison with external systems,
+RQ4robustness to runtime variability,RQ5sensitivity to
+hint orders, andRQ6scaling across conditions. We first
+establish end-to-end gains in both representative and large-
+scale distributed settings (RQ1), then explain where the gains
+come from (RQ2), compare against strong external systems
+(RQ3), and finally validate robustness, hint-order sensitivity,
+and scaling behavior (RQ4–RQ6).
+7.3 RQ1: End-to-End Performance
+Protocol.RQ1 evaluates end-to-end training performance
+under two complementary settings. First, we evaluate all
+three representative workloads under four parallel config-
+urations: TP1/PP8/DP1, TP1/PP16/DP1, TP2/PP8/DP1, and
+TP2/PP16/DP1. This yields 12 configurations. For each row,
+we compare 1F1B, ZeroBubble (ZB), RRFP, and RRFP+BFW.
+Global batch sizes are matched across methods within each
+row: GPT3-Large uses 64; Qwen3-1.7B + ViT-H uses 192; and
+Qwen3-4B + ViT-Big uses 192 at TP=1 and 96 at TP=2. Second,
+we evaluate 8 selected large-scale multimodal configurations
+on 32, 64, and 128 GPUs to validate that the gains persist
+under larger distributed deployments. These large-scale set-
+tings use batch size 64 and include both single-pipeline and
+DP-replicated hybrid-parallel configurations.
+For both representative and large-scale evaluations, each
+data point is averaged over 10 independent runs, with 50
+measured iterations per run. Each table cell reports𝑎/𝑏 (𝑥×),
+where 𝑎 is iteration time in seconds, 𝑏 is training through-
+put in s, and 𝑥× is speedup relative to 1F1B. Throughput is
+computed as batch size divided by iteration time. Batch size
+is matched across methods within each configuration.
+Representative results.Across all 12 representative con-
+figurations, RRFP consistently outperforms 1F1B and ZB, and
+RRFP+BFW further improves performance in most settings.
+The results show that making execution depend on realized
+readiness can recover utilization that fixed-order execution
+cannot always capture under runtime variability.
+Comparing RRFP and RRFP+BFW highlights the role of
+backward decomposition. RRFP already surpasses both 1F1B
+and ZB, showing that even the simple BF hint can be effective
+when applied after readiness filtering rather than enforced
+as a fixed execution sequence. At the same time, RRFP+BFW
+provides additional gains across almost all settings, indicat-
+ing that RRFP can leverage the backward/weight-update
+separation idea when available. This suggests that RRFP is
+not tied to a specific schedule, but instead provides a flexi-
+ble runtime layer for incorporating finer-grained execution
+hints as non-binding preferences over ready work.
+The benefits are greater in multimodal workloads. Com-
+pared to GPT3-Large, both Qwen3-1.7B + ViT-H and Qwen3-
+4B + ViT-Big exhibit larger improvements, which is consis-
+tent with increased runtime variability due to heterogeneous
+computation across stages. Under such conditions, fixed exe-
+cution orders become less reliable, while RRFP dynamically
+adapts to changing readiness and better utilizes idle stages.
+We also observe that gains remain strong across both
+pipeline-depth and tensor-parallel settings. Under TP= 1,
+increasing pipeline depth from PP= 8to PP= 16generally
+provides more opportunities for runtime adaptation. The
+TP= 2results show that this benefit persists when tensor-
+parallel coordination is enabled: RRFP still outperforms 1F1B
+and ZB under both PP= 8and PP= 16, although the gain
+can be smaller than in TP-free settings due to increased intra-
+stage synchronization and reduced scheduling flexibility.
+Large-scale results.To test whether the gains persist be-
+yond representative configurations, we evaluate RRFP on
+larger multimodal workloads using 32, 64, and 128 GPUs.
+Table 2 covers both deep single-pipeline settings and hybrid
+PP/TP/DP settings with data-parallel replication. These re-
+sults validate RRFP under larger distributed deployments
+and different parallelization choices.
+Across these large-scale settings from 32 to 128 GPUs,
+RRFP preserves the same qualitative gains observed in rep-
+resentative configurations. As workloads become larger and
+7
+
+Table 1. RQ1: end-to-end performance on representative settings.All settings useDP=1. Cells report iteration time /
+throughput, with speedup over 1F1B shown in parentheses.
+Workload Parallelism 1F1B ZB RRFP RRFP+BFW
+GPT3-Large
+TP1/PP8/DP1 3.28/19.51 (1.00×) 2.97/21.55 (1.10×) 2.29/27.95 (1.43×) 2.10/30.48 (1.56×)
+TP1/PP16/DP1 2.09/30.62 (1.00×) 1.74/36.78 (1.20×) 1.26/50.79 (1.66×) 1.18/54.24 (1.77×)
+TP2/PP8/DP1 3.66/17.49 (1.00×) 3.27/19.57 (1.12×) 3.03/21.12 (1.21×) 2.81/22.78 (1.30×)
+TP2/PP16/DP1 2.34/27.35 (1.00×) 2.03/31.53 (1.15×) 1.63/39.26 (1.44×) 1.57/40.76 (1.49×)
+Qwen3-1.7B + ViT-H
+TP1/PP8/DP1 11.49/16.71 (1.00×) 9.91/19.37 (1.16×) 5.98/32.11 (1.92×) 5.68/33.80 (2.02×)
+TP1/PP16/DP1 9.04/21.24 (1.00×) 7.40/25.95 (1.22×) 4.50/42.67 (2.01×) 4.33/44.34 (2.09×)
+TP2/PP8/DP1 12.94/14.84 (1.00×) 11.86/16.19 (1.09×) 7.66/25.07 (1.69×) 7.41/25.91 (1.75×)
+TP2/PP16/DP1 12.54/15.31 (1.00×) 11.95/16.07 (1.05×) 7.07/27.16 (1.77×) 6.74/28.49 (1.86×)
+Qwen3-4B + ViT-Big
+TP1/PP8/DP1 14.05/13.67 (1.00×) 12.61/15.23 (1.11×) 7.84/24.49 (1.79×) 7.52/25.53 (1.87×)
+TP1/PP16/DP1 11.01/17.44 (1.00×) 9.98/19.24 (1.10×) 5.02/38.25 (2.19×) 4.81/39.92 (2.29×)
+TP2/PP8/DP1 7.19/13.35 (1.00×) 6.60/14.55 (1.09×) 4.45/21.57 (1.62×) 4.19/22.91 (1.72×)
+TP2/PP16/DP1 6.29/15.26 (1.00×) 5.99/16.03 (1.05×) 2.94/32.65 (2.14×) 2.81/34.16 (2.24×)
+Table 2. RQ1: end-to-end performance under large-scale distributed settings.All settings use global batch size 64. Cells
+report iteration time / throughput, with speedup over 1F1B shown in parentheses.
+GPUs Workload Parallelism 1F1B ZB RRFP RRFP+BFW
+32 LLaMA3-8B + ViT-5B TP1/PP32/DP1 7.62/8.40 (1.00×) 6.58/9.73 (1.16×) 3.38/18.93 (2.25×) 2.75/23.27 (2.77×)
+32 LLaMA3-8B + ViT-5B TP2/PP16/DP1 8.30/7.71 (1.00×) 7.84/8.16 (1.06×) 3.52/18.18 (2.36×) 3.04/21.05 (2.73×)
+32 LLaMA3-8B + ViT-5B TP2/PP8/DP2 4.90/13.06 (1.00×) 4.44/14.41 (1.10×) 3.02/21.19 (1.62×) 2.77/23.10 (1.77×)
+64 Qwen3-32B + InternViT TP1/PP64/DP1 8.03/7.97 (1.00×) 7.35/8.71 (1.09×) 4.46/14.35 (1.80×) 4.37/14.65 (1.84×)
+64 Qwen3-32B + InternViT TP2/PP32/DP1 8.39/7.63 (1.00×) 7.66/8.36 (1.10×) 5.19/12.33 (1.62×) 4.66/13.73 (1.80×)
+64 Qwen3-32B + InternViT TP2/PP16/DP2 5.14/12.45 (1.00×) 4.90/13.06 (1.05×) 4.06/15.76 (1.27×) 3.74/17.11 (1.37×)
+128 LLaMA3-70B + ViT-22B TP2/PP64/DP1 8.72/7.34 (1.00×) 7.94/8.06 (1.10×) 5.16/12.40 (1.69×) 4.76/13.45 (1.83×)
+128 LLaMA3-70B + ViT-22B TP2/PP32/DP2 7.23/8.85 (1.00×) 6.67/9.60 (1.08×) 4.71/13.59 (1.54×) 4.63/13.82 (1.56×)
+more heterogeneous, deeper pipelines and cross-stage de-
+pendencies amplify the cost of rigid execution order. RRFP
+reduces this cost by dispatching currently ready work instead
+of waiting for unavailable tasks, while still using scheduling
+hints to rank ready candidates. The DP-replicated settings
+further show that RRFP is not limited to a single pipeline
+instance: even when the GPU allocation is split across data-
+parallel replicas, RRFP and RRFP+BFW continue to improve
+iteration time over fixed-order baselines.
+Overall, RQ1 demonstrates that RRFP is robust to runtime
+variability and compatible with finer-grained execution hints
+such as backward/weight-update separation. The representa-
+tive results show consistent gains across workload types and
+TP/PP trade-offs. RRFP+BFW further shows that the same
+readiness-driven runtime can incorporate ZeroBubble’s back-
+ward and weight-update separation idea, often improving
+over the default BF hint. The large-scale validation confirms
+that these gains extend to practical hybrid-parallel deploy-
+ments. Together, these results indicate that readiness-driven
+execution is effective both for the default BF policy and for
+finer-grained variants at larger scale.
+7.4 RQ2: Runtime Breakdown
+Breakdown setup.RQ2 determines where RRFP’s end-
+to-end gains come from by decomposing each training it-
+eration into major runtime components. In particular, we
+distinguish compute-related time, blocking time, and tensor-
+parallel coordination overhead. This lets us separate reduc-
+tions in pipeline bubbles and communication/blocking stalls
+from changes in compute execution, while also quantifying
+the extra coordination cost introduced by out-of-order exe-
+cution under tensor parallelism. We use Qwen3-4B + ViT-Big
+with batch size 32, fixed PP=16 and DP=1, varying TP over
+{1, 2, 4}. TP=1 does not require tensor-parallel collective-
+order coordination, while TP >1 allows us to measure the
+coordination overhead that RRFP introduces to preserve col-
+lective consistency under out-of-order execution.
+Breakdown metrics.We report iteration time and three
+runtime components:
+• Compute: total F/B computation time across all micro-
+batches, including GPU kernel execution and CPU-
+side overhead such as kernel launch.
+• Blocking: time without useful F/B computation. For
+1F1B, this is time spent issuing or waiting for point-
+to-point communication, including wait_on_req. For
+8
+
+RRFP, this is time spent polling or waiting when no
+executable microbatch is currently ready.
+• TP Coord: extra time spent in RRFP’s tensor-parallel
+metadata all-gather for preserving collective-order
+consistency. It is zero for 1F1B, whose fixed order
+already aligns collective calls, and for TP=1.
+Table 3 reports the resulting breakdown. Across all TP
+settings, the dominant cost in fixed-order 1F1B isBlocking
+rather thanCompute.Blockingaccounts for 64.22–66.72% of
+1F1B iteration time, indicating that a substantial fraction of
+time is spent without useful compute progress. This block-
+ing arises because 1F1B follows a pre-committed execution
+order: each stage issues communication and computation
+according to the fixed schedule, and must wait when the
+scheduled dependency has not yet arrived. Under runtime
+variability, the actual completion times of computation and
+communication differ across stages and microbatches, so the
+fixed order can become misaligned with realized readiness,
+creating pipeline bubbles and communication stalls.
+RRFP reduces this cost through readiness-driven out-of-
+order execution. Instead of waiting for the next task in a fixed
+global order, each stage executes ready work as it becomes
+available. As a result,Blockingis consistently reduced across
+TP settings: from 1.722s to 0.768s under TP1/PP16/DP1, from
+1.698s to 0.788s under TP2/PP16/DP1, and from 1.812s to
+0.873s under TP4/PP16/DP1. This reduction is the primary
+source of the end-to-end speedup.
+This breakdown also shows that the speedup is not due
+to faster computation or kernel-level acceleration.Compute
+remains comparable between 1F1B and RRFP, and is slightly
+higher for RRFP in these runs due to additional CPU-side
+runtime overhead around computation.
+As TP increases from 1 to 4, RRFP introducesTP Coord
+overhead to preserve tensor-parallel collective-order consis-
+tency under out-of-order execution. This overhead remains
+small: 0.010s under TP=2 and 0.015s under TP=4, accounting
+for less than 1% of iteration time. Thus, the coordination cost
+is much smaller than the reduction inBlocking.
+Overall, RQ2 shows that RRFP shifts the cost structure of
+pipeline execution: it adds lightweight runtime polling and
+TP coordination, but substantially reduces blocking caused
+by pre-committed execution order. This supports the main
+runtime-system claim that readiness-driven progress reduces
+idle time under runtime variability.
+7.5 RQ3: Cross-Framework Performance
+Cross-framework setup.RQ3 compares the default RRFP
+configuration (RRFP) with DeepSpeed and Cornstarch on
+the same matched RQ1 settings. We use RRFP to isolate the
+readiness-driven runtime from the optional backward/weight-
+update decomposition in RRFP+BFW. We evaluate all 12 rep-
+resentative configurations in Table 1 and all 8 large-scale
+configurations in Table 2. For TP> 1, we compare only
+Cornstarch and RRFP because DeepSpeed’s automatic tensor-
+parallel partitioning is not applicable to our PipelineModule-
+wrapped model in this training setup [2, 40].
+Representative results.Table 4 shows that RRFP achieves
+the lowest iteration time across all 12 representative settings
+in cross-framework comparison, with1 .07×–1.84× speedup
+over the faster available external baseline. As these settings
+match RQ1, the results show that RRFP’s gains persist across
+workload type, pipeline depth, and tensor parallelism. The
+gains are generally larger on multimodal workloads than
+on GPT3-Large, consistent with greater stage heterogeneity
+and runtime variability in multimodal training.
+Large-scale results.Table 5 shows that RRFP also achieves
+the lowest iteration time across all 8 large-scale settings, with
+1.01×–1.25× speedup over the faster available external base-
+line. The smallest gap appears for LLaMA3-8B + ViT-5B un-
+der TP1/PP32/DP1, where Cornstarch is already competitive.
+The remaining cases show clearer gains, including settings
+with tensor parallelism and data-parallel replication, indicat-
+ing that RRFP remains effective as training scales to deeper
+pipelines and hybrid TP/PP/DP configurations.
+Overall, RQ3 shows that RRFP’s gains extend beyond
+same-codebase schedule comparisons and hold against ex-
+ternal systems. Across the representative and large-scale
+RQ1 settings, RRFP improves over both general-purpose
+and multimodal-specialized external training systems. This
+suggests that RRFP’s advantage comes from the readiness-
+driven runtime model rather than artifacts of a particular
+framework or schedule implementation.
+7.6 RQ4: Robustness to Runtime Variability
+Robustness under variability.We test how much per-
+formance degrades when runtime jitter increases under a
+controlled injection setup. We use Qwen3-4B + ViT-Big with
+TP2/PP8/DP1 and global batch size 96, compare 1F1B and
+RRFP, and keep all settings fixed except the injected jitter
+level.
+Jitter model and protocol.We inject compute-path jitter
+on every pipeline stage by adding random CUDA-side sleep
+delays to F/B compute tasks. For each task, the runtime
+first measures its compute time 𝑐𝑡 and updates a stage-local
+exponential moving average:
+𝑒𝑡 =0.9𝑒 𝑡−1 +0.1𝑐 𝑡 .
+With probability𝑝 𝑗, we inject a delay
+𝑑𝑡 =𝛼max(𝐵, 𝑒 𝑡 ) (0.5+𝑟 𝑡 ), 𝑟 𝑡 ∼Uniform(0,1),
+where 𝐵 sets the base delay and𝛼 controls the delay scale. We
+evaluate four jitter levels, 𝐽0–𝐽3, with parameters shown in
+Table 6. For each level, 1F1B and RRFP use the same random
+seed, so they experience paired jitter patterns. Each setting
+is repeated 3 times with 10 measured iterations per run. We
+report the mean iteration time, slowdown relative to each
+9
+
+Table 3. RQ2: runtime breakdown.We evaluate 1F1B and RRFP on Qwen3-4B + ViT-Big with global batch size 32 and
+PP=16, varying TP over {1, 2, 4}. Values are seconds per iteration. Percentages are normalized by iteration time. Results are
+averaged over 3 independent runs with 10 measured iterations per run.
+Parallelism Method Iter Compute Blocking TP Coord
+TP1/PP16/DP1 1F1B 2.581 0.859 (33.28%) 1.722 (66.72%) 0.000 (0.00%)
+RRFP 1.788 1.020 (57.05%) 0.768 (42.95%) 0.000 (0.00%)
+TP2/PP16/DP1 1F1B 2.644 0.946 (35.78%) 1.698 (64.22%) 0.000 (0.00%)
+RRFP 1.824 1.026 (56.25%) 0.788 (43.20%) 0.010 (0.55%)
+TP4/PP16/DP1 1F1B 2.750 0.938 (34.11%) 1.812 (65.89%) 0.000 (0.00%)
+RRFP 1.942 1.054 (54.27%) 0.873 (44.95%) 0.015 (0.77%)
+Table 4. Cross-framework comparison on representative settings.Settings match the corresponding RQ1 configurations.
+Entries report average iteration time in seconds, and speedup is computed over thefasteravailable external baseline.
+Workload Parallelism DeepSpeed Cornstarch RRFP Speedup
+GPT3-Large
+TP1/PP8/DP1 2.60 2.63 2.29 1.14×
+TP1/PP16/DP1 1.52 2.00 1.26 1.21×
+TP2/PP8/DP1 N/A 3.25 3.03 1.07×
+TP2/PP16/DP1 N/A 2.88 1.63 1.77×
+Qwen3-1.7B + ViT-H
+TP1/PP8/DP1 9.73 8.65 5.98 1.45×
+TP1/PP16/DP1 7.80 6.71 4.50 1.49×
+TP2/PP8/DP1 N/A 9.88 7.66 1.29×
+TP2/PP16/DP1 N/A 8.16 7.07 1.15×
+Qwen3-4B + ViT-Big
+TP1/PP8/DP1 11.38 10.12 7.84 1.29×
+TP1/PP16/DP1 10.54 9.24 5.02 1.84×
+TP2/PP8/DP1 N/A 6.80 4.45 1.53×
+TP2/PP16/DP1 N/A 4.76 2.94 1.62×
+Table 5. Large-scale cross-framework comparison.Settings match the corresponding RQ1 configurations. Entries report
+average iteration time in seconds, and speedup is computed over thefasteravailable external baseline.
+GPUs Workload Parallelism DeepSpeed Cornstarch RRFP Speedup
+32 LLaMA3-8B + ViT-5B TP1/PP32/DP1 4.33 3.42 3.38 1.01×
+32 LLaMA3-8B + ViT-5B TP2/PP16/DP1 N/A 4.40 3.52 1.25×
+32 LLaMA3-8B + ViT-5B TP2/PP8/DP2 N/A 3.51 3.02 1.16×
+64 Qwen3-32B + InternViT TP1/PP64/DP1 5.97 5.51 4.46 1.24×
+64 Qwen3-32B + InternViT TP2/PP32/DP1 N/A 5.67 5.19 1.09×
+64 Qwen3-32B + InternViT TP2/PP16/DP2 N/A 4.30 4.06 1.06×
+128 LLaMA3-70B + ViT-22B TP2/PP64/DP1 N/A 5.52 5.16 1.07×
+128 LLaMA3-70B + ViT-22B TP2/PP32/DP2 N/A 5.79 4.71 1.23×
+method’s no-injection baseline, and the standard deviation
+computed over the 30 measured iterations.
+Results and discussion.Table 6 shows that RRFP consis-
+tently remains faster than 1F1B across all jitter levels. More
+importantly, RRFP degrades more slowly as jitter increases:
+from 𝐽1 to 𝐽3, RRFP’s slowdown grows from 1.81% to 11.36%,
+whereas 1F1B grows from 2.82% to 18.06%. This indicates that
+readiness-driven execution is less sensitive to compute-path
+perturbations than a fixed execution order.
+RRFP also shows lower variation in measured iteration
+time across all jitter levels. Its standard deviation remains
+between 0.191s and 0.228s, compared with 0.325s to 0.410s
+for 1F1B. Overall, RQ4 shows that RRFP is robust to runtime
+variability: it maintains lower iteration time across all tested
+jitter levels and degrades more slowly as jitter intensity in-
+creases.
+10
+
+Table 6. RQ4: robustness under compute-path jitter.
+We evaluate 1F1B and RRFP on Qwen3-4B + ViT-Big with
+TP2/PP8/DP1 and global batch size 96. Parentheses show
+slowdown relative to each method’s no-injection baseline.
+Level𝑝 𝑗 𝐵(ms)𝛼 1F1B RRFP
+𝑇(s) std (s) 𝑇(s) std (s)
+𝐽0 0 0 0.0 7.19 (0.0%) 0.339 4.45 (0.0%) 0.191
+𝐽1 0.1 5 0.5 7.39 (2.82%) 0.325 4.53 (1.81%) 0.191
+𝐽2 0.2 10 1.0 8.00 (11.27%) 0.410 4.75 (6.82%) 0.210
+𝐽3 0.3 15 1.5 8.49 (18.06%) 0.390 4.96 (11.36%) 0.228
+Table 7. RQ5: hint-order sensitivity. We evaluate RRFP
+on Qwen3-1.7B + ViT-H with TP1/PP8/DP1 and batch size
+192.
+Hint order Avg (ms) Slowdown (%)
+BF (default) 6007.26 0.00
+FB 6034.10 +0.45
+B-priority 6057.79 +0.84
+F-priority 6302.94 +4.92
+7.7 RQ5: Sensitivity to Hint Orders
+Hint-order sensitivity.We evaluate whether RRFP de-
+pends on a particular ready-set hint order. All variants run
+inside the same RRFP runtime loop and differ only in how
+they rank currently ready forward and backward candidates,
+while using the same readiness filtering. We compare four
+hint orders.BFis the default backward-forward hint from
+Section 5: each arbitration round first considers backward-
+ready work and then forward-ready work, subject to runtime
+readiness.FBreverses this order by considering forward-
+ready work before backward-ready work.B-priorityselects
+backward work whenever any backward candidate is ready,
+whileF-priorityanalogously prioritizes forward work when-
+ever any forward candidate is ready.
+Configuration and metric.We use Qwen3-1.7B + ViT-H
+with TP1/PP8/DP1, global batch size 192, and 10 measured
+training iterations per run. Each hint order is repeated 3
+times. We report average end-to-end iteration time.
+Results and discussion.Table 7 shows that RRFP is
+largely insensitive to the specific hint order across these
+variants. BF, FB, and B-priority remain within 1% of the
+default, indicating that performance is not driven by a care-
+fully tuned ordering rule but primarily by the underlying
+readiness-driven execution model. At the same time, poorly
+aligned hint orders can still hurt performance: F-priority
+incurs a noticeable slowdown of +4.92% because it keeps
+prioritizing forward work whenever possible, delaying back-
+ward execution and creating additional pipeline bubbles. This
+shows that hint orders still affect how RRFP chooses among
+ready tasks, but the small gaps among BF, FB, and B-priority
+indicate that the main benefit comes from readiness-driven
+execution rather than from a specific heuristic.
+Overall, RQ5 reinforces that RRFP’s gains mainly come
+from out-of-order, readiness-driven execution rather than
+from a specific heuristic. This is consistent with RQ1 and
+RQ2, where RRFP improves utilization by reducing blocking
+wait, and shows that RRFP acts as a flexible runtime layer
+rather than a heuristic-specific scheduler.
+7.8 RQ6: Scaling Across Conditions
+Setup.RQ6 analyzes when RRFP helps most along three
+controlled axes: pipeline depth, multimodal imbalance, and
+global batch size. For pipeline-depth scaling, we vary PP
+while keeping the workload, TP/DP configuration, and global
+batch size fixed. For modality-imbalance scaling, we fix the
+language backbone and parallel configuration while increas-
+ing the vision encoder size. In the ViT rows of Table 8,
+L/H/g/Big denote ViT-L, ViT-H, ViT-g, and ViT-Big, and
+5B/Intern/22B denote ViT-5B, InternViT, and ViT-22B. For
+batch-size scaling, we vary global batch size under two fixed
+workload settings. Table 8 lists the concrete workloads, par-
+allel configuration, sweeps, and global batch sizes. Each con-
+figuration is run 10 times with 50 measured iterations per
+run, and we report speedup over 1F1B.
+Results and discussion.Table 8 shows that RRFP’s bene-
+fit increases when execution provides more opportunities for
+readiness-driven choice. For pipeline-depth scaling, speedup
+grows from 1.07× to 2.01× on Qwen3-1.7B + ViT-H as PP in-
+creases from 4 to 16, and from 1.79× to 2.31× on LLaMA3-8B
++ ViT-5B as PP increases from 8 to 32. The TP2 Qwen3-4B
++ ViT-Big setting follows the same trend, with speedup in-
+creasing from 1.03 × to 1.72× as pipeline depth increases,
+indicating that the benefit consistently persists when tensor-
+parallel coordination is enabled.
+For modality imbalance, speedup increases as the vision
+encoder becomes larger and stage costs become more un-
+even: from 1.73× to 2.16× on Qwen3-1.7B, and from 1.32× to
+1.78× on LLaMA3-8B. This suggests that RRFP is especially
+beneficial when multimodal workloads introduce heteroge-
+neous stage costs, making fixed execution orders more likely
+to become misaligned with realized readiness.
+For batch-size scaling, speedup also increases as global
+batch size grows across both workloads. Qwen3-4B + ViT-Big
+improves from 1.98× to 2.18× as global batch size increases
+from 64 to 192, and LLaMA3-8B + ViT-5B improves from
+2.62× to 2.82×. Increasing the global batch size place more
+microbatches in the pipeline, exposing more scheduling op-
+portunities and runtime variation for RRFP to exploit.
+Overall, RQ6 shows that RRFP helps most when fixed
+execution orders are more likely to become stale and more
+alternative executable candidates are available, such as in
+deeper pipelines, more imbalanced multimodal workloads,
+11
+
+Table 8. RQ6 scaling results across pipeline depth, modality imbalance, and global batch size.We report speedup
+over 1F1B. Larger values indicate greater benefit from readiness-driven execution.
+Axis Workload Config Sweep Batch size Speedup
+PP Qwen3-1.7B + ViT-H TP1/DP1 PP4 / PP8 / PP16 192 1.07 / 1.94 / 2.01
+PP LLaMA3-8B + ViT-5B TP1/DP1 PP8 / PP16 / PP32 64 1.79 / 2.13 / 2.31
+PP Qwen3-4B + ViT-Big TP2/DP1 PP4 / PP8 / PP16 64 1.03 / 1.64 / 1.72
+ViT Qwen3-1.7B TP1/PP16/DP1 L / H / g / Big 192 1.73 / 1.89 / 2.04 / 2.16
+ViT LLaMA3-8B TP1/PP32/DP1 5B / Intern / 22B 64 1.32 / 1.43 / 1.78
+BSZ Qwen3-4B + ViT-Big TP1/PP16/DP1 64 / 128 / 192 – 1.98 / 2.14 / 2.18
+BSZ LLaMA3-8B + ViT-5B TP2/PP32/DP1 64 / 128 / 192 – 2.62 / 2.72 / 2.82
+and larger batches. In these settings, selecting among ready
+tasks instead of waiting for the next scheduled task provides
+larger benefits across the tested configurations, and the gains
+persist when tensor-parallel coordination is enabled.
+8 Related Work
+Pipeline parallelism.Pipeline parallelism is widely used
+to train large models that exceed the memory capacity of
+a single device. By partitioning a model across devices and
+executing different microbatches concurrently, pipeline par-
+allelism improves hardware utilization and training through-
+put. GPipe [18] introduced synchronous pipeline training
+with microbatching, and PipeDream [28] proposed the one-
+forward-one-backward (1F1B) schedule to reduce bubbles
+by overlapping forward and backward computation. This
+schedule has been adopted in systems such as Megatron-
+LM [43] and is now a standard baseline for pipeline-parallel
+training. Later systems further improve pipeline execution:
+PipeDream-2BW [29] reduces memory overhead from weight
+versioning, while ZeroBubble [ 37] reduces bubbles by re-
+ordering backward-related computation. RRFP builds on
+these foundations but does not propose another fixed order-
+ing of forward and backward tasks. Instead, it changes how
+schedules are consumed at runtime: each stage repeatedly
+chooses from currently ready microbatches, while existing
+schedules serve as non-binding hint orders.
+Pipeline planning and schedule optimization.Many
+distributed training systems optimize pipeline execution
+through offline search, profiling, or cost-based planning. Rep-
+resentative examples include Alpa [55] and PipeWeaver [50].
+Related strategies also appear in nnScaler [27] and Unity [46].
+These methods construct better parallelization plans or bet-
+ter pipeline schedules under estimated workload and system
+conditions, and can be effective when those estimates remain
+representative at runtime. However, the resulting plans still
+rely on specific decisions made before the actual runtime
+ready set is observed. RRFP is orthogonal to such planning
+methods. It is not a schedule optimizer and does not require
+an optimized decision sequence for correctness or progress.
+Instead, it provides a readiness-driven runtime layer that
+can execute independently of a planned schedule, or use an
+existing one as a soft ranking hint when available.
+Runtime adaptation.Several systems use runtime feed-
+back to improve distributed training efficiency. ByteSched-
+uler [35] dynamically schedules communication operations
+to reduce synchronization overhead, HetPipe [34] addresses
+heterogeneous GPU clusters through load-balancing strate-
+gies, and Pollux [38] adapts cluster resource allocation based
+on runtime feedback. These systems show the value of run-
+time information, but they target different layers of the
+training stack, such as communication prioritization, het-
+erogeneous placement, or cluster-level scheduling. RRFP
+focuses on the pipeline execution layer. It makes decisions at
+the granularity of forward and backward microbatch tasks
+within each pipeline stage, allowing execution to react di-
+rectly to realized readiness, runtime slowdowns, and com-
+munication delays. Thus, RRFP differs from prior runtime-
+adaptive systems not by periodically adapting a fixed sched-
+ule, but by making readiness the primary execution interface.
+Communication assumptions in training runtimes.
+Modern distributed training systems rely on high-throughput
+GPU communication libraries whose operations are typi-
+cally issued by the application in a consistent order across
+participating ranks [31, 32]. This assumption fits static or
+synchronized pipeline schedules, where computation and
+communication follow an agreed sequence. Readiness-driven
+out-of-order execution weakens this assumption: different
+stages may finish microbatches in different orders, causing
+sends and receives to be triggered asynchronously and out
+of order. If communication remains tied to a fixed operation
+sequence, this divergence can introduce blocking or dead-
+lock. RRFP addresses this with message-driven asynchronous
+communication: completed microbatches are packaged as
+messages, transferred independently of the compute thread,
+and inserted into per-microbatch ready buffers upon arrival.
+It also uses lightweight tensor-parallel coordination to pre-
+serve collective-order consistency when ranks in the same
+tensor-parallel group might otherwise select different ready
+microbatches. Together, these mechanisms allow RRFP to
+12
+
+execute microbatches safely in an order that differs from any
+pre-planned schedule.
+9 Conclusion
+Pipeline parallelism is essential for scaling large-model train-
+ing, but fixed execution orders can become stale under run-
+time variability, as computation and communication readi-
+ness change during execution. This paper presented RRFP,
+a readiness-driven runtime layer for out-of-order pipeline-
+parallel training. RRFP combines message-driven asynchro-
+nous communication, ready-set arbitration, and lightweight
+tensor-parallel coordination to dispatch ready work while
+preserving communication progress and collective-order
+consistency. Across language-only and multimodal work-
+loads, RRFP reduces blocking wait, improves end-to-end per-
+formance, outperforms external systems in matched settings,
+remains robust to injected jitter and alternative hint orders,
+and is especially beneficial in deeper pipelines, more imbal-
+anced workloads, and larger-batch settings. These results
+suggest that pipeline schedules should guide ready work
+rather than serve as fixed orders that runtime must follow.
+References
+[1] Jean-Baptiste Alayrac, Jeff Donahue, Pauline Luc, Antoine Miech,
+Iain Barr, Yana Hasson, Karel Lenc, Arthur Mensch, Katie Milli-
+can, Malcolm Reynolds, Roman Ring, Eliza Rutherford, Serkan Cabi,
+Tengda Han, Zhitao Gong, Sina Samangooei, Marianne Monteiro, Ja-
+cob Menick, Sebastian Borgeaud, Andrew Brock, Aida Nematzadeh, Sa-
+hand Sharifzadeh, Mikolaj Binkowski, Ricardo Barreira, Oriol Vinyals,
+Andrew Zisserman, and Karen Simonyan. 2022. Flamingo: a Visual
+Language Model for Few-Shot Learning. arXiv:2204.14198 [cs.CV]
+https://arxiv.org/abs/2204.14198
+[2] Reza Yazdani Aminabadi, Samyam Rajbhandari, Minjia Zhang, Am-
+mar Ahmad Awan, Cheng Li, Du Li, Elton Zheng, Jeff Rasley, Shaden
+Smith, Olatunji Ruwase, and Yuxiong He. 2022. DeepSpeed Inference:
+Enabling Efficient Inference of Transformer Models at Unprecedented
+Scale. arXiv:2207.00032 [cs.LG]https://arxiv.org/abs/2207.00032
+[3] Shuai Bai, Yuxuan Cai, Ruizhe Chen, Keqin Chen, Xionghui Chen,
+Zesen Cheng, Lianghao Deng, Wei Ding, Chang Gao, Chunjiang
+Ge, Wenbin Ge, Zhifang Guo, Qidong Huang, Jie Huang, Fei Huang,
+Binyuan Hui, Shutong Jiang, Zhaohai Li, Mingsheng Li, Mei Li, Kaixin
+Li, Zicheng Lin, Junyang Lin, Xuejing Liu, Jiawei Liu, Chenglong Liu,
+Yang Liu, Dayiheng Liu, Shixuan Liu, Dunjie Lu, Ruilin Luo, Chenxu Lv,
+Rui Men, Lingchen Meng, Xuancheng Ren, Xingzhang Ren, Sibo Song,
+Yuchong Sun, Jun Tang, Jianhong Tu, Jianqiang Wan, Peng Wang,
+Pengfei Wang, Qiuyue Wang, Yuxuan Wang, Tianbao Xie, Yiheng
+Xu, Haiyang Xu, Jin Xu, Zhibo Yang, Mingkun Yang, Jianxin Yang,
+An Yang, Bowen Yu, Fei Zhang, Hang Zhang, Xi Zhang, Bo Zheng,
+Humen Zhong, Jingren Zhou, Fan Zhou, Jing Zhou, Yuanzhi Zhu, and
+Ke Zhu. 2025. Qwen3-VL Technical Report. arXiv:2511.21631 [cs.CV]
+https://arxiv.org/abs/2511.21631
+[4] Shuai Bai, Keqin Chen, Xuejing Liu, Jialin Wang, Wenbin Ge, Sibo
+Song, Kai Dang, Peng Wang, Shijie Wang, Jun Tang, Humen Zhong,
+Yuanzhi Zhu, Mingkun Yang, Zhaohai Li, Jianqiang Wan, Pengfei
+Wang, Wei Ding, Zheren Fu, Yiheng Xu, Jiabo Ye, Xi Zhang, Tianbao
+Xie, Zesen Cheng, Hang Zhang, Zhibo Yang, Haiyang Xu, and Junyang
+Lin. 2025. Qwen2.5-VL Technical Report. arXiv:2502.13923 [cs.CV]
+https://arxiv.org/abs/2502.13923
+[5] Tom B. Brown, Benjamin Mann, Nick Ryder, Melanie Subbiah, Jared
+Kaplan, Prafulla Dhariwal, Arvind Neelakantan, Pranav Shyam,
+Girish Sastry, Amanda Askell, Sandhini Agarwal, Ariel Herbert-Voss,
+Gretchen Krueger, Tom Henighan, Rewon Child, Aditya Ramesh,
+Daniel M. Ziegler, Jeffrey Wu, Clemens Winter, Christopher Hesse,
+Mark Chen, Eric Sigler, Mateusz Litwin, Scott Gray, Benjamin Chess,
+Jack Clark, Christopher Berner, Sam McCandlish, Alec Radford, Ilya
+Sutskever, and Dario Amodei. 2020. Language Models are Few-Shot
+Learners. arXiv:2005.14165 [cs.CL]https://arxiv.org/abs/2005.14165
+[6] Mouxiang Chen, Binyuan Hui, Zeyu Cui, Jiaxi Yang, Dayiheng Liu,
+Jianling Sun, Junyang Lin, and Zhongxin Liu. 2025. Parallel Scaling
+Law for Language Models. arXiv:2505.10475 [cs.LG]https://arxiv.org/
+abs/2505.10475
+[7] Zhe Chen, Weiyun Wang, Yue Cao, Yangzhou Liu, Zhangwei Gao,
+Erfei Cui, Jinguo Zhu, Shenglong Ye, Hao Tian, Zhaoyang Liu, et al.
+2024. Expanding Performance Boundaries of Open-Source Multi-
+modal Models with Model, Data, and Test-Time Scaling.arXiv preprint
+arXiv:2412.05271(2024).
+[8] Zhe Chen, Weiyun Wang, Hao Tian, Shenglong Ye, Zhangwei Gao,
+Erfei Cui, Wenwen Tong, Kongzhi Hu, Jiapeng Luo, Zheng Ma, et al.
+2024. How Far Are We to GPT-4V? Closing the Gap to Commer-
+cial Multimodal Models with Open-Source Suites.arXiv preprint
+arXiv:2404.16821(2024).
+[9] Zhe Chen, Jiannan Wu, Wenhai Wang, Weijie Su, Guo Chen, Sen Xing,
+Muyan Zhong, Qinglong Zhang, Xizhou Zhu, Lewei Lu, et al . 2024.
+Internvl: Scaling up vision foundation models and aligning for generic
+visual-linguistic tasks. InProceedings of the IEEE/CVF Conference on
+Computer Vision and Pattern Recognition. 24185–24198.
+13
+
+[10] Mostafa Dehghani, Josip Djolonga, Basil Mustafa, Piotr Padlewski,
+Jonathan Heek, Justin Gilmer, Andreas Steiner, Mathilde Caron, Robert
+Geirhos, Ibrahim Alabdulmohsin, Rodolphe Jenatton, Lucas Beyer,
+Michael Tschannen, Anurag Arnab, Xiao Wang, Carlos Riquelme,
+Matthias Minderer, Joan Puigcerver, Utku Evci, Manoj Kumar, Sjoerd
+van Steenkiste, Gamaleldin F. Elsayed, Aravindh Mahendran, Fisher
+Yu, Avital Oliver, Fantine Huot, Jasmijn Bastings, Mark Patrick Collier,
+Alexey Gritsenko, Vighnesh Birodkar, Cristina Vasconcelos, Yi Tay,
+Thomas Mensink, Alexander Kolesnikov, Filip Pavetić, Dustin Tran,
+Thomas Kipf, Mario Lučić, Xiaohua Zhai, Daniel Keysers, Jeremiah
+Harmsen, and Neil Houlsby. 2023. Scaling Vision Transformers to 22
+Billion Parameters. arXiv:2302.05442 [cs.CV]https://arxiv.org/abs/
+2302.05442
+[11] Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weis-
+senborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani,
+Matthias Minderer, Georg Heigold, Sylvain Gelly, Jakob Uszkoreit,
+and Neil Houlsby. 2020. An Image is Worth 16x16 Words: Trans-
+formers for Image Recognition at Scale. arXiv:2010.11929https:
+//arxiv.org/abs/2010.11929
+[12] Weiqi Feng, Yangrui Chen, Shaoyu Wang, Yanghua Peng, Haibin Lin,
+and Minlan Yu. 2025. Optimus: Accelerating Large-Scale Multi-Modal
+LLM Training by Bubble Exploitation. arXiv:2408.03505 [cs.CL]https:
+//arxiv.org/abs/2408.03505
+[13] Zhangwei Gao, Zhe Chen, Erfei Cui, Yiming Ren, Weiyun Wang, Jin-
+guo Zhu, Hao Tian, Shenglong Ye, Junjun He, Xizhou Zhu, et al. 2024.
+Mini-internvl: A flexible-transfer pocket multimodal model with 5%
+parameters and 90% performance.arXiv preprint arXiv:2410.16261
+(2024).
+[14] Aaron Grattafiori, Abhimanyu Dubey, Abhinav Jauhri, Abhinav
+Pandey, Abhishek Kadian, Ahmad Al-Dahle, Aiesha Letman, Akhil
+Mathur, Alan Schelten, Alex Vaughan, Amy Yang, Angela Fan, Anirudh
+Goyal, Anthony Hartshorn, Aobo Yang, Archi Mitra, Archie Sravanku-
+mar, Artem Korenev, Arthur Hinsvark, Arun Rao, Aston Zhang, Au-
+relien Rodriguez, Austen Gregerson, Ava Spataru, Baptiste Roziere,
+Bethany Biron, Binh Tang, Bobbie Chern, Charlotte Caucheteux,
+Chaya Nayak, Chloe Bi, Chris Marra, Chris McConnell, Christian
+Keller, Christophe Touret, Chunyang Wu, Corinne Wong, Cristian Can-
+ton Ferrer, Cyrus Nikolaidis, Damien Allonsius, Daniel Song, Danielle
+Pintz, Danny Livshits, Danny Wyatt, David Esiobu, Dhruv Choud-
+hary, Dhruv Mahajan, Diego Garcia-Olano, Diego Perino, Dieuwke
+Hupkes, Egor Lakomkin, Ehab AlBadawy, Elina Lobanova, Emily Di-
+nan, Eric Michael Smith, Filip Radenovic, Francisco Guzmán, Frank
+Zhang, Gabriel Synnaeve, Gabrielle Lee, Georgia Lewis Anderson,
+Govind Thattai, Graeme Nail, Gregoire Mialon, Guan Pang, Guillem
+Cucurell, Hailey Nguyen, Hannah Korevaar, Hu Xu, Hugo Touvron,
+Iliyan Zarov, Imanol Arrieta Ibarra, Isabel Kloumann, Ishan Misra,
+Ivan Evtimov, Jack Zhang, Jade Copet, Jaewon Lee, Jan Geffert, Jana
+Vranes, Jason Park, Jay Mahadeokar, Jeet Shah, Jelmer van der Linde,
+Jennifer Billock, Jenny Hong, Jenya Lee, Jeremy Fu, Jianfeng Chi,
+Jianyu Huang, Jiawen Liu, Jie Wang, Jiecao Yu, Joanna Bitton, Joe
+Spisak, Jongsoo Park, Joseph Rocca, Joshua Johnstun, Joshua Saxe,
+Junteng Jia, Kalyan Vasuden Alwala, Karthik Prasad, Kartikeya Up-
+asani, Kate Plawiak, Ke Li, Kenneth Heafield, Kevin Stone, Khalid El-
+Arini, Krithika Iyer, Kshitiz Malik, Kuenley Chiu, Kunal Bhalla, Kushal
+Lakhotia, Lauren Rantala-Yeary, Laurens van der Maaten, Lawrence
+Chen, Liang Tan, Liz Jenkins, Louis Martin, Lovish Madaan, Lubo
+Malo, Lukas Blecher, Lukas Landzaat, Luke de Oliveira, Madeline
+Muzzi, Mahesh Pasupuleti, Mannat Singh, Manohar Paluri, Marcin
+Kardas, Maria Tsimpoukelli, Mathew Oldham, Mathieu Rita, Maya
+Pavlova, Melanie Kambadur, Mike Lewis, Min Si, Mitesh Kumar Singh,
+Mona Hassan, Naman Goyal, Narjes Torabi, Nikolay Bashlykov, Niko-
+lay Bogoychev, Niladri Chatterji, Ning Zhang, Olivier Duchenne,
+Onur Çelebi, Patrick Alrassy, Pengchuan Zhang, Pengwei Li, Petar
+Vasic, Peter Weng, Prajjwal Bhargava, Pratik Dubal, Praveen Krish-
+nan, Punit Singh Koura, Puxin Xu, Qing He, Qingxiao Dong, Ragavan
+Srinivasan, Raj Ganapathy, Ramon Calderer, Ricardo Silveira Cabral,
+Robert Stojnic, Roberta Raileanu, Rohan Maheswari, Rohit Girdhar,
+Rohit Patel, Romain Sauvestre, Ronnie Polidoro, Roshan Sumbaly,
+Ross Taylor, Ruan Silva, Rui Hou, Rui Wang, Saghar Hosseini, Sahana
+Chennabasappa, Sanjay Singh, Sean Bell, Seohyun Sonia Kim, Sergey
+Edunov, Shaoliang Nie, Sharan Narang, Sharath Raparthy, Sheng Shen,
+Shengye Wan, Shruti Bhosale, Shun Zhang, Simon Vandenhende,
+Soumya Batra, Spencer Whitman, Sten Sootla, Stephane Collot, Suchin
+Gururangan, Sydney Borodinsky, Tamar Herman, Tara Fowler, Tarek
+Sheasha, Thomas Georgiou, Thomas Scialom, Tobias Speckbacher,
+Todor Mihaylov, Tong Xiao, Ujjwal Karn, Vedanuj Goswami, Vibhor
+Gupta, Vignesh Ramanathan, Viktor Kerkez, Vincent Gonguet, Vir-
+ginie Do, Vish Vogeti, Vítor Albiero, Vladan Petrovic, Weiwei Chu,
+Wenhan Xiong, Wenyin Fu, Whitney Meers, Xavier Martinet, Xi-
+aodong Wang, Xiaofang Wang, Xiaoqing Ellen Tan, Xide Xia, Xinfeng
+Xie, Xuchao Jia, Xuewei Wang, Yaelle Goldschlag, Yashesh Gaur, Yas-
+mine Babaei, Yi Wen, Yiwen Song, Yuchen Zhang, Yue Li, Yuning Mao,
+Zacharie Delpierre Coudert, Zheng Yan, Zhengxing Chen, Zoe Pa-
+pakipos, Aaditya Singh, Aayushi Srivastava, Abha Jain, Adam Kelsey,
+Adam Shajnfeld, Adithya Gangidi, Adolfo Victoria, Ahuva Goldstand,
+Ajay Menon, Ajay Sharma, Alex Boesenberg, Alexei Baevski, Allie
+Feinstein, Amanda Kallet, Amit Sangani, Amos Teo, Anam Yunus,
+Andrei Lupu, Andres Alvarado, Andrew Caples, Andrew Gu, Andrew
+Ho, Andrew Poulton, Andrew Ryan, Ankit Ramchandani, Annie Dong,
+Annie Franco, Anuj Goyal, Aparajita Saraf, Arkabandhu Chowdhury,
+Ashley Gabriel, Ashwin Bharambe, Assaf Eisenman, Azadeh Yazdan,
+Beau James, Ben Maurer, Benjamin Leonhardi, Bernie Huang, Beth
+Loyd, Beto De Paola, Bhargavi Paranjape, Bing Liu, Bo Wu, Boyu Ni,
+Braden Hancock, Bram Wasti, Brandon Spence, Brani Stojkovic, Brian
+Gamido, Britt Montalvo, Carl Parker, Carly Burton, Catalina Mejia,
+Ce Liu, Changhan Wang, Changkyu Kim, Chao Zhou, Chester Hu,
+Ching-Hsiang Chu, Chris Cai, Chris Tindal, Christoph Feichtenhofer,
+Cynthia Gao, Damon Civin, Dana Beaty, Daniel Kreymer, Daniel Li,
+David Adkins, David Xu, Davide Testuggine, Delia David, Devi Parikh,
+Diana Liskovich, Didem Foss, Dingkang Wang, Duc Le, Dustin Hol-
+land, Edward Dowling, Eissa Jamil, Elaine Montgomery, Eleonora
+Presani, Emily Hahn, Emily Wood, Eric-Tuan Le, Erik Brinkman, Este-
+ban Arcaute, Evan Dunbar, Evan Smothers, Fei Sun, Felix Kreuk, Feng
+Tian, Filippos Kokkinos, Firat Ozgenel, Francesco Caggioni, Frank
+Kanayet, Frank Seide, Gabriela Medina Florez, Gabriella Schwarz,
+Gada Badeer, Georgia Swee, Gil Halpern, Grant Herman, Grigory
+Sizov, Guangyi, Zhang, Guna Lakshminarayanan, Hakan Inan, Hamid
+Shojanazeri, Han Zou, Hannah Wang, Hanwen Zha, Haroun Habeeb,
+Harrison Rudolph, Helen Suk, Henry Aspegren, Hunter Goldman,
+Hongyuan Zhan, Ibrahim Damlaj, Igor Molybog, Igor Tufanov, Ilias
+Leontiadis, Irina-Elena Veliche, Itai Gat, Jake Weissman, James Ge-
+boski, James Kohli, Janice Lam, Japhet Asher, Jean-Baptiste Gaya, Jeff
+Marcus, Jeff Tang, Jennifer Chan, Jenny Zhen, Jeremy Reizenstein,
+Jeremy Teboul, Jessica Zhong, Jian Jin, Jingyi Yang, Joe Cummings,
+Jon Carvill, Jon Shepard, Jonathan McPhie, Jonathan Torres, Josh
+Ginsburg, Junjie Wang, Kai Wu, Kam Hou U, Karan Saxena, Kartikay
+Khandelwal, Katayoun Zand, Kathy Matosich, Kaushik Veeraragha-
+van, Kelly Michelena, Keqian Li, Kiran Jagadeesh, Kun Huang, Kunal
+Chawla, Kyle Huang, Lailin Chen, Lakshya Garg, Lavender A, Le-
+andro Silva, Lee Bell, Lei Zhang, Liangpeng Guo, Licheng Yu, Liron
+Moshkovich, Luca Wehrstedt, Madian Khabsa, Manav Avalani, Manish
+Bhatt, Martynas Mankus, Matan Hasson, Matthew Lennie, Matthias
+Reso, Maxim Groshev, Maxim Naumov, Maya Lathi, Meghan Keneally,
+Miao Liu, Michael L. Seltzer, Michal Valko, Michelle Restrepo, Mihir
+Patel, Mik Vyatskov, Mikayel Samvelyan, Mike Clark, Mike Macey,
+Mike Wang, Miquel Jubert Hermoso, Mo Metanat, Mohammad Raste-
+gari, Munish Bansal, Nandhini Santhanam, Natascha Parks, Natasha
+14
+
+White, Navyata Bawa, Nayan Singhal, Nick Egebo, Nicolas Usunier,
+Nikhil Mehta, Nikolay Pavlovich Laptev, Ning Dong, Norman Cheng,
+Oleg Chernoguz, Olivia Hart, Omkar Salpekar, Ozlem Kalinli, Parkin
+Kent, Parth Parekh, Paul Saab, Pavan Balaji, Pedro Rittner, Philip Bon-
+trager, Pierre Roux, Piotr Dollar, Polina Zvyagina, Prashant Ratanchan-
+dani, Pritish Yuvraj, Qian Liang, Rachad Alao, Rachel Rodriguez, Rafi
+Ayub, Raghotham Murthy, Raghu Nayani, Rahul Mitra, Rangaprabhu
+Parthasarathy, Raymond Li, Rebekkah Hogan, Robin Battey, Rocky
+Wang, Russ Howes, Ruty Rinott, Sachin Mehta, Sachin Siby, Sai Jayesh
+Bondu, Samyak Datta, Sara Chugh, Sara Hunt, Sargun Dhillon, Sasha
+Sidorov, Satadru Pan, Saurabh Mahajan, Saurabh Verma, Seiji Ya-
+mamoto, Sharadh Ramaswamy, Shaun Lindsay, Shaun Lindsay, Sheng
+Feng, Shenghao Lin, Shengxin Cindy Zha, Shishir Patil, Shiva Shankar,
+Shuqiang Zhang, Shuqiang Zhang, Sinong Wang, Sneha Agarwal, Soji
+Sajuyigbe, Soumith Chintala, Stephanie Max, Stephen Chen, Steve
+Kehoe, Steve Satterfield, Sudarshan Govindaprasad, Sumit Gupta, Sum-
+mer Deng, Sungmin Cho, Sunny Virk, Suraj Subramanian, Sy Choud-
+hury, Sydney Goldman, Tal Remez, Tamar Glaser, Tamara Best, Thilo
+Koehler, Thomas Robinson, Tianhe Li, Tianjun Zhang, Tim Matthews,
+Timothy Chou, Tzook Shaked, Varun Vontimitta, Victoria Ajayi, Vic-
+toria Montanez, Vijai Mohan, Vinay Satish Kumar, Vishal Mangla,
+Vlad Ionescu, Vlad Poenaru, Vlad Tiberiu Mihailescu, Vladimir Ivanov,
+Wei Li, Wenchen Wang, Wenwen Jiang, Wes Bouaziz, Will Constable,
+Xiaocheng Tang, Xiaojian Wu, Xiaolan Wang, Xilun Wu, Xinbo Gao,
+Yaniv Kleinman, Yanjun Chen, Ye Hu, Ye Jia, Ye Qi, Yenda Li, Yilin
+Zhang, Ying Zhang, Yossi Adi, Youngjin Nam, Yu, Wang, Yu Zhao,
+Yuchen Hao, Yundi Qian, Yunlu Li, Yuzi He, Zach Rait, Zachary DeVito,
+Zef Rosnbrick, Zhaoduo Wen, Zhenyu Yang, Zhiwei Zhao, and Zhiyu
+Ma. 2024. The Llama 3 Herd of Models. arXiv:2407.21783 [cs.AI]
+https://arxiv.org/abs/2407.21783
+[15] Jihu Guo, Tenghui Ma, Wei Gao, Peng Sun, Jiaxing Li, Xun Chen,
+Yuyang Jin, and Dahua Lin. 2025. AdaPtis: Reducing Pipeline Bub-
+bles with Adaptive Pipeline Parallelism on Heterogeneous Models.
+arXiv:2509.23722 [cs.DC]https://arxiv.org/abs/2509.23722
+[16] Ryubu Hosoki, Toshio Endo, Takahiro Hirofuchi, and Tsutomu
+Ikegami. 2024. AshPipe: Asynchronous Hybrid Pipeline Parallel for
+DNN Training. InProceedings of the International Conference on High
+Performance Computing in Asia-Pacific Region(Nagoya, Japan)(HPCA-
+sia ’24). Association for Computing Machinery, New York, NY, USA,
+117–126. doi:10.1145/3635035.3635045
+[17] Jun Huang, Zhen Zhang, Shuai Zheng, Feng Qin, and Yida Wang. 2024.
+DISTMM: Accelerating Distributed Multimodal Model Training. In21st
+USENIX Symposium on Networked Systems Design and Implementation
+(NSDI 24). USENIX Association, Santa Clara, CA, 1157–1171.https:
+//www.usenix.org/conference/nsdi24/presentation/huang
+[18] Yanping Huang, Youlong Cheng, Ankur Bapna, et al . 2019. GPipe:
+Efficient Training of Giant Neural Networks using Pipeline Parallelism.
+arXiv:1811.06965 [cs.CV]https://arxiv.org/abs/1811.06965
+[19] Insu Jang, Runyu Lu, Nikhil Bansal, Ang Chen, and Mosharaf Chowd-
+hury. 2025. Efficient Distributed MLLM Training with Cornstarch.
+arXiv:2503.11367 [cs.DC]https://arxiv.org/abs/2503.11367
+[20] Byungsoo Jeon, Mengdi Wu, Shiyi Cao, Sunghyun Kim, Sunghyun
+Park, Neeraj Aggarwal, Colin Unger, Daiyaan Arfeen, Peiyuan Liao,
+Xupeng Miao, Mohammad Alizadeh, Gregory R. Ganger, Tianqi Chen,
+and Zhihao Jia. 2025. GraphPipe: Improving Performance and Scalabil-
+ity of DNN Training with Graph Pipeline Parallelism. InProceedings
+of the 30th ACM International Conference on Architectural Support for
+Programming Languages and Operating Systems, Volume 1(Rotterdam,
+Netherlands)(ASPLOS ’25). Association for Computing Machinery,
+New York, NY, USA, 557–571. doi:10.1145/3669940.3707220
+[21] Lijuan Jiang, Xingjian Qian, Zhenxiang Ma, et al . 2025. A Flexible
+Programmable Pipeline Parallelism Framework for Efficient DNN
+Training. arXiv:2510.05112 [cs.DC]https://arxiv.org/abs/2510.05112
+[22] Katikapalli Subramanyam Kalyan. 2023. A Survey of GPT-3 Family
+Large Language Models. arXiv:2310.12321 [cs.CL]https://arxiv.org/
+abs/2310.12321
+[23] Joel Lamy-Poirier. 2023. Breadth-First Pipeline Parallelism.
+arXiv:2211.05953 [cs.DC]https://arxiv.org/abs/2211.05953
+[24] Shigang Li and Torsten Hoefler. 2021. Chimera: efficiently training
+large-scale neural networks with bidirectional pipelines. InProceed-
+ings of the International Conference for High Performance Computing,
+Networking, Storage and Analysis (SC ’21). ACM, 1–14. doi:10.1145/
+3458817.3476145
+[25] Xinyu Lian, Masahiro Tanaka, Olatunji Ruwase, and Minjia Zhang.
+2025. SuperOffload: Unleashing the Power of Large-Scale LLM Train-
+ing on Superchips. arXiv:2509.21271 [cs.LG]https://arxiv.org/abs/
+2509.21271
+[26] Yanying Lin, Shijie Peng, Chengzhi Lu, ChengZhong Xu, and Kejiang
+Ye. 2026. FlexPipe: Adapting Dynamic LLM Serving Through Inflight
+Pipeline Refactoring in Fragmented Serverless Clusters. InProceedings
+of the 21st European Conference on Computer Systems (EUROSYS ’26).
+ACM, 72–88. doi:10.1145/3767295.3769316
+[27] Zhiqi Lin, Youshan Miao, Quanlu Zhang, Fan Yang, Yi Zhu, Cheng Li,
+Saeed Maleki, Xu Cao, Ning Shang, Yilei Yang, Weijiang Xu, Mao Yang,
+Lintao Zhang, and Lidong Zhou. 2024. nnScaler: Constraint-Guided
+Parallelization Plan Generation for Deep Learning Training. In18th
+USENIX Symposium on Operating Systems Design and Implementation
+(OSDI 24). 347–363.
+[28] Deepak Narayanan, Aaron Harlap, Amar Phanishayee, Vivek Se-
+shadri, Nikhil R. Devanur, Gregory R. Ganger, Phillip B. Gibbons,
+and Matei Zaharia. 2019. PipeDream: generalized pipeline parallelism
+for DNN training. InProceedings of the 27th ACM Symposium on Op-
+erating Systems Principles(Huntsville, Ontario, Canada)(SOSP ’19).
+Association for Computing Machinery, New York, NY, USA, 1–15.
+doi:10.1145/3341301.3359646
+[29] Deepak Narayanan, Amar Phanishayee, Kaiyu Shi, Xie Chen, and
+Matei Zaharia. 2021. Memory-Efficient Pipeline-Parallel DNN Train-
+ing. arXiv:2006.09503 [cs.LG]https://arxiv.org/abs/2006.09503
+[30] Deepak Narayanan, Mohammad Shoeybi, Jared Casper, et al . 2021.
+Efficient Large-Scale Language Model Training on GPU Clusters Using
+Megatron-LM. arXiv:2104.04473 [cs.CL]https://arxiv.org/abs/2104.
+04473
+[31] NVIDIA. 2025. NCCL (NVIDIA Collective Communications Library).
+https://github.com/NVIDIA/nccl.
+[32] NVIDIA Corporation. 2025.NVIDIA Collective Communications Li-
+brary (NCCL) Documentation.https://docs.nvidia.com/deeplearning/
+nccl/user-guide/docs/Accessed: 2025-01-28.
+[33] Hyungjun Oh, Junyeol Lee, Hyeongju Kim, and Jiwon Seo. 2022. Out-
+of-order backprop: an effective scheduling technique for deep learning.
+InProceedings of the Seventeenth European Conference on Computer
+Systems(Rennes, France)(EuroSys ’22). Association for Computing Ma-
+chinery, New York, NY, USA, 435–452. doi:10.1145/3492321.3519563
+[34] Jay H. Park, Gyeongchan Yun, Chang M. Yi, Nguyen T. Nguyen, Seung-
+min Lee, Jaesik Choi, Sam H. Noh, and Young ri Choi. 2020. HetPipe:
+Enabling Large DNN Training on (Whimpy) Heterogeneous GPU
+Clusters through Integration of Pipelined Model Parallelism and Data
+Parallelism. arXiv:2005.14038 [cs.DC]https://arxiv.org/abs/2005.14038
+[35] Yanghua Peng, Yibo Zhu, Yangrui Chen, Yixin Bao, Bairen Yi, Chang
+Lan, Chuan Wu, and Chuanxiong Guo. 2019. A generic communication
+scheduler for distributed DNN training acceleration. InProceedings of
+the 27th ACM Symposium on Operating Systems Principles(Huntsville,
+Ontario, Canada)(SOSP ’19). Association for Computing Machinery,
+New York, NY, USA, 16–29. doi:10.1145/3341301.3359642
+[36] Shiva Kumar Pentyala, Zhichao Wang, Bin Bi, Kiran Ramnath, Xiang-
+Bo Mao, Regunathan Radhakrishnan, Sitaram Asur, Na, and Cheng.
+2024. PAFT: A Parallel Training Paradigm for Effective LLM Fine-
+Tuning. arXiv:2406.17923 [cs.CL]https://arxiv.org/abs/2406.17923
+15
+
+[37] Penghui Qi, Xinyi Wan, Guangxing Huang, and Min Lin. 2023. Zero
+Bubble Pipeline Parallelism. arXiv:2401.10241 [cs.DC]https://arxiv.
+org/abs/2401.10241
+[38] Aurick Qiao, Sang Keun Choe, Suhas Jayaram Subramanya, Willie
+Neiswanger, Qirong Ho, Hao Zhang, Gregory R. Ganger, and Eric P.
+Xing. 2021. Pollux: Co-adaptive Cluster Scheduling for Goodput-
+Optimized Deep Learning. arXiv:2008.12260 [cs.DC]https://arxiv.org/
+abs/2008.12260
+[39] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel
+Goh, Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela
+Mishkin, Jack Clark, Gretchen Krueger, and Ilya Sutskever. 2021. Learn-
+ing Transferable Visual Models From Natural Language Supervision.
+arXiv:2103.00020 [cs.CV]https://arxiv.org/abs/2103.00020
+[40] Samyam Rajbhandari, Jeff Rasley, Olatunji Ruwase, and Yuxiong He.
+2020. ZeRO: Memory Optimizations Toward Training Trillion Parame-
+ter Models. arXiv:1910.02054 [cs.LG]https://arxiv.org/abs/1910.02054
+[41] Isabelly Rocha, Nathaniel Morris, Lydia Y. Chen, Pascal Felber, Robert
+Birke, and Valerio Schiavoni. 2020. PipeTune: Pipeline Parallelism of
+Hyper and System Parameters Tuning for Deep Learning Clusters. In
+Middleware ’20: 21st International Middleware Conference, Delft, The
+Netherlands, December 7-11, 2020, Dilma Da Silva and Rüdiger Kapitza
+(Eds.). ACM, 89–104. doi:10.1145/3423211.3425692
+[42] Alexander Sergeev and Mike Del Balso. 2018. Horovod: fast and easy
+distributed deep learning in TensorFlow. arXiv:1802.05799 [cs.LG]
+https://arxiv.org/abs/1802.05799
+[43] Mohammad Shoeybi, Mostofa Patwary, Raul Puri, Patrick LeGresley,
+Jared Casper, and Bryan Catanzaro. 2020. Megatron-LM: Training
+Multi-Billion Parameter Language Models Using Model Parallelism.
+arXiv:1909.08053 [cs.CL]https://arxiv.org/abs/1909.08053
+[44] Ao Sun, Weilin Zhao, Xu Han, Cheng Yang, Xinrong Zhang, Zhiyuan
+Liu, Chuan Shi, and Maosong Sun. 2024. Seq1F1B: Efficient Sequence-
+Level Pipeline Parallelism for Large Language Model Training.
+arXiv:2406.03488 [cs.DC]https://arxiv.org/abs/2406.03488
+[45] Sahil Tyagi and Prateek Sharma. 2020. Taming Resource Heterogeneity
+In Distributed ML Training With Dynamic Batching. In2020 IEEE
+International Conference on Autonomic Computing and Self-Organizing
+Systems (ACSOS). IEEE, Washington, DC, USA, 188–194. doi:10.1109/
+acsos49614.2020.00041
+[46] Colin Unger, Zhihao Jia, Wei Wu, Sina Lin, Mandeep Baines, Carlos
+Efrain Quintero Narvaez, Vinay Ramakrishnaiah, Nirmal Prajapati,
+Pat McCormick, Jamaludin Mohd-Yusof, Xi Luo, Dheevatsa Mudigere,
+Jongsoo Park, Misha Smelyanskiy, and Alex Aiken. 2022. Unity: Ac-
+celerating DNN Training Through Joint Optimization of Algebraic
+Transformations and Parallelization. InProceedings of the 16th USENIX
+Symposium on Operating Systems Design and Implementation (OSDI
+’22). Usenix Assoc, Carlsbad, CA, USA, 455–469.
+[47] Huizheng Wang, Zichuan Wang, Hongbin Wang, Jingxiang Hou, Tai-
+quan Wei, Chao Li, Yang Hu, and Shouyi Yin. 2025. WATOS: Efficient
+LLM Training Strategies and Architecture Co-exploration for Wafer-
+scale Chip. arXiv:2512.12279 [eess.SP]https://arxiv.org/abs/2512.
+12279
+[48] Yujie Wang, Shenhan Zhu, Fangcheng Fu, Xupeng Miao, Jie Zhang,
+Juan Zhu, Fan Hong, Yong Li, and Bin Cui. 2025. Spindle: Efficient
+Distributed Training of Multi-Task Large Models via Wavefront Sched-
+uling. arXiv:2409.03365 [cs.DC]https://arxiv.org/abs/2409.03365
+[49] Zerui Wang, Qinghao Hu, Ana Klimovic, Tianwei Zhang, Yonggang
+Wen, Peng Sun, and Dahua Lin. 2025. Semantic-Aware Scheduling for
+GPU Clusters with Large Language Models. arXiv:2510.03334 [cs.LG]
+https://arxiv.org/abs/2510.03334
+[50] Zhenliang Xue, Hanpeng Hu, Xing Chen, Yimin Jiang, Yixin Song,
+Zeyu Mi, Yibo Zhu, Daxin Jiang, Yubin Xia, and Haibo Chen. 2025.
+PipeWeaver: Addressing Data Dynamicity in Large Multimodal Model
+Training with Dynamic Interleaved Pipeline. arXiv:2504.14145 [cs.DC]
+https://arxiv.org/abs/2504.14145
+[51] Zhenliang Xue, Hanpeng Hu, Xing Chen, Yimin Jiang, Yixin Song,
+Zeyu Mi, Yibo Zhu, Daxin Jiang, Yubin Xia, and Haibo Chen. 2026.
+DIP: Efficient Large Multimodal Model Training with Dynamic In-
+terleaved Pipeline. InProceedings of the 31st ACM International Con-
+ference on Architectural Support for Programming Languages and Op-
+erating Systems, Volume 2. ACM, Rotterdam, Netherlands, 618–632.
+doi:10.1145/3779212.3790154
+[52] An Yang, Anfeng Li, Baosong Yang, Beichen Zhang, Binyuan Hui, Bo
+Zheng, Bowen Yu, Chang Gao, Chengen Huang, Chenxu Lv, Chujie
+Zheng, Dayiheng Liu, Fan Zhou, Fei Huang, Feng Hu, Hao Ge, Haoran
+Wei, Huan Lin, Jialong Tang, Jian Yang, Jianhong Tu, Jianwei Zhang,
+Jianxin Yang, Jiaxi Yang, Jing Zhou, Jingren Zhou, Junyang Lin, Kai
+Dang, Keqin Bao, Kexin Yang, Le Yu, Lianghao Deng, Mei Li, Mingfeng
+Xue, Mingze Li, Pei Zhang, Peng Wang, Qin Zhu, Rui Men, Ruize Gao,
+Shixuan Liu, Shuang Luo, Tianhao Li, Tianyi Tang, Wenbiao Yin,
+Xingzhang Ren, Xinyu Wang, Xinyu Zhang, Xuancheng Ren, Yang
+Fan, Yang Su, Yichang Zhang, Yinger Zhang, Yu Wan, Yuqiong Liu,
+Zekun Wang, Zeyu Cui, Zhenru Zhang, Zhipeng Zhou, and Zihan
+Qiu. 2025. Qwen3 Technical Report. arXiv:2505.09388 [cs.CL]https:
+//arxiv.org/abs/2505.09388
+[53] Bowen Yang, Jian Zhang, Jonathan Li, Christopher Ré, Christopher R.
+Aberger, and Christopher De Sa. 2020. PipeMare: Asynchronous
+Pipeline Parallel DNN Training. arXiv:1910.05124 [cs.DC]https:
+//arxiv.org/abs/1910.05124
+[54] Xing Zhao, Aijun An, Junfeng Liu, and Bao Xin Chen. 2019. Dynamic
+Stale Synchronous Parallel Distributed Training for Deep Learning.
+arXiv:1908.11848 [cs.DC]https://arxiv.org/abs/1908.11848
+[55] Lianmin Zheng, Zhuohan Li, Hao Zhang, Yonghao Zhuang, Zhifeng
+Chen, Yanping Huang, Yida Wang, Yuanzhong Xu, Danyang Zhuo,
+Eric P. Xing, Joseph E. Gonzalez, and Ion Stoica. 2022. Alpa: Au-
+tomating Inter- and Intra-Operator Parallelism for Distributed Deep
+Learning. arXiv:2201.12023 [cs.LG]https://arxiv.org/abs/2201.12023
+[56] Guangyao Zhou, Wenhong Tian, Rajkumar Buyya, and Kui Wu. 2025.
+UMPIPE: Unequal Microbatches-Based Pipeline Parallelism for Deep
+Neural Network Training .IEEE Transactions on Parallel & Distributed
+Systems36, 02 (Feb. 2025), 293–307. doi:10.1109/TPDS.2024.3515804
+16
+
+A Backward-Forward Hint Algorithm
+This section gives the detailed instantiation of the backward-
+forward (BF) hint used by RRFP. The BF hint is a determin-
+istic priority rule over currently ready work. It does not
+prescribe a fixed global execution order. Instead, it ranks
+only the microbatches that are already present in the local
+ready buffers.
+The BF hint defines the priority order used by the arbitra-
+tion layer as follows.
+• Direction-level priority.Arbitration proceeds in re-
+peated rounds. In each round, the runtime first checks
+whether the backward-ready bufferL 𝑏
+𝑟 contains exe-
+cutable work. If so, it selects and executes one back-
+ward microbatch. The runtime then checks whether
+the forward-ready bufferL 𝑓
+𝑟 contains executable work.
+If so, it selects and executes one forward microbatch.
+Thus, when both backward and forward work are
+ready, the BF hint follows a 1F1B-like order by giving
+backward work the first opportunity in each round
+and then considering forward work. When only one
+direction has ready work, the runtime simply executes
+the ready direction rather than waiting for work from
+the other direction.
+• Within-direction priority.When multiple ready mi-
+crobatches exist in the same direction, the BF hint
+prioritizes the microbatch that corresponds to earlier
+progress within the stage. For forward-ready work,
+this means choosing the smaller model-chunk index,
+and for backward-ready work, this means choosing
+the larger model-chunk index. This rule is useful for
+interleaved pipeline schedules, where each physical
+stage may own multiple model chunks. Prioritizing
+earlier-progress model chunks helps them finish ear-
+lier and enter subsequent collective operations, such
+as gradient reduction, earlier.
+• Tie breaking.If multiple ready microbatches have
+the same direction and the same model-chunk index,
+the BF hint breaks ties by choosing the smaller micro-
+batch index. This makes arbitration deterministic and
+preserves a simple in-order preference within each
+model chunk.
+Importantly, the BF hint never blocks on unavailable work:
+it does not force the runtime to wait for a higher-priority but
+unready microbatch. If the backward-ready buffer is empty
+in a round, the runtime immediately considers forward-ready
+work. Similarly, within a direction, the hint only ranks micro-
+batches that are already present in the corresponding ready
+buffer.
+Algorithm 1 summarizes the event-driven execution loop
+at stage 𝑠 using this BF hint. Ready microbatches are inserted
+into the ready buffers by the communication runtime, and the
+arbitration layer repeatedly selects executable microbatches
+from these buffers. Completed microbatches are inserted
+Algorithm 1Backward-forward event-driven execution
+loop at stage𝑠
+1: State:forward-ready buffer L 𝑓
+𝑟 , backward-ready buffer
+L𝑏
+𝑟 , forward-finished buffer L 𝑓
+𝑓 𝑖𝑛, backward-finished
+bufferL 𝑏
+𝑓 𝑖𝑛
+2: Hint order: Π: forward uses smaller model-chunk index
+first; backward uses larger model-chunk index first; ties
+use smaller microbatch index
+3:Target:𝑁 target completed executions
+4:𝑛 done ←0
+5:while𝑛 done <𝑁 target do
+⊲Each arbitration round first checks backward-ready
+work.
+6:ifL 𝑏
+𝑟 ≠∅then
+7:𝑚 ★
+𝑏 ←NextByPriority(L 𝑏
+𝑟 ,Π)
+8:Execute(𝑚 ★
+𝑏 )
+9:𝑛 done ←𝑛 done +1
+10:L 𝑏
+𝑓 𝑖𝑛 ← L 𝑏
+𝑓 𝑖𝑛 ∪ {𝑚★
+𝑏 }
+11:end if
+⊲The same round then checks forward-ready work if
+more work is needed.
+12:ifL 𝑓
+𝑟 ≠∅and𝑛 done <𝑁 target then
+13:𝑚 ★
+𝑓 ←NextByPriority(L 𝑓
+𝑟 ,Π)
+14:Execute(𝑚 ★
+𝑓 )
+15:𝑛 done ←𝑛 done +1
+16:L 𝑓
+𝑓 𝑖𝑛 ← L 𝑓
+𝑓 𝑖𝑛 ∪ {𝑚★
+𝑓 }
+17:end if
+18:end while
+into the corresponding finished buffers for downstream com-
+munication. In the algorithm,NextByPriority (·,Π) imple-
+ments the within-direction priority rule described above: for
+forward-ready work, it selects the ready microbatch with the
+smallest model-chunk index, and for backward-ready work,
+it selects the ready microbatch with the largest model-chunk
+index. Remaining ties are broken by the smallest microbatch
+index.
+B Proofs and Bottleneck Statistics
+This section provides the detailed proof of Theorem 6.1
+and Corollary 6.2 in the main paper, together with bottle-
+neck statistics showing how often the last-stage-dominance
+condition holds in our workloads. We analyze RRFP under
+the same simplified setting as in the main paper: a non-
+interleaved pipeline, computation-only latency, and no tensor-
+parallel coordination or implementation overhead. Commu-
+nication time is ignored, while inter-stage pipeline depen-
+dencies are still respected.
+17
+
+B.1 Preliminaries
+Let 𝐹 𝑗
+𝑖 denote the forward computation time of microbatch
+𝑗 at pipeline stage 𝑖, where 𝑖∈ { 0, 1, . . . , 𝑁− 1} and 𝑗∈
+{0, 1, . . . , 𝑀− 1}. We define 𝐵 𝑗
+𝑖 analogously for backward
+computation time. For each microbatch𝑗, define
+𝐹 𝑗
+max =max
+0≤𝑖≤𝑁−1
+𝐹 𝑗
+𝑖 , 𝐵 𝑗
+max =max
+0≤𝑖≤𝑁−1
+𝐵 𝑗
+𝑖 .
+We also define the last-stage computation times
+𝐹 𝑗
+last =𝐹 𝑗
+𝑁−1 , 𝐵 𝑗
+last =𝐵 𝑗
+𝑁−1 .
+Let C denote the iteration makespan. Let F be the com-
+pletion time of the forward-only pipeline, where all forward
+work is initially ready at stage0and inter-stage forward
+dependencies are respected. Let B be the completion time
+of the backward-only pipeline, where all backward work
+is initially ready at stage 𝑁− 1and inter-stage backward
+dependencies are respected.
+B.2 Proof of Theorem 6.1
+We first bound the delay that backward work can introduce
+to forward execution.
+Lemma B.1.Let 𝑠𝑖,𝑗
+𝑓 be the start time of the forward task
+of microbatch 𝑗 at stage 𝑖 under RRFP, and let ˜𝑠𝑖,𝑗
+𝑓 be the cor-
+responding start time in the forward-only schedule. Let 𝐾𝑖,𝑗
+denote the set of backward microbatches executed on stage 𝑖
+before forward task(𝑖, 𝑗)starts under RRFP. Then
+𝑠𝑖,𝑗
+𝑓 ≤ ˜𝑠𝑖,𝑗
+𝑓 +
+∑︁
+𝑘∈𝐾 𝑖,𝑗
+𝐵𝑘
+max.
+Proof.Define
+𝐷𝑖,𝑗
+𝑓 =𝑠 𝑖,𝑗
+𝑓 − ˜𝑠𝑖,𝑗
+𝑓 .
+We prove
+𝐷𝑖,𝑗
+𝑓 ≤
+∑︁
+𝑘∈𝐾 𝑖,𝑗
+𝐵𝑘
+max
+by induction on𝑖+𝑗.
+In the forward-only schedule,
+˜𝑠𝑖,𝑗
+𝑓 =
+ 
+
+0, 𝑖=0, 𝑗=0,
+˜𝑒𝑖−1,0
+𝑓 , 𝑖>0, 𝑗=0,
+˜𝑒0,𝑗−1
+𝑓 , 𝑖=0, 𝑗>0,
+max{ ˜𝑒𝑖−1,𝑗
+𝑓 , ˜𝑒𝑖,𝑗−1
+𝑓 }, 𝑖>0, 𝑗>0,
+˜𝑒𝑖,𝑗
+𝑓 = ˜𝑠𝑖,𝑗
+𝑓 +𝐹 𝑗
+𝑖 .
+If 𝑗= 0, no backward task can execute before the first
+forward microbatch reaches any stage. Hence 𝐾𝑖,0 =∅ and
+𝐷𝑖,0
+𝑓 =0.
+If 𝑖= 0, stage0has no upstream forward dependency.
+Therefore the delay of forward task (0, 𝑗) under RRFP is
+exactly the local backward work executed before it on stage
+0, which is at most ∑︁
+𝑘∈𝐾 0,𝑗
+𝐵𝑘
+max.
+Now consider 𝑖> 0and 𝑗> 0, and assume the claim holds
+for all pairs(𝑖 ′, 𝑗 ′)with𝑖 ′ +𝑗 ′ <𝑖+𝑗. Let
+𝑅𝑖,𝑗 =max{𝑒 𝑖−1,𝑗
+𝑓 , 𝑒𝑖,𝑗−1
+𝑓 }
+be the time at which the inter-stage and local forward pre-
+decessors of task (𝑖, 𝑗) have both completed under RRFP. If
+stage 𝑖 is idle at time 𝑅𝑖,𝑗 , then forward task (𝑖, 𝑗) can be dis-
+patched immediately. Otherwise, the only reason it does not
+start immediately is that stage𝑖 is executing a backward task
+that was selected before (𝑖, 𝑗) became ready. Under the BF
+hint, after this backward task completes, the runtime probes
+forward-ready work again. Since (𝑖, 𝑗) is then ready, no addi-
+tional backward task can be inserted before (𝑖, 𝑗) . Therefore,
+after both predecessors are complete, forward task (𝑖, 𝑗) can
+be delayed by at most one additional backward task.
+Let Δ𝑖,𝑗 ≥ 0denote the execution time of this possible
+additional backward task, and set Δ𝑖,𝑗 = 0if no such task
+exists. Then according to the above deduction
+𝑠𝑖,𝑗
+𝑓 ≤max{𝑒 𝑖−1,𝑗
+𝑓 , 𝑒 𝑖,𝑗−1
+𝑓 } +Δ 𝑖,𝑗 ,
+and combining with the fact that
+˜𝑠𝑖,𝑗
+𝑓 =max{ ˜𝑒𝑖−1,𝑗
+𝑓 , ˜𝑒𝑖,𝑗−1
+𝑓 },
+we obtain
+𝑠𝑖,𝑗
+𝑓 − ˜𝑠𝑖,𝑗
+𝑓 ≤max{𝑒 𝑖−1,𝑗
+𝑓 , 𝑒 𝑖,𝑗−1
+𝑓 } −max{ ˜𝑒𝑖−1,𝑗
+𝑓 , ˜𝑒𝑖,𝑗−1
+𝑓 } +Δ 𝑖,𝑗
+≤max{𝑒 𝑖−1,𝑗
+𝑓 − ˜𝑒𝑖−1,𝑗
+𝑓 , 𝑒 𝑖,𝑗−1
+𝑓 − ˜𝑒𝑖,𝑗−1
+𝑓 } +Δ 𝑖,𝑗
+=max{𝑠 𝑖−1,𝑗
+𝑓 − ˜𝑠𝑖−1,𝑗
+𝑓 , 𝑠 𝑖,𝑗−1
+𝑓 − ˜𝑠𝑖,𝑗−1
+𝑓 } +Δ 𝑖,𝑗 ,
+using the fact that
+𝑒𝑖,𝑗
+𝑓 −𝑠 𝑖,𝑗
+𝑓 = ˜𝑒𝑖,𝑗
+𝑓 − ˜𝑠𝑖,𝑗
+𝑓 =𝐹 𝑗
+𝑖 ,∀𝑖, 𝑗
+and that
+max{𝑎, 𝑏} −max{𝑐, 𝑑}= 𝑎+𝑏−𝑐−𝑑
+2 + |𝑎−𝑏| − |𝑐−𝑑|
+2
+≤ 𝑎−𝑐+𝑏−𝑑
+2 + |𝑎−𝑏− (𝑐−𝑑)|
+2
+=max{𝑎−𝑐, 𝑏−𝑑}
+given that𝑎≥𝑐, 𝑏≥𝑑.
+Therefore we arrive at
+𝐷𝑖,𝑗
+𝑓 ≤max{𝐷 𝑖−1,𝑗
+𝑓 , 𝐷 𝑖,𝑗−1
+𝑓 } +Δ 𝑖,𝑗 .
+Equivalently,
+𝐷𝑖,𝑗
+𝑓 ≤max{𝐷 𝑖−1,𝑗
+𝑓 +Δ 𝑖,𝑗 , 𝐷 𝑖,𝑗−1
+𝑓 +Δ 𝑖,𝑗 }.
+By the induction hypothesis,
+𝐷𝑖−1,𝑗
+𝑓 ≤
+∑︁
+𝑘∈𝐾 𝑖−1,𝑗
+𝐵𝑘
+max, 𝐷 𝑖,𝑗−1
+𝑓 ≤
+∑︁
+𝑘∈𝐾 𝑖,𝑗−1
+𝐵𝑘
+max.
+It remains to account for Δ𝑖,𝑗 . If Δ𝑖,𝑗 > 0, let 𝑞 be the
+backward microbatch executed on stage 𝑖 after both forward
+predecessors of (𝑖, 𝑗) have completed but before (𝑖, 𝑗) starts.
+This microbatch is not contained in 𝐾𝑖,𝑗−1 , because it is ex-
+ecuted after forward task (𝑖, 𝑗− 1) has completed, whereas
+18
+
+𝐾𝑖,𝑗−1 only contains backward microbatches executed before
+(𝑖, 𝑗− 1) starts. It is also not contained in 𝐾𝑖−1,𝑗 : if 𝑞∈𝐾 𝑖−1,𝑗 ,
+then the backward task of 𝑞 on stage 𝑖− 1would have exe-
+cuted before forward task (𝑖− 1, 𝑗) starts. By the backward
+dependency, the corresponding backward task on stage 𝑖
+must have completed even earlier, contradicting the fact that
+this stage-𝑖 backward task is still the extra work executed af-
+ter both predecessors of(𝑖, 𝑗) are ready. Thus𝑞 is not counted
+in either predecessor-delay term.
+We next relate the predecessor-delay sets to 𝐾𝑖,𝑗 . Clearly,
+𝐾𝑖,𝑗−1 ⊆𝐾 𝑖,𝑗 , because any backward microbatch executed on
+stage 𝑖 before forward task (𝑖, 𝑗− 1) starts is also executed
+before the later forward task (𝑖, 𝑗) starts. For 𝐾𝑖−1,𝑗 , the in-
+clusion also holds by the direction of backward propagation.
+If 𝑘∈𝐾 𝑖−1,𝑗 , then the backward task of 𝑘 on stage 𝑖− 1
+executes before forward task (𝑖− 1, 𝑗) starts. Since backward
+execution at stage 𝑖− 1depends on the corresponding back-
+ward execution at stage 𝑖, the backward task of 𝑘 on stage
+𝑖 must have completed even earlier. Because forward task
+(𝑖, 𝑗) cannot start before forward task (𝑖− 1, 𝑗) completes,
+this stage-𝑖 backward task is executed before (𝑖, 𝑗) starts.
+Hence𝑘∈𝐾 𝑖,𝑗 .
+Finally, if such an extra backward task 𝑞 exists, then by
+definition it is executed on stage 𝑖 before forward task (𝑖, 𝑗)
+starts, so𝑞∈𝐾 𝑖,𝑗 and
+Δ𝑖,𝑗 ≤𝐵 𝑞
+max.
+Therefore, the predecessor-delay terms are accounted for
+by elements of 𝐾𝑖,𝑗 , and the only additional delay Δ𝑖,𝑗 is
+accounted for by the new element𝑞∈𝐾 𝑖,𝑗 . Since 𝑞∉𝐾 𝑖−1,𝑗 ∪
+𝐾𝑖,𝑗−1 , there is no double counting. Hence,
+𝐷𝑖,𝑗
+𝑓 ≤max
+ 
+
+∑︁
+𝑘∈𝐾 𝑖−1,𝑗
+𝐵𝑘
+max,
+∑︁
+𝑘∈𝐾 𝑖,𝑗−1
+𝐵𝑘
+max
+ 
+
++𝐵𝑞
+max ≤
+∑︁
+𝑘∈𝐾 𝑖,𝑗
+𝐵𝑘
+max.
+This proves the lemma.□
+Applying Lemma B.1 to stage 𝑁− 1and microbatch 𝑀− 1
+gives
+𝑠 𝑁−1,𝑀−1
+𝑓 ≤ ˜𝑠 𝑁−1,𝑀−1
+𝑓 +
+𝑀−2∑︁
+𝑗=0
+𝐵 𝑗
+max.
+We let Clast denote the time from the start of the iteration
+until pipeline stage 𝑁− 1completes the backward computa-
+tion of microbatch 𝑀− 1. Moreover let G=C − C last be the
+cooldown bubble. Since ˜𝑒 𝑁−1,𝑀−1
+𝑓 =F, we obtain
+𝐶last ≤ F +
+𝑀−2∑︁
+𝑗=0
+𝐵 𝑗
+max +𝐵 𝑀−1
+last .
+We next bound the remaining backward cooldownG. The
+backward direction is not exactly symmetric to Lemma B.1,
+because the induction base changes. For forward execution,
+the base stage is stage0, where delayed forward starts can
+be charged directly to backward work inserted before them.
+For backward execution, the base stage is stage 𝑁− 1. In
+the backward-only schedule, all backward work is initially
+ready at stage 𝑁− 1. However, backward work at stage𝑁− 1
+can be delayed by forward-side progress needed to make
+backward tasks ready, including possible idle gaps after a
+backward task while waiting for the next forward task.
+We capture this base-case difference using an augmented
+forward-side delay term ˆ𝐹 𝑘
+𝑖 . For stages 𝑖<𝑁− 1, let ˆ𝐹 𝑘
+𝑖 =𝐹 𝑘
+𝑖 .
+For the last stage, we let ˆ𝐹 𝑘
+𝑁−1 =𝑒 𝑁−1,𝑘
+𝑓 −𝑒 𝑁−1,𝑘−1
+𝑏 if 𝑘> 0
+which is no less than 𝑒 𝑁−1,𝑘
+𝑓 −𝑠 𝑁−1,𝑘
+𝑓 =𝐹 𝑘
+𝑁−1 , and ˆ𝐹 0
+𝑁−1 =
+𝐹 0
+𝑁−1 . Further define
+ˆ𝐹 𝑘
+max =max
+𝑖
+ˆ𝐹 𝑘
+𝑖 , ˆ𝐹 𝑘
+last = ˆ𝐹 𝑘
+𝑁−1 .
+Lemma B.2.Set the time origin to the moment when stage
+𝑁− 1starts the backward computation of microbatch0, so
+𝑠 𝑁−1,0
+𝑏 = 0. Let 𝑠𝑖,𝑗
+𝑏 be the start time of the backward task of
+microbatch 𝑗 at stage 𝑖 under RRFP, and let ˜𝑠𝑖,𝑗
+𝑏 be the corre-
+sponding start time in the backward-only schedule, with the
+same time origin ˜𝑠 𝑁−1,0
+𝑏 = 0. Let 𝐽𝑖,𝑗 denote the set of forward
+microbatches 𝑘≥ 1whose forward task is incurred on stage 𝑖
+before backward task (𝑖, 𝑗) starts under RRFP. Then 𝐽𝑁−1,0 =∅,
+and
+𝑠𝑖,𝑗
+𝑏 ≤ ˜𝑠𝑖,𝑗
+𝑏 +
+∑︁
+𝑘∈𝐽 𝑖,𝑗
+ˆ𝐹 𝑘
+max.
+Proof. The proof follows similarly to that of Lemma B.1. De-
+fine
+𝐷𝑖,𝑗
+𝑏 =𝑠 𝑖,𝑗
+𝑏 − ˜𝑠𝑖,𝑗
+𝑏 .
+We prove
+𝐷𝑖,𝑗
+𝑏 ≤
+∑︁
+𝑘∈𝐽 𝑖,𝑗
+ˆ𝐹 𝑘
+max
+by induction on(𝑁−1−𝑖) +𝑗.
+In the backward-only schedule,
+˜𝑠𝑖,𝑗
+𝑏 =
+ 
+
+0, 𝑖=𝑁−1, 𝑗=0,
+˜𝑒𝑖+1,0
+𝑏 , 𝑖<𝑁−1, 𝑗=0,
+˜𝑒 𝑁−1,𝑗−1
+𝑏 , 𝑖=𝑁−1, 𝑗>0,
+max{ ˜𝑒𝑖+1,𝑗
+𝑏 , ˜𝑒𝑖,𝑗−1
+𝑏 }, 𝑖<𝑁−1, 𝑗>0,
+˜𝑒𝑖,𝑗
+𝑏 = ˜𝑠𝑖,𝑗
+𝑏 +𝐵 𝑗
+𝑖 .
+We first consider the boundary stage𝑖=𝑁− 1. Since stage
+𝑁−1has no downstream backward dependency, the delay
+of backward task (𝑁− 1, 𝑗) under RRFP comes only from the
+augmented local forward work executed before it on stage
+𝑁−1. By the definition of𝐽 𝑁−1,𝑗 , this delay is exactly
+∑︁
+𝑘∈𝐽 𝑁−1,𝑗
+ˆ𝐹 𝑘
+max.
+Thus the induction hypothesis holds for𝑖=𝑁−1.
+Next consider the boundary microbatch 𝑗= 0and 𝑖<
+𝑁− 1. In the backward-only schedule, task (𝑖, 0) can start
+once backward task (𝑖+ 1, 0) finishes. Under RRFP, after
+𝑒𝑖+1,0
+𝑏 , if stage 𝑖 is free, task (𝑖, 0) is dispatched immediately.
+Otherwise, by the BF hint, task (𝑖, 0) can be delayed by at
+19
+
+most one forward microbatch at stage 𝑖. Let this additional
+delay beΔ 𝑖,0. Then
+𝑠𝑖,0
+𝑏 ≤𝑒 𝑖+1,0
+𝑏 +Δ 𝑖,0 .
+Subtracting ˜𝑠𝑖,0
+𝑏 = ˜𝑒𝑖+1,0
+𝑏 gives
+𝐷𝑖,0
+𝑏 ≤𝐷 𝑖+1,0
+𝑏 +Δ 𝑖,0 .
+By the induction hypothesis,
+𝐷𝑖+1,0
+𝑏 ≤
+∑︁
+𝑘∈𝐽 𝑖+1,0
+ˆ𝐹 𝑘
+max.
+Moreover, the microbatch contributing Δ𝑖,0 is not included
+in 𝐽𝑖+1,0, but both 𝐽𝑖+1,0 and this block are contained in 𝐽𝑖,0.
+Therefore,
+𝐷𝑖,0
+𝑏 ≤
+∑︁
+𝑘∈𝐽 𝑖+1,0
+ˆ𝐹 𝑘
+max +Δ 𝑖,0 ≤
+∑︁
+𝑘∈𝐽 𝑖,0
+ˆ𝐹 𝑘
+max.
+This proves the induction hypothesis for all𝑗=0.
+Finally, consider the general case 𝑖<𝑁− 1and 𝑗> 0.
+Again, we have
+𝑠𝑖,𝑗
+𝑏 ≤max{𝑒 𝑖+1,𝑗
+𝑏 , 𝑒 𝑖,𝑗−1
+𝑏 } +Δ 𝑖,𝑗 ,
+where Δ𝑖,𝑗 is the additional delay caused by at most one
+forward microbatch selected before task (𝑖, 𝑗) under the BF
+hint. Subtracting
+˜𝑠𝑖,𝑗
+𝑏 =max{ ˜𝑒𝑖+1,𝑗
+𝑏 , ˜𝑒𝑖,𝑗−1
+𝑏 }
+gives
+𝐷𝑖,𝑗
+𝑏 ≤max{𝐷 𝑖+1,𝑗
+𝑏 , 𝐷 𝑖,𝑗−1
+𝑏 } +Δ 𝑖,𝑗 .
+By the induction hypothesis,
+𝐷𝑖+1,𝑗
+𝑏 ≤
+∑︁
+𝑘∈𝐽 𝑖+1,𝑗
+ˆ𝐹 𝑘
+max, 𝐷 𝑖,𝑗−1
+𝑏 ≤
+∑︁
+𝑘∈𝐽 𝑖,𝑗−1
+ˆ𝐹 𝑘
+max.
+Moreover, the forward microbatch contributing Δ𝑖,𝑗 is not
+contained in either 𝐽𝑖+1,𝑗 or 𝐽𝑖,𝑗−1 , while 𝐽𝑖+1,𝑗 , 𝐽𝑖,𝑗−1 , and this
+block are all contained in𝐽 𝑖,𝑗 . Therefore,
+𝐷𝑖,𝑗
+𝑏 ≤max
+ 
+
+∑︁
+𝑘∈𝐽 𝑖+1,𝑗
+ˆ𝐹 𝑘
+max,
+∑︁
+𝑘∈𝐽 𝑖,𝑗−1
+ˆ𝐹 𝑘
+max
+ 
+
++Δ 𝑖,𝑗
+≤
+∑︁
+𝑘∈𝐽 𝑖,𝑗
+ˆ𝐹 𝑘
+max.
+This completes the induction and proves the lemma.
+□
+Consequently, we arrive at the following lemma.
+Lemma B.3.The remaining backward cooldown G is bounded
+by
+B +
+𝑀−1∑︁
+𝑘=1
+ 𝐹 𝑘
+max −𝐹 𝑘
+last
+ −
+𝑀−1∑︁
+𝑗=0
+𝐵 𝑗
+last.
+Proof.Set the time origin to the moment when stage𝑁−1
+starts the backward computation of microbatch0. The re-
+maining backward cooldown is determined by the comple-
+tion time of the last backward task at stage0, namely 𝑒0,𝑀−1
+𝑏 ,
+after subtracting the portion already accounted for on the
+stage𝑁−1timeline.
+By Lemma B.2,
+𝑠0,𝑀−1
+𝑏 − ˜𝑠0,𝑀−1
+𝑏 ≤
+∑︁
+𝑘∈𝐽 0,𝑀−1
+ˆ𝐹 𝑘
+max ≤
+𝑀−1∑︁
+𝑘=1
+ˆ𝐹 𝑘
+max.
+Since both executions use the same local backward time for
+task(0, 𝑀−1), we have
+𝑒0,𝑀−1
+𝑏 − ˜𝑒0,𝑀−1
+𝑏 =𝑠 0,𝑀−1
+𝑏 − ˜𝑠0,𝑀−1
+𝑏 .
+Moreover, in the backward-only schedule,
+˜𝑒0,𝑀−1
+𝑏 =B.
+Therefore,
+𝑒0,𝑀−1
+𝑏 ≤ B +
+𝑀−1∑︁
+𝑘=1
+ˆ𝐹 𝑘
+max.
+The portion already accounted for on the stage 𝑁− 1
+timeline consists of all last-stage backward work and the
+augmented last-stage forward-side terms:
+𝑀−1∑︁
+𝑗=0
+𝐵 𝑗
+last +
+𝑀−1∑︁
+𝑘=1
+ˆ𝐹 𝑘
+last.
+Thus,
+G ≤ B +
+𝑀−1∑︁
+𝑘=1
+ˆ𝐹 𝑘
+max −
+𝑀−1∑︁
+𝑗=0
+𝐵 𝑗
+last −
+𝑀−1∑︁
+𝑘=1
+ˆ𝐹 𝑘
+last
+=B +
+𝑀−1∑︁
+𝑘=1
+  ˆ𝐹 𝑘
+max − ˆ𝐹 𝑘
+last
+ −
+𝑀−1∑︁
+𝑗=0
+𝐵 𝑗
+last.
+Since ˆ𝐹 𝑘 differs from 𝐹 𝑘 only by increasing the last-stage
+term,
+ˆ𝐹 𝑘
+max − ˆ𝐹 𝑘
+last ≤𝐹 𝑘
+max −𝐹 𝑘
+last.
+Substituting this inequality gives
+G ≤ B +
+𝑀−1∑︁
+𝑘=1
+ 𝐹 𝑘
+max −𝐹 𝑘
+last
+ −
+𝑀−1∑︁
+𝑗=0
+𝐵 𝑗
+last,
+which proves the lemma.□
+We now restate and prove Theorem 6.1.
+Theorem 6.1.The iteration makespan C of RRFP under
+the BF hint arbitration rule satisfies
+C ≤ F + B +
+𝑀−1∑︁
+𝑗=1
+ 𝐹 𝑗
+max −𝐹 𝑗
+last
+ +
+𝑀−2∑︁
+𝑗=0
+ 𝐵 𝑗
+max −𝐵 𝑗
+last
+.
+20
+
+Proof. The makespan can be decomposed into the time until
+the last-stage backward cooldown begins and the remaining
+cooldown:
+C=𝐶 last + G.
+Using the bounds above,
+C ≤ F + B +
+𝑀−1∑︁
+𝑗=1
+ 𝐹 𝑗
+max −𝐹 𝑗
+last
+ +
+𝑀−2∑︁
+𝑗=0
+𝐵 𝑗
+max −
+𝑀−2∑︁
+𝑗=0
+𝐵 𝑗
+last
+=F + B +
+𝑀−1∑︁
+𝑗=1
+ 𝐹 𝑗
+max −𝐹 𝑗
+last
+ +
+𝑀−2∑︁
+𝑗=0
+ 𝐵 𝑗
+max −𝐵 𝑗
+last
+.
+This proves the theorem.□
+B.3 Proof of Corollary 6.2
+Define𝑇 max as
+𝑇max =max
+0≤𝑗≤𝑀−1
+ 𝐹 𝑗
+max +𝐵 𝑗
+max
+,
+We first record a simple fill/drain bound for the forward-
+only and backward-only makespans.
+Lemma B.4.The single-direction makespans satisfy
+F ≤
+𝑀−1∑︁
+𝑗=0
+𝐹 𝑗
+max +𝑂(𝑁𝑇 max),B ≤
+𝑀−1∑︁
+𝑗=0
+𝐵 𝑗
+max +𝑂(𝑁𝑇 max).
+Proof. We prove the forward case. The backward case is
+analogous. Using the notations ˜𝑠𝑖,𝑗
+𝑓 and ˜𝑒𝑖,𝑗
+𝑓 from above, we
+have
+˜𝑠𝑖,𝑗
+𝑓 =max{ ˜𝑒𝑖−1,𝑗
+𝑓 , ˜𝑒𝑖,𝑗−1
+𝑓 },
+where we ignore non-existing terms at the boundary stages
+and microbatches. We claim that
+˜𝑠𝑖,𝑗
+𝑓 ≤
+𝑗−1∑︁
+𝑡=0
+𝐹 𝑡
+max +𝑖𝑇 max.
+We prove this by induction on 𝑖+𝑗 . The base case (𝑖, 𝑗)=
+(0, 0) is immediate. For the induction step, by the induction
+hypothesis,
+˜𝑒𝑖,𝑗−1
+𝑓 = ˜𝑠𝑖,𝑗−1
+𝑓 +𝐹 𝑗−1
+𝑖
+≤
+𝑗−2∑︁
+𝑡=0
+𝐹 𝑡
+max +𝑖𝑇 max +𝐹 𝑗−1
+max
+=
+𝑗−1∑︁
+𝑡=0
+𝐹 𝑡
+max +𝑖𝑇 max,
+and
+˜𝑒𝑖−1,𝑗
+𝑓 = ˜𝑠𝑖−1,𝑗
+𝑓 +𝐹 𝑗
+𝑖−1
+≤
+𝑗−1∑︁
+𝑡=0
+𝐹 𝑡
+max + (𝑖−1)𝑇 max +𝐹 𝑗
+max ≤
+𝑗−1∑︁
+𝑡=0
+𝐹 𝑡
+max +𝑖𝑇 max,
+where the last inequality uses𝐹 𝑗
+max ≤𝑇 max. Therefore,
+˜𝑠𝑖,𝑗
+𝑓 ≤
+𝑗−1∑︁
+𝑡=0
+𝐹 𝑡
+max +𝑖𝑇 max.
+Thus,
+˜𝑒 𝑁−1,𝑀−1
+𝑓 ≤
+𝑀−2∑︁
+𝑡=0
+𝐹 𝑡
+max + (𝑁−1)𝑇 max +𝐹 𝑀−1
+max
+=
+𝑀−1∑︁
+𝑡=0
+𝐹 𝑡
+max +𝑂(𝑁𝑇 max).
+Hence
+F ≤
+𝑀−1∑︁
+𝑗=0
+𝐹 𝑗
+max +𝑂(𝑁𝑇 max).
+Applying the same argument to backward gives
+B ≤
+𝑀−1∑︁
+𝑗=0
+𝐵 𝑗
+max +𝑂(𝑁𝑇 max).
+which proves the lemma.□
+Let
+𝐿=
+𝑀−1∑︁
+𝑗=0
+ 𝐹 𝑗
+last +𝐵 𝑗
+last
+.
+For any valid offline or online schedule, OPT≥𝐿 , because
+every schedule must execute all forward and backward tasks
+on the last pipeline stage.
+Assume that for each microbatch 𝑗, the last stage is the
+bottleneck with probability at least1 −𝑝 . Otherwise, assume
+that the deviation from the last-stage time is bounded by a
+constant factor𝜌≥1:
+𝐹 𝑗
+max ≤𝜌𝐹 𝑗
+last, 𝐵 𝑗
+max ≤𝜌𝐵 𝑗
+last.
+and we further assume that the computation time of each
+microbatch is bounded within[𝑚 𝑙, 𝑚ℎ]. Hence,
+𝑇max ≤2𝑚 ℎ ≤ 𝐿
+𝑀
+𝑚ℎ
+𝑚𝑙
+=𝑂
+ 𝐿
+𝑀
+
+,
+where𝑚 𝑙 and𝑚 ℎ are constants.
+Corollary 6.2.Under the assumptions above,
+E
+ C
+OPT
+
+≤1+2𝑝(𝜌−1) +𝑂
+ 𝑁
+𝑀
+
+.
+Proof.Define the stage-imbalance terms
+Δ𝑗
+𝑓 =𝐹 𝑗
+max −𝐹 𝑗
+last,Δ 𝑗
+𝑏 =𝐵 𝑗
+max −𝐵 𝑗
+last.
+By Lemma B.4,
+F + B ≤
+𝑀−1∑︁
+𝑗=0
+ 𝐹 𝑗
+max +𝐵 𝑗
+max
+ +𝑂(𝑁𝑇 max).
+Using
+𝐹 𝑗
+max =𝐹 𝑗
+last +Δ 𝑗
+𝑓 , 𝐵 𝑗
+max =𝐵 𝑗
+last +Δ 𝑗
+𝑏,
+we obtain
+F + B ≤𝐿+
+𝑀−1∑︁
+𝑗=0
+(Δ 𝑗
+𝑓 +Δ 𝑗
+𝑏) +𝑂(𝑁𝑇 max).
+21
+
+0 1 2 3 4 5 6 7
+Pipeline Stage
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0Bottleneck Ratio
+2.7% 0.0% 0.1% 0.1% 0.1% 0.1% 0.0%
+96.8%
+(a) LLM bottleneck distribution
+0 1 2 3 4 5 6 7
+Pipeline Stage
+0.84
+0.86
+0.88
+0.90
+0.92
+0.94
+0.96
+0.98
+1.00Relative Latency (Fj
+i/Fj
+last)
+(b) LLM stage latency relative to last stage
+p85
+p90
+p95
+0 1 2 3 4 5 6 7
+Pipeline Stage
+0.0
+0.2
+0.4
+0.6
+0.8Bottleneck Ratio
+7.2% 4.4% 2.5% 0.0% 0.0% 0.0% 0.0%
+85.9%
+(c) Multimodal bottleneck distribution
+0 1 2 3 4 5 6 7
+Pipeline Stage
+0.85
+0.90
+0.95
+1.00
+1.05
+1.10
+1.15Relative Latency (Fj
+i/Fj
+last)
+(d) Multimodal stage latency relative to last stage
+p85
+p90
+p95
+Figure 6. Detailed bottleneck statistics over 100 iterations.Panels (a) and (c) report the fraction of forward microbatches
+for which each pipeline stage is the bottleneck. The last stage dominates in both settings, accounting for 96.8% of bottleneck
+cases in the LLM workload and 85.9% in the multimodal workload. Panels (b) and (d) report p85, p90, and p95 relative forward
+latency, normalized by the last-stage latency, i.e., 𝐹 𝑗
+𝑖 /𝐹 𝑗
+last. The maximum p95 non-last-stage ratio is 0.84× for LLM and 1.14×
+for multimodal, supporting the bounded-deviation assumption used in Corollary 6.2.
+Substituting this into Theorem 6.1 gives
+C ≤𝐿+
+𝑀−1∑︁
+𝑗=0
+(Δ 𝑗
+𝑓 +Δ 𝑗
+𝑏) +
+𝑀−1∑︁
+𝑗=1
+Δ𝑗
+𝑓 +
+𝑀−2∑︁
+𝑗=0
+Δ𝑗
+𝑏 +𝑂(𝑁𝑇 max)
+≤𝐿+2
+𝑀−1∑︁
+𝑗=0
+(Δ 𝑗
+𝑓 +Δ 𝑗
+𝑏) +𝑂(𝑁𝑇 max).
+Under the last-stage dominance assumption, for each mi-
+crobatch𝑗,
+E[Δ 𝑗
+𝑓 ] ≤𝑝(𝜌−1)𝐹 𝑗
+last,E[Δ 𝑗
+𝑏] ≤𝑝(𝜌−1)𝐵 𝑗
+last.
+Therefore,
+E
+"𝑀−1∑︁
+𝑗=0
+(Δ 𝑗
+𝑓 +Δ 𝑗
+𝑏)
+#
+≤𝑝(𝜌−1)𝐿.
+Taking expectation and usingOPT≥𝐿yields
+E
+ C
+OPT
+
+≤1+2𝑝(𝜌−1) +𝑂
+ 𝑁𝑇max
+𝐿
+
+.
+Since𝑇 max =𝑂(𝐿/𝑀), the final term is𝑂(𝑁/𝑀). Hence,
+E
+ C
+OPT
+
+≤1+2𝑝(𝜌−1) +𝑂
+ 𝑁
+𝑀
+
+,
+as claimed.□
+B.4 Detailed Bottleneck Statistics
+Figure 6 reports the detailed statistics behind the last-stage-
+dominance assumption used in Corollary 6.2. We measure
+forward computation times over 100 iterations and iden-
+tify, for each forward microbatch, which pipeline stage has
+the largest forward computation time. The bottleneck dis-
+tributions show that the last stage dominates most forward
+microbatches: 96.8% in the LLM workload and 85.9% in the
+multimodal workload.
+22
+
+The relative-latency panels further show that deviations
+from last-stage dominance are bounded in scale. For each
+stage 𝑖, we report the p85, p90, and p95 of the relative latency
+𝐹 𝑗
+𝑖 /𝐹 𝑗
+last across microbatches. In the LLM workload, the max-
+imum p95 relative latency among non-last stages is 0.84×,
+indicating that non-last stages are consistently below the last-
+stage latency. In the multimodal workload, some non-last
+stages can exceed the last-stage latency, but the maximum
+p95 relative latency is still only 1.14×. These measurements
+support the bottleneck assumption used in Corollary 6.2:
+the last stage is usually the bottleneck, and deviations from
+last-stage dominance remain within a small constant factor.
+C Detailed Buffer-Size Policy Analysis and
+Deadlock-Free Guarantee
+C.1 Buffer Implementation Details
+At each pipeline-parallel stage, RRFP maintains four buffers
+(𝑁denotes PP size):
+• Forward-ready buffer: stores forward inputs received
+from the previous pipeline stage, except at PP stage0
+in non-interleaved schedules.
+• Forward-finished buffer: stores forward outputs wait-
+ing to be sent to the next pipeline stage.
+• Backward-ready buffer: stores backward inputs re-
+ceived from the next pipeline stage.
+• Backward-finished buffer: stores backward outputs
+waiting to be sent to the previous pipeline stage, ex-
+cept at PP stage0in non-interleaved schedules.
+RRFP uses the following release policy. First, tensors in the
+forward-finished and backward-finished buffers are released
+immediately after the corresponding send completes. Second,
+each tensor in the backward-ready buffer corresponds to a
+retained tensor in the forward-ready buffer for the same
+microbatch. The forward-ready tensor is retained until the
+corresponding backward computation completes. At that
+point, both the retained forward input and the backward
+input are released. Therefore, releasing a tensor from the
+forward-ready buffer requires the corresponding backward
+input to have arrived and completed computation.
+For PP stage 𝑁− 1, RRFP still sets up the forward-finished
+and backward-ready buffers, even in non-interleaved sched-
+ules. But the runtime moves the forward output directly into
+the backward-ready buffer locally.
+C.2 Buffer Backpressure Policy
+In RRFP, for PP stage 𝑖, let 𝑛𝑖
+𝑓 denote the number of for-
+ward computations executed by stage 𝑖 so far in the current
+iteration, and let 𝑛𝑖
+𝑏 denote the number of backward com-
+putations executed by stage𝑖so far in the current iteration.
+The𝑖th stage computes
+D𝑖 =𝑛 𝑖
+𝑓 −𝑛 𝑖
+𝑏 .
+before each arbitration. If this value is greater than or equal
+to the configured limit, the stage enters backpressure mode.
+For non-interleaved schedules, each microbatch passes
+through each pipeline stage only once in the forward direc-
+tion and once in the backward direction. Therefore, once D𝑖
+reaches the configured limit, the arbitration layer temporar-
+ily disables forward dispatch and follows a backward-only
+drain order. It executes a ready backward task whenever one
+is available. If no backward task is ready, the stage waits
+instead of skipping to ready forward tasks. This prevents
+the stage from producing more forward outputs while al-
+lowing backward computations to release the corresponding
+retained forward inputs. Hence D𝑖 cannot increase in this
+mode and decreases whenever a backward task executes.
+The stage remains in this mode until D𝑖 drops below the
+limit.
+For interleaved schedules, the situation is more subtle
+because a microbatch traverses the physical pipeline multiple
+times, once for each model chunk. For example, with four
+physical pipeline stages and multiple virtual pipeline stages
+per stage, the forward path of a microbatch may traverse
+the stages as0 , 1, 2, 3for one model chunk, then again as
+0, 1, 2, 3for the next model chunk, and so on. The backward
+path traverses these chunks in the reverse order. In this case,
+simply disabling all forward tasks can be unsafe for progress:
+a microbatch may still need to finish later model chunks
+in the forward pass before any of its backward tasks can
+become ready, and waiting only for backward tasks may
+therefore prevent the computations that would eventually
+enable buffer release.
+Thus, under backpressure in interleaved schedules, RRFP
+switches to a deterministic order that completes microbatches
+one by one. The stage scans microbatches from index0to
+𝑀− 1, where 𝑀 is the total number of microbatches. For each
+unfinished microbatch, the stage follows the microbatch’s
+fixed local completion order. If a microbatch needs to traverse
+local model chunks0 , . . . , 𝐶− 1, where 𝐶 is the number of
+model chunks, this order is 𝐹0, 𝐹1, . . . , 𝐹𝐶−1 , 𝐵𝐶−1 , . . . , 𝐵1, 𝐵0:
+the forward computations proceed from earlier chunks to
+later chunks, and the backward computations proceed in the
+reverse chunk order. The stage checks where the current
+microbatch is in this order and attempts to execute the next
+required task. If that task is ready, the stage executes it. If it
+is not ready, the stage waits rather than skipping to a later
+task. For example, if microbatch𝑖 has completed 𝐹0, 𝐹1, 𝐹2 but
+𝐹3 has not yet arrived, the stage waits for𝐹3. After executing
+𝐹3, it waits for 𝐵3, then 𝐵2, and so on until the microbatch is
+fully drained. In effect, the backpressure policy stops oppor-
+tunistic dispatch and concentrates progress on completing
+earlier microbatches, so that their backward computations
+can retire the corresponding activations and reduce buffer oc-
+cupancy. In this case, each focused microbatch can increase
+D𝑖 by at most 𝐶 additional forward computations before its
+backward computations decrease it exactly by 𝐶. Therefore,
+23
+
+D𝑖 can exceed the limit by at most 𝐶 under backpressure.
+When D𝑖 drops below the limit, the stage exits backpressure
+mode and returns to the normal readiness-driven arbitration
+policy.
+C.3 Effectiveness of Backpressure
+We first establish the following theorem.
+Theorem C.1.Each individual buffer has size at mostD 0.
+Note that for interleaved schedules, the same microbatch
+may occupy multiple slots, even within the same buffer, cor-
+responding to computation inputs or outputs at different
+model chunks.
+Proof. For both interleaved and non-interleaved schedules,
+any buffer entry can appear only after stage0has executed
+the corresponding forward computation (in the same model
+chunk), and it leaves the system once stage0has executed the
+corresponding backward computation (in the same model
+chunk). Therefore, every existing buffer entry corresponds
+to one forward computation at stage0whose matching back-
+ward computation has not yet been executed, so the total
+number of such entries is at mostD 0.□
+Corollary C.2.With a configured limit 𝑀, every buffer has
+size at most 𝑀 for non-interleaved schedules and at most 𝑀+𝐶
+for interleaved schedules.
+Proof. Under backpressure, D0 cannot increase beyond 𝑀
+in non-interleaved schedules. In interleaved schedules, D0
+may increase by at most 𝐶 additional forward computations
+after entering backpressure mode, but the corresponding
+backward computations then decrease it by exactly𝐶. Hence
+D0 is bounded by 𝑀 and 𝑀+𝐶 , respectively, and the claim
+follows from the theorem above.□
+C.4 Deadlock-Free Guarantee
+We finally prove that training with RRFP under the backpres-
+sure policy is deadlock-free.
+Theorem C.3.Under reliable computation and communi-
+cation, training with RRFP under the backpressure policy is
+deadlock-free if the configured limit is positive.
+Proof.We first consider non-interleaved schedules. A dead-
+lock can occur only if no stage has executable work. At any
+time𝑡, we have
+𝑛𝑖
+𝑏 ≤𝑛 𝑖+1
+𝑏 .
+Moreover, if 𝑛𝑖
+𝑏 <𝑛 𝑖+1
+𝑏 , then stage 𝑖 has a backward-ready
+task and therefore cannot be stuck due to reliable communi-
+cation. Hence, a deadlock can occur only if
+𝑛0
+𝑏 =𝑛 1
+𝑏 =· · ·=𝑛 𝑁−1
+𝑏 .
+Now consider the last stage 𝑁− 1. Under the BF hint, this
+stage follows an exact 1F1B pattern. Therefore,
+𝑛𝑁−1
+𝑓 −𝑛 𝑁−1
+𝑏 ∈ {0,1}.
+Even when the buffer limit is1, backpressure can only force
+the last stage to execute a backward task, which is exactly
+the usual 1F1B behavior because stage 𝑁− 1executes the
+backward task immediately after the corresponding forward
+task anyway. Thus, for stage𝑁− 1to be stuck, we must have
+𝑛𝑁−1
+𝑓 =𝑛 𝑁−1
+𝑏 .
+Otherwise, stage𝑁−1has backward-ready work.
+Next, at any time𝑡we have
+𝑛𝑖
+𝑓 ≥𝑛 𝑖+1
+𝑓
+for every stage 𝑖. Suppose not all forward counters are equal.
+Then there exists some stage𝑖<𝑁−1such that
+𝑛𝑖
+𝑓 >𝑛 𝑖+1
+𝑓 =𝑛 𝑖+2
+𝑓 =· · ·=𝑛 𝑁−1
+𝑓 .
+This means that stage 𝑖+ 1has a forward-ready task that has
+already been output by stage 𝑖 but has not yet been executed
+at stage 𝑖+ 1. Moreover, from the previous argument and the
+equality of all backward counters, we have
+𝑛𝑖+1
+𝑓 =𝑛 𝑁−1
+𝑓 =𝑛 𝑁−1
+𝑏 =𝑛 𝑖+1
+𝑏 .
+Therefore, stage 𝑖+ 1is not in backpressure mode and can ex-
+ecute this forward-ready task, contradicting the assumption
+of deadlock.
+It remains to consider the case
+𝑛0
+𝑓 =𝑛 1
+𝑓 =· · ·=𝑛 𝑁−1
+𝑓 .
+Together with 𝑛𝑁−1
+𝑓 =𝑛 𝑁−1
+𝑏 and the equality of all back-
+ward counters, this implies that the current set of admitted
+microbatches has fully completed both forward and back-
+ward execution. In this case, stage0can admit and initiate
+subsequent microbatches, so the system is not deadlocked.
+Therefore, no deadlock can occur in the non-interleaved
+case.
+For the interleaved case, first observe that
+𝑛𝑖
+𝑓 −𝑛 𝑖
+𝑏 =D 𝑖 ≥ D𝑖+1 =𝑛 𝑖+1
+𝑓 −𝑛 𝑖+1
+𝑏 .
+Therefore, if stage 𝑖+ 1is in backpressure mode, then stage
+𝑖must also be in backpressure mode.
+Case 1: No stage is in backpressure mode.By the same
+argument as in the non-interleaved case, if the system has
+no executable work, then we must have
+𝑛0
+𝑓 =· · ·=𝑛 𝑁−1
+𝑓 and𝑛 0
+𝑏 =· · ·=𝑛 𝑁−1
+𝑏 .
+Otherwise, some stage would have either forward-ready or
+backward-ready work.
+Now consider stage𝑁−1. If
+𝑛𝑁−1
+𝑓 >𝑛 𝑁−1
+𝑏 ,
+then stage 𝑁− 1has at least one forward microbatch whose
+corresponding backward computation has not yet started.
+In an interleaved schedule, this means that either the mi-
+crobatch is eligible for backward, or has not yet finished
+traversing all local model chunks. In the first case, stage
+24
+
+𝑁− 1has work to do which is impossible. In the second case,
+such a microbatch must be forwarded from stage 𝑁− 1back
+to stage0for the next model chunk, thereby creating an
+additional forward-ready task at stage0. This contradicts the
+assumption that no executable work exists. Hence, we must
+have 𝑛𝑁−1
+𝑓 =𝑛 𝑁−1
+𝑏 , and together with the equalities above,
+all admitted work has completed. Stage0can therefore admit
+subsequent microbatches, so the system is not deadlocked.
+Case 2: All stages are in backpressure mode.In this
+case, a deadlock could only occur if each stage is waiting for
+its next target microbatch. Suppose stage0is waiting for a
+forward microbatch 𝑚 𝑗,𝑘
+0,𝑓 , where 𝑗 denotes the microbatch
+index and 𝑘 denotes the model-chunk index. We must have
+𝑘≥ 1. Otherwise, stage0could start computing the first
+chunk directly. Therefore, stage0must have already finished
+computing 𝑚 𝑗,𝑘−1
+0,𝑓 and forwarded it to the subsequent stages.
+Under the backpressure policy, as this microbatch be-
+comes ready at each stage 𝑖, the corresponding task 𝑚 𝑗,𝑘−1
+𝑖,𝑓
+is the target microbatch and must be computed immediately.
+Hence, under reliable computation and communication, it
+can progress through all stages until it reaches stage0again
+as the next model chunk 𝑚 𝑗,𝑘
+0,𝑓 . Consequently, the microbatch
+that stage0is waiting for will eventually become ready,
+contradicting the assumption of deadlock.
+The case where stage0is waiting for a backward micro-
+batch is analogous: if it waits for microbatch 𝑚 𝑗,𝑘
+0,𝑏, then it
+must have finished the previous backward microbatch𝑚 𝑗,𝑘+1
+0,𝑏 ,
+or the corresponding forward microbatch𝑚 𝑗,𝑘
+0,𝑓 when 𝑘 is the
+last model chunk. Since this microbatch is the target micro-
+batch for the other stages (all other stages are waiting for
+it), it is computed immediately. Therefore, the backward mi-
+crobatch that stage0is waiting for will eventually become
+ready, again contradicting deadlock.
+Case 3: A prefix of stages is in backpressure mode.It
+remains to consider the mixed case where stages0 , . . . , 𝑘 are
+in backpressure mode while stages 𝑘+ 1, . . . , 𝑁− 1are not,
+for some0≤𝑘<𝑁−1. Since
+D𝑖 ≥ D𝑖+1,
+the set of stages in backpressure mode must form such a pre-
+fix. Assume, for contradiction, that the system is deadlocked.
+Then the suffix stages𝑘+ 1, . . . , 𝑁− 1cannot have any ready
+work. Otherwise, one of them could execute. Therefore, the
+suffix has already consumed all work currently available
+from the prefix. In particular, the microbatch that the prefix
+is waiting for is not stuck inside the suffix, otherwise, the
+suffix will have executable work, contradicting deadlock.
+Thus, the only possible waiting cycle lies within the prefix
+0, . . . , 𝑘, where all stages are in backpressure mode. We can
+view stage 𝑘 as the boundary stage of this prefix: forward
+work leaving stage 𝑘 returns to stage0for the next chunk
+or returns to stage𝑘for last-model-chunk backward, while
+backward work leaving stage0returns to stage 𝑘 for the
+previous chunk. Hence, the suffix does not introduce an
+additional blocking point. Therefore, the same argument as
+in Case 2 applies to the prefix: the target microbatch that
+the prefix is waiting for cannot be permanently blocked and
+must eventually return to the corresponding boundary stage,
+contradicting deadlock.
+Combining the three cases, no deadlock can occur in the
+interleaved case.
+□
+D Collective-Order Consistency and
+Progress
+This section gives the detailed argument for RRFP’s tensor-
+parallel coordination protocol. The argument concerns collective-
+order consistency and progress within each tensor-parallel
+group. Training-loss validation is reported separately in Sec-
+tion E.
+D.1 Coordination Invariant
+Consider one tensor-parallel group. Before any computation
+step that may invoke tensor-parallel collectives, each rank
+selects a local candidate from its ready set using the deter-
+ministic ready-set arbitration rule. The ranks then exchange
+the selected microbatch identifiers using a scalar metadata
+all-gather. If all ranks select the same identifier, the group
+enters the computation step and therefore invokes collec-
+tives for the same tensor in the same order. If the identifiers
+differ, no rank enters the collective-relevant computation
+step. The step is deferred, and the local arbitration state is
+not advanced. The next attempt restarts from the beginning
+of the same hint order. For local 1F1B hints, this means retry-
+ing from backward-forward probing rather than from a later
+phase.
+We maintain the following invariant: after every success-
+ful collective-relevant computation step, all ranks in the
+tensor-parallel group have executed the same sequence of
+collective-relevant microbatches. This invariant holds ini-
+tially because no collective-relevant task has been executed.
+Suppose it holds after some successful step. Before the next
+step, ranks may observe different ready sets because activa-
+tions or gradients can arrive at slightly different times. The
+coordination protocol prevents this temporary disagreement
+from becoming inconsistent collective execution: the group
+defers computation, avoids entering mismatched collectives,
+and retries arbitration when later message arrivals change
+the ready set. If ranks select the same candidate, they all
+execute the same collective-relevant task, so the executed
+sequence remains identical across the group. By induction,
+every successful collective-relevant step preserves the invari-
+ant, and tensor-parallel collectives are invoked in a consistent
+order.
+25
+
+D.2 Progress Under Deferred Computation
+Deferring a computation step does not stop communication
+progress. RRFP’s send and receive threads run independently
+of the compute thread, so missing activations or gradients
+can still arrive while collective-relevant computation is de-
+ferred. When such messages arrive, they update the corre-
+sponding receive buffers and may add new candidates to the
+local ready sets.
+Under reliable message delivery, a temporary disagree-
+ment among tensor-parallel ranks can therefore be resolved
+by subsequent readiness events. Once missing inputs arrive,
+ranks that previously lacked a candidate can observe it in
+their ready set. After a failed coordination attempt, ranks
+do not consume the candidate or move to a later position in
+the hint order. They retry arbitration from the same point
+after the ready set changes. Since arbitration is determinis-
+tic for a given ready set and hint order, the tensor-parallel
+group can expose a common candidate and pass the metadata
+agreement check. The group then resumes computation and
+enters the next collective-relevant step consistently. Thus,
+RRFP avoids mismatched collectives while allowing commu-
+nication to continue until tensor-parallel ranks agree on a
+common task.
+E Training Correctness Validation
+This section provides the detailed loss-curve validation refer-
+enced in the main paper. The goal is to check whether RRFP
+preserves the intended training behavior relative to the cor-
+responding 1F1B baseline when only the runtime execution
+order is changed.
+Validation protocol.We evaluate three representative
+configurations: GPT-Large with TP1/PP8/DP1 and batch size
+64, Qwen3-1.7B+ViT-H with TP1/PP8/DP1 and batch size
+96, and Qwen3-1.7B+ViT-H with TP2/PP8/DP1 and batch
+size 96. For each configuration, we run both RRFP and 1F1B
+with three seeds: 42, 1234, and 2026. Each run uses 500 train-
+ing iterations, with evaluation every 50 iterations and 10
+evaluation iterations per evaluation. We report training and
+validation loss curves using a logarithmic y-axis, where equal
+vertical distances correspond to multiplicative changes in
+loss, to make the rapid early decrease and later convergence
+behavior visible.
+Results.Figures 7–9 show that RRFP follows the same
+overall convergence trend as 1F1B across all three configu-
+rations. For GPT-Large, the training and validation curves
+nearly overlap throughout training. For Qwen, both TP1
+and TP2 settings rapidly reduce loss by several orders of
+magnitude and reach comparable final loss levels. Across
+seeds, we observe no RRFP-specific divergence or systematic
+loss instability. These results support that readiness-driven
+execution changes the runtime ordering of executable tasks
+while preserving the intended training semantics.
+26
+
+0 100 200 300 400 500
+101
+4 × 100
+6 × 100
+Seed 42
+LM Loss
+Train Loss
+rrfp
+1f1b
+100 200 300 400 500
+101
+6 × 100
+7 × 100
+8 × 100
+9 × 100
+LM Loss
+Validation Loss
+rrfp
+1f1b
+0 100 200 300 400 500
+101
+4 × 100
+6 × 100
+Seed 1234
+LM Loss
+rrfp
+1f1b
+100 200 300 400 500
+101
+6 × 100
+7 × 100
+8 × 100
+9 × 100
+LM Loss
+rrfp
+1f1b
+0 100 200 300 400 500
+Iteration
+101
+4 × 100
+6 × 100
+Seed 2026
+LM Loss
+rrfp
+1f1b
+100 200 300 400 500
+Iteration
+101
+6 × 100
+7 × 100
+8 × 100
+9 × 100
+LM Loss
+rrfp
+1f1b
+GPT-Large PP8 TP1 | Seeds: 42, 1234, 2026
+Figure 7. Training-correctness validation for GPT-Large with TP1/PP8/DP1 and batch size 64.Each row corresponds
+to one seed, and the two columns report training and validation loss, respectively. RRFP and 1F1B show nearly overlapping
+loss curves across all seeds.
+27
+
+100 200 300 400 500
+10 9
+10 7
+10 5
+10 3
+10 1
+101
+Seed 42
+LM Loss
+Train Loss
+rrfp
+1f1b
+100 200 300 400 500
+10 12
+10 11
+10 10
+10 9
+10 8
+10 7
+10 6
+10 5
+LM Loss
+Validation Loss
+rrfp
+1f1b
+100 200 300 400 500
+10 9
+10 7
+10 5
+10 3
+10 1
+101
+Seed 1234
+LM Loss
+1f1b
+100 200 300 400 500
+10 12
+10 11
+10 10
+10 9
+10 8
+10 7
+10 6
+10 5
+LM Loss
+1f1b
+100 200 300 400 500
+Iteration
+10 9
+10 7
+10 5
+10 3
+10 1
+101
+Seed 2026
+LM Loss
+rrfp
+1f1b
+100 200 300 400 500
+Iteration
+10 10
+10 9
+10 8
+10 7
+10 6
+10 5
+LM Loss
+rrfp
+1f1b
+Qwen3-1.7B+ViT-H PP8 TP1 | Seeds: 42, 1234, 2026
+Figure 8. Training-correctness validation for Qwen3-1.7B+ViT-H with TP1/PP8/DP1 and batch size 96.Each row
+corresponds to one seed, and the two columns report training and validation loss, respectively. RRFP and 1F1B show nearly
+overlapping loss curves across all seeds.
+28
+
+100 200 300 400 500
+10 9
+10 7
+10 5
+10 3
+10 1
+101
+Seed 42
+LM Loss
+Train Loss
+rrfp
+1f1b
+100 200 300 400 500
+10 12
+10 11
+10 10
+10 9
+10 8
+10 7
+10 6
+10 5
+LM Loss
+Validation Loss
+rrfp
+1f1b
+100 200 300 400 500
+10 9
+10 7
+10 5
+10 3
+10 1
+101
+Seed 1234
+LM Loss
+rrfp
+1f1b
+100 200 300 400 500
+10 12
+10 11
+10 10
+10 9
+10 8
+10 7
+10 6
+10 5
+LM Loss
+rrfp
+1f1b
+100 200 300 400 500
+Iteration
+10 9
+10 7
+10 5
+10 3
+10 1
+101
+Seed 2026
+LM Loss
+rrfp
+1f1b
+100 200 300 400 500
+Iteration
+10 12
+10 11
+10 10
+10 9
+10 8
+10 7
+10 6
+10 5
+LM Loss
+rrfp
+1f1b
+Qwen3-1.7B+ViT-H PP8 TP2 | Seeds: 42, 1234, 2026
+Figure 9. Training-correctness validation for Qwen3-1.7B+ViT-H with TP2/PP8/DP1 and batch size 96.Each row
+corresponds to one seed, and the two columns report training and validation loss, respectively. RRFP and 1F1B show nearly
+overlapping loss curves across all seeds.
+29
