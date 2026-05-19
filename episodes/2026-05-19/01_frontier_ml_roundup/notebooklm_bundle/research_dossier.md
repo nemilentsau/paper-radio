@@ -1,210 +1,217 @@
 ## Episode Metadata
 
-- Episode ID: `episode-2026-05-19-01-frontier-ml-roundup`
+- Episode ID: episode-2026-05-19-01-frontier-ml-roundup
 - Title: Frontier ML roundup for 2026-05-19
-- Episode type: frontier ML roundup
-- Job ID: `episode-2026-05-19-01-frontier-ml-roundup-dossier`
-- Paper set: 10 arXiv papers spanning LLM factuality, medical ethics, visual relighting, spatial agents, 3D object representation, data assimilation, agent harnesses, distributed training, and sparse long-context attention.
-- Intended handoff artifact: `episodes/2026-05-19/01_frontier_ml_roundup/notebooklm_bundle/research_dossier.md`
+- Episode type: frontier_ml_roundup
+- Dossier purpose: factual NotebookLM source material for a frontier ML roundup, using local review records as the controlling evidence.
+- Papers covered: arxiv-2605.18732, arxiv-2605.18735, arxiv-2605.18738, arxiv-2605.18740, arxiv-2605.18743, arxiv-2605.18745, arxiv-2605.18746, arxiv-2605.18747, arxiv-2605.18750, arxiv-2605.18753.
 
 ## Why These Papers Are Grouped
 
-These papers are grouped as a frontier-ML systems-and-evaluation roundup rather than a single-theme literature review. The common thread is not one model family or modality; it is the widening gap between impressive benchmark claims and the operational substrate needed for reliable deployment.
+These papers are grouped because they all sit near the current frontier boundary where model capability is increasingly determined by scaffolding, representation, evidence acquisition, and runtime systems rather than raw model scale alone.
 
-Several papers ask whether models can act under uncertainty instead of only answer prompts: ESI-Bench evaluates embodied agents as evidence gatherers; the medical-ethics paper audits value-laden choices rather than explanations; Vision-OPD tries to internalize crop-based visual evidence; SURGE corrects guided diffusion proposals with particle weights. Several others focus on infrastructure around models: RRFP treats pipeline schedules as hints over ready work; DashAttention makes sparse attention routing differentiable; the code-harness survey argues that executable scaffolding is central to agent behavior. The remaining papers test representational boundaries: PIXLRelight bridges PBR-style lighting and learned relighting, WorldString unifies keypoint-conditioned occupancy across deformation regimes, and the reference-hallucination paper models factual recall as a function of scale and topic prevalence.
+Several papers ask whether models can use the information they already have more effectively: Vision-OPD distills crop-conditioned visual evidence into full-image behavior; ESI-Bench tests whether multimodal agents know what evidence to seek next; the medical ethics paper shows that models can mention many values while still making rigid recommendations; the scholarly-reference paper models when factual recall collapses into confabulation.
 
-The grouping works because each paper makes a strong claim about an interface between a model and some external structure: evidence, values, geometry, lighting, physical state, runtime scheduling, attention memory, or executable code. The best episode angle is to compare how much of each claim is actually supported by controlled evidence versus attractive framing.
+Another cluster focuses on external structure around models: SURGE wraps diffusion surrogates in particle-filter correction; RRFP treats distributed-training schedules as runtime hints; DashAttention makes long-context sparsity adaptive; the code-harness survey argues that agent capability depends on executable substrates. PIXLRelight and WorldString add a parallel theme: neural systems gaining control by routing through structured physical representations, but with large gaps between attractive interfaces and validated real-world accuracy.
 
 ## Concise Thesis
 
-This roundup is about frontier ML moving from raw capability to controlled behavior. The strongest papers do not merely report higher scores; they expose a bottleneck: models hallucinate more in underrepresented scholarly topics, medical LLMs can sound pluralistic while choosing deterministically, spatial agents often fail because they do not know what evidence to seek, fixed pipeline schedules waste time when ready work exists, and fixed top-k sparse attention wastes context budget. The weakest claims arise when authors rename a constrained reconstruction, benchmark win, or asymptotic correction as a general world model, arbitrary control system, or approximation-free solution.
+The common lesson is that frontier ML progress is becoming less about a model simply producing the right answer and more about whether the surrounding system gives it the right evidence, state, constraints, and runtime behavior. The best papers in this set make a bottleneck measurable: reference recall depends on scale and topic frequency; medical advice hides deterministic value commitments; spatial agents fail to seek disconfirming views; pipeline schedules waste time waiting on unavailable work; sparse attention should adapt its budget per query.
 
-The listener should come away with a practical rule: treat the interface as the research object. The relevant question is not only whether the model performs well, but whether the paper has tested the bridge that makes the system usable: the proxy for training-data frequency, the patient-value interface, the active-view policy, the PBR control setting, the keypoint supply chain, the particle count, the runtime queue, the sparse-attention serving stack, or the executable harness.
+The skeptical through-line is equally strong. Many papers use powerful rhetoric that outruns their evidence: approximation-free data assimilation with tiny particle counts, digital twins without action-conditioned world modeling, arbitrary relighting without hard authored-light ground truth, and embodied spatial intelligence inside a synthetic high-level simulator. The episode should reward clean mechanisms and diagnostics while pressing hard on baselines, ablations, uncertainty, and whether the claimed setting is actually the one measured.
 
 ## Per-Paper Claim Versus Evidence
 
-### arxiv-2605.18732
+### arxiv-2605.18732: Scholarly Reference Recall And Confabulation
 
-Claim: LLM scholarly-reference recall follows a sigmoid in model parameter count and topic representation, making confabulation predictable from scale and topic commonness.
+Claim: LLM factual recall for scholarly references follows a sigmoid in model parameter count and topic representation, making confabulation predictable from scale and topic prevalence.
 
-Evidence: The authors prompt 38 model runs to list references across 24 English topics, score 8,913 generated references with SourceVerify plus relevance judgments, and fit a logistic model over 16 dense models and 384 model-topic cells. The task is concrete and verifiable, and the paper includes human validation of SourceVerify, binary exact-title robustness, and citation-tail analysis showing larger models recall less-cited real papers.
+Evidence: The authors prompted 38 LLM runs to list 10 scholarly references for each of 24 English topics, then scored 8,913 references with SourceVerify plus relevance judgments. The main fit uses 16 dense Llama, Gemma, Qwen, and Mistral models over 384 model-topic cells and 3,661 analyzed references. Quality is modeled as authenticity times relevance, fit as a logistic function of log10 parameters and log10 OpenAlex topic work count.
 
-Judgment: Strong empirical pattern, weaker causal mechanism. OpenAlex topic work count is a proxy for training exposure, not a direct measure. Model size is confounded with data, training recipe, and post-training. The paper is best framed as a useful predictive account of English scholarly-reference recall, not proof of a general law of hallucination.
+Assessment: Strong empirical hook and unusually concrete measurement. The strongest version of the result is descriptive and predictive: small models fabricate citation-shaped patterns, larger models do better, and long-tail topics remain harder. The causal claim about training-data composition is weaker because OpenAlex work count is only a proxy for true model training exposure, and parameter count is entangled with data, recipe, and family.
 
-### arxiv-2605.18735
+### arxiv-2605.18735: PIXLRelight
 
-Claim: PIXLRelight can relight a single photograph with physically authored PBR-style lighting by conditioning a feed-forward transformer on target intrinsic buffers rather than target RGB.
+Claim: A feed-forward transformer can relight a single photograph using physically authored PBR-style lighting by conditioning on target intrinsic buffers rather than rendered RGB.
 
-Evidence: The model trains on paired multi-illumination data from MIIW, BigTime, and VIDIT, uses frozen Marigold-IID target intrinsics, and reports strong MIIW captured-target results against several released baselines. Qualitative Blender-authored relighting is shown on 20 DL3DV images with five light presets.
+Evidence: The model trains on paired multi-illumination scenes from MIIW, BigTime, and VIDIT, using frozen Marigold-IID target intrinsics. It is evaluated quantitatively on MIIW and a small six-scene tripod set, and qualitatively on 20 DL3DV images with five Blender-authored light presets. Reported MIIW gains are large, and ablations show the source branch and affine modulation matter.
 
-Judgment: The interface is elegant and promising, but the most exciting setting is under-validated. Quantitative results mostly use target-photo transfer where target intrinsics come from the ground-truth target image. The physically authored PBR setting lacks ground truth, user-control metrics, and stress tests. Treat this as a strong bridge between neural relighting and artist-authored lighting, not solved arbitrary relighting.
+Assessment: The interface is elegant: intrinsic buffers bridge supervised real-image relighting and PBR-authored lighting. But the most exciting claim, arbitrary physically controlled relighting of in-the-wild photos, is mostly qualitative. The quantitative setting often gives the method target intrinsics derived from the ground-truth target photo, while authored Blender lighting lacks ground-truth validation.
 
-### arxiv-2605.18738
+### arxiv-2605.18738: Clinical Ethics Value Profiles In Medical LLMs
 
-Claim: Frontier medical LLMs can discuss multiple clinical-ethics values, but their forced-choice recommendations are near-deterministic and encode stable value profiles that can diverge from physician pluralism.
+Claim: Frontier medical LLMs can discuss multiple clinical ethics values, but their forced-choice recommendations are near-deterministic and encode stable value profiles that may diverge from physician pluralism, especially by underweighting autonomy.
 
-Evidence: The paper builds 50 clinician-reviewed binary ethics dilemmas, queries 12 frontier LLMs 10 times per case, compares them with 20 physicians, and infers value profiles from autonomy, beneficence, nonmaleficence, and justice tags. The key empirical split is between free-text reasoning coverage and forced-choice behavior: 11 of 12 models have median per-case decision entropy of zero, while physician disagreement is measurable.
+Evidence: The authors build 50 clinician-reviewed binary ethics dilemmas tagged by autonomy, beneficence, nonmaleficence, and justice. They query 12 frontier LLMs 10 times per case at temperature 1.0, compare against 20 physicians, infer value profiles using a no-intercept binomial GLM, and analyze entropy, paraphrase robustness, calibration to physician consensus, reasoning coverage, and model-ecosystem diversity.
 
-Judgment: One of the strongest episode anchors. The benchmark is narrow, Western/US-leaning, binary, and based on a small physician panel, but it asks the right kind of question: what values are embedded in model recommendations when no single answer is ethically dominant? The jump to real deployment monoculture needs workflow evidence, patient-value conditioning, and representative clinician samples.
+Assessment: This is one of the strongest discussion papers in the set because it separates what models say from what they choose. The benchmark shows physician disagreement and model rigidity. The limitation is that the world is constructed: 50 forced-binary, Western/US-leaning cases and a small convenience physician sample. Treat it as promising audit machinery, not a definitive map of medical ethics.
 
-### arxiv-2605.18740
+### arxiv-2605.18740: Vision-OPD
 
-Claim: Vision-OPD lets a multimodal LLM internalize the benefit of zooming by distilling crop-conditioned token distributions into full-image on-policy behavior, improving fine-grained visual benchmarks without external teachers, labels, verifiers, or inference-time tools.
+Claim: A multimodal LLM can internalize the benefit of zooming by distilling crop-conditioned next-token distributions into its full-image policy on on-policy rollouts, improving fine-grained visual benchmarks without external teachers, labels, verifiers, or inference-time tools.
 
-Evidence: The authors synthesize 6.2K full-image/crop/question triplets from small detected regions, train Qwen3.5-4B and Qwen3.5-9B, and evaluate on fine-grained visual benchmarks including V* Bench, ZoomBench, HR Bench, and MME-RealWorld. Same-data comparisons include SFT, GRPO, DAPO, and OPSD; ablations cover teacher regularization, divergence choices, rollout length, and top-K distillation.
+Evidence: The authors synthesize 6.2K full-image/crop/question triplets from small detected regions. They train Qwen3.5-4B and Qwen3.5-9B with crop-conditioned self-teacher supervision over full-image rollouts. They evaluate on V* Bench, ZoomBench, HR Bench 4K/8K, MME-RealWorld Lite/CN, plus holdout MMVP, CV-Bench, MMStar, and POPE, and compare against larger models, zoom agents, SFT, GRPO, DAPO, and OPSD.
 
-Judgment: Plausible method for boxed benchmark-style perception, but broad claims about learned visual attention are too strong. The training and evaluation are tightly tied to crop-and-box supervision and multiple-choice benchmarks. The paper needs no-box localization tests, crop quality perturbations, and compute-matched training baselines before claiming general internalized zooming.
+Assessment: The regional-to-global gap is real and easy to explain: the same model sees details when cropped but misses them in the full image. The method is technically coherent. The main caveat is that the training and evaluation world is heavily crop, box, and multiple-choice oriented. It is not yet clear that the model learned general localization rather than a useful synthetic boxed-region behavior.
 
-### arxiv-2605.18743
+### arxiv-2605.18743: WorldString
 
-Claim: WorldString is a unified differentiable digital-twin representation for articulated, skinned, and soft objects, using keypoint-conditioned transformer occupancy modeling.
+Claim: A keypoint-conditioned transformer occupancy model can act as a unified differentiable digital-twin representation for articulated, skinned, and soft objects learned from point clouds or RGB-D video.
 
-Evidence: The model reconstructs occupancy from sparse keypoints across rigid shapes, robots, furniture, humans, animals, hands, and soft objects. It reports IoU, F1, precision, and recall against retrieval, interpolation, Dr. Robot, NSDP, HALO, and sensor-gap variants.
+Evidence: WorldString reconstructs occupancy from sparse structural keypoints across rigid shape fitting, articulated robots and furniture, SMPL/SMAL-style humans and animals, hands, and real-world soft objects. It reports IoU, F1, precision, and recall against retrieval, interpolation, Dr. Robot, NSDP, and HALO, plus a simulated RGB-D sensor-gap study and robot-arm architecture ablations.
 
-Judgment: The representational bet is interesting, but the world-model language is overextended. The evidence mainly supports supervised pose-conditioned reconstruction from supplied or pipeline-derived keypoints and voxel targets. It does not show action-conditioned future prediction, object interaction, planning utility, or physical correctness. Strong tables make it worth discussing skeptically.
+Assessment: The representational bet is interesting: use keypoints as the state string and occupancy as the reconstructive target across object types. The evidence mainly shows supervised pose-conditioned reconstruction inside prepared datasets. It does not establish a general physical world model, planning substrate, or action-conditioned digital twin. The paper is worth a skeptical segment because the tables are nontrivial but the world-model rhetoric is much broader than the validation.
 
-### arxiv-2605.18745
+### arxiv-2605.18745: SURGE
 
-Claim: SURGE makes diffusion-surrogate data assimilation approximation-free by using guided diffusion trajectories only as proposals, then correcting them with Girsanov path weights and SMC resampling at inference time.
+Claim: Diffusion-surrogate data assimilation can be made approximation-free by using guided diffusion trajectories as proposals and correcting them with Girsanov path weights and SMC resampling at inference time.
 
-Evidence: The method is plugged into SDA and FlowDAS-style backbones and evaluated on Lorenz 1963, 2D forced Navier-Stokes, and SEVIR VIL weather forecasting. Metrics include RMSE, Wasserstein distance, kinetic-energy spectrum error, CSI thresholds, and ESS diagnostics.
+Evidence: SURGE is plugged into SDA and FlowDAS-style backbones and evaluated on Lorenz 1963 partial observation, 2D forced Navier-Stokes super-resolution and sparse recovery, and SEVIR VIL weather forecasting. Metrics include RMSE, W1, kinetic energy spectrum error, CSI weather thresholds, ESS diagnostics, guidance-vs-plain-diffusion ablations, and Lorenz component ablations.
 
-Judgment: The path-measure correction story is mathematically coherent, but the phrase approximation-free is misleading for the practical algorithm. The implementation is finite-particle, self-normalized, Euler-discretized SMC with small particle counts and sensitive hyperparameters. Several tables do not support a blanket “outperforms all baselines” claim. Cover it as promising proposal correction, not as solved posterior-exact data assimilation.
+Assessment: The math framing is natural: guidance is a proposal, and importance correction targets the observation-tilted posterior. The problem is the language. Practical SURGE is finite-particle, self-normalized, Euler-discretized SMC with very small particle counts and sensitive hyperparameters. Some reported metrics do not dominate all baselines. Cover it as promising proposal-correction machinery, not as a solved approximation-free method.
 
-### arxiv-2605.18746
+### arxiv-2605.18746: ESI-Bench
 
-Claim: Embodied spatial intelligence should be evaluated as active evidence acquisition; current MLLMs fail mainly through poor action selection, premature commitment, and weak belief revision.
+Claim: Embodied spatial intelligence should be evaluated as active evidence acquisition, not passive image understanding; current MLLM failures are dominated by poor action selection, premature commitment, and weak belief revision.
 
-Evidence: ESI-Bench contains 3,081 OmniGibson/BEHAVIOR-1K tasks across occlusion, containment, reflection, counting, metric comparison, mapping, temporal change, and action sequencing. GPT-5 and Gemini 3.1 are evaluated under passive single-view, passive random multi-view, active exploration, and ground-truth trajectory views, with human trajectories collected through the same high-level action interface.
+Evidence: ESI-Bench contains 3,081 OmniGibson/BEHAVIOR-1K tasks over 10 categories and 29 subcategories, including occlusion, containment, reflection, counting, metric comparison, cognitive mapping, temporal change, and action sequencing. GPT-5 and Gemini 3.1 are evaluated under passive single-view, passive random multi-view, active exploration, and ground-truth trajectory views. The paper also compares VGGT-derived and oracle 3D scene-graph variants and collects human trajectories.
 
-Judgment: Another strong episode anchor. The passive/active/oracle split cleanly separates seeing from knowing where to look. The main caveats are simulator dependence, GPT-4o-assisted task generation, high-level actions, and the absence of low-level robot execution noise. Still, the benchmark makes a real failure mode measurable: models often could answer from the right evidence but fail to obtain it.
+Assessment: This is one of the episode anchors. The passive, active, and oracle-trajectory split cleanly distinguishes seeing from knowing where to look. The benchmark makes metacognitive failures visible: confirmation-seeking, redundant movement, high-confidence early stopping, and failure to seek falsifying evidence. The caveat is that it is synthetic, high-level, and GPT-4o-assisted in task generation, so real robot control and real-world transfer remain open.
 
-### arxiv-2605.18747
+### arxiv-2605.18747: Code As Agent Harness Survey
 
-Claim: Code should be treated not just as an LLM output, but as the executable, inspectable, stateful harness through which agents reason, act, verify, remember, coordinate, and evolve.
+Claim: Code should be treated not merely as an LLM output, but as the executable, inspectable, stateful harness through which agents reason, act, verify, remember, coordinate, and evolve.
 
-Evidence: This is a taxonomy and position survey rather than an empirical study. It organizes agentic-code work into harness interface, harness mechanisms, and multi-agent scaling, then maps the framing onto coding assistants, GUI/OS agents, scientific discovery, personalization, and embodied agents.
+Evidence: This is a taxonomy and position survey, not an empirical study. It organizes agentic-code work into harness interface, harness mechanisms, and multi-agent scaling, then maps those layers onto coding assistants, GUI/OS agents, scientific discovery, personalization/recommendation, and embodied agents.
 
-Judgment: Useful vocabulary, weak standalone evidence. The paper is valuable as a context-setter for agent runtime design, oracle quality, state synchronization, and harness governance. It is not a systematic survey with inclusion criteria, quantitative synthesis, inter-annotator taxonomy reliability, or empirical validation that its categories predict system behavior.
+Assessment: Useful as vocabulary, weak as evidence. The best contribution is the distinction between model-internal capability, system-provided harness infrastructure, and agent-initiated code artifacts. The weakness is that the definition of code is broad enough to absorb many systems, and there is no systematic survey protocol, quantitative meta-analysis, taxonomy reliability check, or empirical validation that the layers predict system behavior.
 
-### arxiv-2605.18750
+### arxiv-2605.18750: RRFP
 
-Claim: Pipeline-parallel training should treat schedules as soft hint orders over currently ready work, not fixed execution sequences, reducing bubbles under runtime variability.
+Claim: Pipeline-parallel training runtimes should treat schedules as soft hint orders over currently ready work, not as fixed execution sequences, reducing bubbles under runtime variability.
 
-Evidence: RRFP is implemented in a Megatron-based training framework and tested on language-only and multimodal workloads up to 128 RTX 4090 GPUs. Comparisons include 1F1B, ZeroBubble, RRFP variants, and DeepSpeed/Cornstarch baselines. The paper reports iteration time, throughput, runtime breakdown, injected compute-jitter robustness, hint-order sensitivity, scaling, and loss-curve checks.
+Evidence: RRFP is implemented in a Megatron-based training framework and tested on language-only and multimodal workloads up to 128 RTX 4090 GPUs. It compares 1F1B, ZeroBubble, RRFP with backward-forward hints, RRFP+BFW with backward/weight-update decomposition, and DeepSpeed/Cornstarch baselines. Metrics include iteration time, throughput, runtime breakdown, injected compute jitter, hint-order sensitivity, scaling, and loss-curve checks.
 
-Judgment: Strong systems contribution with a clean idea: the schedule is not the runtime truth; readiness is. Evidence is best in matched Megatron experiments and blocking-time analysis. Claims are weaker when leaning on headline speedups, because cross-framework gains at large scale can shrink to roughly 1.01x-1.07x and the custom communication/runtime stack is a major part of the result.
+Assessment: A strong systems paper with a clean central idea: readiness is the runtime truth, while schedules are only preferences. The evidence is best inside the authors' matched Megatron stack and blocking-time analysis. Cross-framework large-scale gains can be modest, and the runtime contribution includes substantial custom communication and coordination machinery. Cover as a convincing prototype, not a settled replacement for training runtimes.
 
-### arxiv-2605.18753
+### arxiv-2605.18753: DashAttention
 
 Claim: DashAttention replaces fixed top-k block routing in hierarchical sparse attention with differentiable alpha-entmax routing, then uses routed block probabilities as a prior for token-level sparse softmax attention.
 
-Evidence: The paper adapts MiniCPM-4 1B, 3B, and 8B models with long-context continual pretraining, compares full attention, NSA, and InfLLMv2 on RULER and HELMET at 16K context, checks short-context benchmarks, sweeps sparsity, and benchmarks custom Triton kernels against FlashAttention-3, NSA, and InfLLMv2.
+Evidence: The paper adapts MiniCPM-4 1B, 3B, and 8B models with long-context continual pretraining. It compares against full attention, NSA, and InfLLMv2 on RULER and HELMET at 16K context, checks short-context/general benchmarks, sweeps sparsity for Pareto curves, and benchmarks custom Triton kernels against FlashAttention-3, NSA, and InfLLMv2.
 
-Judgment: Likely the strongest technical anchor among the model-efficiency papers. The claim is crisp: long-context attention should adapt evidence budget per query rather than spend a fixed top-k budget. The caveat is important: the speed story is kernel-level, not yet an end-to-end serving result inside vLLM, SGLang, paged KV cache management, or realistic batching.
+Assessment: This is likely the strongest technical anchor. The story is crisp: long-context attention should decide how much evidence each query needs, not spend a fixed budget everywhere. The caveat is that the most exciting speed results are kernel-level, excluding request scheduling, paged KV cache management, projections, and serving overhead. The production-serving story remains unproven.
 
 ## Strongest Contributions
 
-- arxiv-2605.18732: A concrete, verifiable hallucination-scaling setup for scholarly references, with factorial model-topic coverage, SourceVerify validation, exact-title robustness, and citation-tail sanity checks.
-- arxiv-2605.18738: A crisp audit of value commitments in medical LLMs, separating pluralistic language from deterministic action under ethically contested choices.
-- arxiv-2605.18746: A strong evaluation design for embodied spatial reasoning that distinguishes passive perception, active exploration, and oracle evidence trajectories.
-- arxiv-2605.18750: A simple but powerful systems idea: filter by readiness before ranking scheduled work, reducing avoidable pipeline bubbles under variability.
-- arxiv-2605.18753: A complete sparse-attention package with algorithmic motivation, accuracy tables, sparsity sweeps, ablations, and custom kernel benchmarks.
-- arxiv-2605.18735: A clean interface between real paired relighting supervision and PBR-authored target lighting via intrinsic buffers.
-- arxiv-2605.18745: A mathematically natural proposal-correction framing for diffusion-guided data assimilation on path space.
-- arxiv-2605.18740: A technically coherent self-distillation method for transferring crop-conditioned evidence into full-image multimodal behavior.
-- arxiv-2605.18743: A broad representational experiment that uses one keypoint-to-occupancy architecture across articulated, skinned, and soft deformation regimes.
-- arxiv-2605.18747: A useful architectural lens for discussing agents as model-plus-harness systems rather than model-only systems.
+- arxiv-2605.18732 gives a memorable empirical model for factual confabulation: reference quality rises sigmoidally with scale and topic prevalence, with useful robustness checks and concrete failure examples.
+- arxiv-2605.18738 turns clinical ethics into an auditable behavioral object: models can produce pluralistic rationales while making near-deterministic choices.
+- arxiv-2605.18746 sharply frames embodied intelligence as active evidence acquisition. Its passive/active/oracle split is a strong diagnostic design.
+- arxiv-2605.18753 provides a complete sparse-attention package: algorithmic motivation, long-context benchmarks, ablations, sparsity sweeps, and custom kernels.
+- arxiv-2605.18750 makes a simple systems insight operational: fixed pipeline schedules can block on unavailable work while other work is ready.
+- arxiv-2605.18735 offers an elegant control interface for relighting by using intrinsic buffers as a bridge between real paired supervision and authored PBR lighting.
+- arxiv-2605.18740 directly attacks a visible multimodal failure mode: the model recognizes evidence in crops but fails to exploit it in the full image.
+- arxiv-2605.18745 has a coherent proposal-correction formulation for guided diffusion data assimilation.
+- arxiv-2605.18743 tests one keypoint-to-occupancy representation across multiple deformation regimes rather than only one object class.
+- arxiv-2605.18747 gives useful language for discussing agent infrastructure: code as runtime substrate, not just output.
 
 ## Serious Weaknesses And Red Flags
 
-- arxiv-2605.18732: The training-data-composition story rests on OpenAlex topic counts, not direct training-corpus frequency. The main sigmoid explains only part of dense-model variance, and independence assumptions are optimistic because cells are clustered by model and topic.
-- arxiv-2605.18735: The authored PBR-lighting claim is mostly qualitative. Reported 0.09-second speed excludes required preprocessing such as depth, intrinsic estimation, mesh construction, Blender rendering, and composition.
-- arxiv-2605.18738: The deployment-monoculture language is plausible but not directly tested in a clinical workflow. The physician reference set is only 20 mostly North American academic physicians, and cases are forced binary choices.
-- arxiv-2605.18740: The model may be learning from synthetic crop-and-box supervision rather than general evidence localization. Closed-source-model comparisons can overstate narrow benchmark wins.
-- arxiv-2605.18743: The paper uses world-model and digital-twin language for supervised occupancy reconstruction from supplied state prompts. Its RGB-D pipeline includes heavy preprocessing and pseudo-ground-truth generation.
-- arxiv-2605.18745: The title/abstract framing conflicts with algorithmic details, including gradient guidance. Approximation-free language does not fit finite-particle, self-normalized, discretized SMC. Some tables contradict the claim of outperforming all baselines.
-- arxiv-2605.18746: Benchmark construction uses GPT-4o to propose objects, placements, questions, and ground-truth trajectories. The high-level action interface omits grasping, navigation drift, actuation noise, and recovery.
-- arxiv-2605.18747: The definition of code is broad enough to make the thesis easy to apply and hard to falsify. There is no systematic literature protocol or empirical validation.
-- arxiv-2605.18750: Largest speedups come from favorable deep and imbalanced multimodal settings. Cross-framework gains can be modest, and correctness checks rely mainly on loss trends rather than exact optimizer-state equivalence.
-- arxiv-2605.18753: The strongest speed claims are isolated kernel results. End-to-end serving behavior with request scheduling, paged KV cache, projections, batching, and production overhead remains untested.
+The largest shared weakness is overclaiming from narrow evidence.
+
+- arxiv-2605.18745 uses approximation-free language even though the implemented algorithm is finite-particle, self-normalized, discretized SMC with small particle counts and reported cases where it does not beat all baselines.
+- arxiv-2605.18743 uses world-model and digital-twin rhetoric, but the core evidence is supervised occupancy reconstruction from supplied keypoints and pseudo-ground-truth voxel targets.
+- arxiv-2605.18735 quantitatively validates captured-target relighting more than arbitrary physically authored relighting.
+- arxiv-2605.18740 claims broad internalized zooming, but much evidence comes from boxed or cropped fine-grained multiple-choice settings.
+- arxiv-2605.18746 studies active spatial intelligence in a synthetic simulator with high-level actions and GPT-4o-assisted task construction.
+- arxiv-2605.18732 infers training-data composition from OpenAlex topic counts, which are only a proxy for actual training frequency.
+- arxiv-2605.18738 uses forced binary choices and a small physician sample, so it measures value behavior inside a constructed benchmark rather than clinical deployment.
+- arxiv-2605.18750 has strong internal results, but headline speedups are not equally representative across external large-scale comparisons.
+- arxiv-2605.18753 has strong kernel benchmarks, but no end-to-end serving proof in vLLM, SGLang, or a production scheduler.
+- arxiv-2605.18747 is a taxonomy without systematic inclusion protocol or empirical validation.
 
 ## Missing Baselines And Ablations
 
-Important missing comparisons across the episode:
+Common missing baseline pattern: papers often compare against convenient or available systems, but not the exact simple control that isolates the claimed mechanism.
 
-- Retrieval-augmented and oracle bibliography baselines for arxiv-2605.18732, to separate parametric recall failure from task ambiguity and SourceVerify/OpenAlex coverage limits.
-- Patient-value-conditioned, ethics-committee, and distributional physician-sampler baselines for arxiv-2605.18738, to test whether medical LLM behavior can be steered toward pluralism or patient-specific values.
-- Active-view planning baselines using uncertainty or information gain for arxiv-2605.18746, plus random active and scripted policies to distinguish useful action from extra observation.
-- Compute-matched training and inference baselines for arxiv-2605.18740, arxiv-2605.18745, and arxiv-2605.18750, because the proposed objectives and runtimes may receive more useful computation than nominal baselines.
-- End-to-end serving baselines for arxiv-2605.18753 against realistic full-attention and sparse-attention deployments in vLLM or SGLang.
-- Stronger classical or domain-specific representation baselines for arxiv-2605.18743: URDF/FK, SMPL/SMAL/LBS, dynamic NeRF or 3D Gaussian methods, physics-informed deformable-object methods, and stronger keypoint interpolation.
-- PBR-control baselines for arxiv-2605.18735, including rendered-RGB conditioning, diffuse-only conditioning, direct intrinsic recomposition, and quantitative user-authored relighting tests.
-- Systematic-survey baselines for arxiv-2605.18747: inclusion criteria, related-survey comparisons, alternative taxonomies, inter-annotator agreement, and small empirical case studies.
-
-Important missing ablations:
-
-- Topic-set, prompt, decoding, language, model-family, and actual training-frequency sensitivity for arxiv-2605.18732.
-- Prompt/persona, temperature, parser, value-tag, benchmark-size, cultural, and patient-value steerability sensitivity for arxiv-2605.18738.
-- No-box, noisy-box, crop-tightness, crop-source, free-form-answer, and backbone-family sensitivity for arxiv-2605.18740.
-- Keypoint-source noise, missing keypoints, per-object versus multi-object training, voxel-target dependence, temporal rollout, and runtime scaling for arxiv-2605.18743.
-- Particle-count scaling, resampling scheme, discretization bias, observation-noise robustness, hyperparameter sensitivity, and posterior calibration for arxiv-2605.18745.
-- Task-generator, prompt, step-budget, confidence calibration, action-vocabulary, simulator-realism, and statistical-uncertainty ablations for arxiv-2605.18746.
-- Runtime-component ablations for arxiv-2605.18750: asynchronous communication, ready-set arbitration, TP coordination, buffer sizing, backpressure, and communication jitter.
-- Alpha-entmax parameter, router-produced mask benchmarking, prior strength, chunking, and serving-framework integration for arxiv-2605.18753.
+- For arxiv-2605.18732, the key missing baselines are retrieval-augmented prompting, curated bibliography or search-oracle baselines, and matched-family models with different scholarly-corpus exposure.
+- For arxiv-2605.18735, the missing comparisons are rendered RGB or diffuse-only conditioning, direct Marigold recomposition, Careaga and Aksoy 2025 if possible, and full runtime including preprocessing.
+- For arxiv-2605.18738, the missing baselines are patient-value-conditioned prompting, ethics-committee or clinician-team decision procedures, distributional sampling from physician votes, and model-jury aggregation.
+- For arxiv-2605.18740, the crucial missing ablations are bounding-box dependence, crop quality dependence, ordinary crop/full-image augmentation, localization-required evaluation without explicit boxes, and backbone generality beyond Qwen3.5.
+- For arxiv-2605.18743, the missing baselines include plain keypoint-conditioned MLPs, classical URDF/FK and SMPL/SMAL-style structure, dynamic NeRF or Gaussian methods, physics-informed deformable-object methods, and cross-object generalization.
+- For arxiv-2605.18745, the missing checks are compute-matched ensembles, particle-count scaling, terminal reweighting without resampling, runtime-normalized baselines, calibration or coverage tests, and sensitivity to SMC/discretization hyperparameters.
+- For arxiv-2605.18746, the missing baselines are explicit information-gain planners, random active policies, scripted task policies, structured memory accumulation, and stronger 3D pipelines using oracle depth or masks.
+- For arxiv-2605.18747, the missing work is methodological: reproducible literature selection, taxonomy comparison, inter-annotator agreement, and empirical case studies.
+- For arxiv-2605.18750, the missing ablations are readiness arbitration versus communication backend, fixed-order BF/BFW in the same runtime, buffer/backpressure sensitivity, coordination overhead at larger TP groups, and training correctness at the largest configurations.
+- For arxiv-2605.18753, the missing proof is end-to-end serving with real batching, scheduler overhead, paged KV cache behavior, and comparisons to HSA or element-wise sparse-attention alternatives.
 
 ## Comparison Axes
 
-### Evidence Acquisition Versus Passive Scoring
+### Evidence Acquisition Versus Passive Perception
 
-ESI-Bench and Vision-OPD are the clearest contrast. ESI-Bench evaluates whether a model chooses actions that reveal the answer; Vision-OPD trains a model to act as though it had benefited from cropped evidence. The medical-ethics paper adds a non-visual version: the relevant action is a recommendation, not an explanation. Across all three, the model can often produce reasonable language while still failing at the operational choice.
+- arxiv-2605.18746 is the cleanest example: models often can answer from the right viewpoint but do not know how to obtain it.
+- arxiv-2605.18740 is a visual analogue: models perform better on crops than full images, and OPD tries to internalize the crop advantage.
+- arxiv-2605.18738 shows a different evidence gap: models mention multiple ethical considerations but collapse to stable recommendations.
 
-### Proxy Versus Mechanism
+### Structured Control Interfaces
 
-Several papers present plausible mechanisms through proxies. arxiv-2605.18732 uses OpenAlex topic count as a proxy for training prevalence; arxiv-2605.18743 uses keypoint-conditioned occupancy as a proxy for a physical digital twin; arxiv-2605.18745 uses asymptotic path-weight correction as a proxy for practical posterior correctness; arxiv-2605.18735 uses intrinsic buffers as a proxy bridge between PBR rendering and real target lighting. The critique is not that proxies are invalid, but that the claimed mechanism needs direct stress tests.
+- arxiv-2605.18735 uses intrinsic buffers and PBR lighting as a controllable relighting interface.
+- arxiv-2605.18743 uses keypoints as a structural control string for occupancy reconstruction.
+- arxiv-2605.18747 generalizes the theme by treating executable code as the control harness for agents.
 
-### Benchmark Strength Versus Deployment Strength
+### Runtime As The Algorithm
 
-DashAttention and RRFP have strong internal technical evidence but deployment caveats. DashAttention has good model and kernel experiments, but not full serving-stack validation. RRFP has persuasive matched runtime experiments, but portability and external large-scale gains are less settled. PIXLRelight has strong captured-target metrics but weak authored-control metrics. SURGE has a coherent derivation but practical finite-particle behavior remains fragile.
+- arxiv-2605.18750 says the schedule should be a hint consumed by readiness-aware runtime logic.
+- arxiv-2605.18753 says sparse attention should route adaptively rather than obey a fixed top-k budget.
+- arxiv-2605.18745 says guided diffusion should be treated as a proposal corrected by SMC weights rather than accepted as the posterior.
 
-### Generality Claims
+### Predictability And Calibration
 
-WorldString, SURGE, and the code-harness survey make the broadest generality claims. WorldString wants to unify rigid, articulated, skinned, and soft objects; SURGE wants approximation-free data assimilation; the survey wants a unified roadmap for code as agent substrate. All three are valuable, but the broad wording should be compressed into narrower supported claims.
+- arxiv-2605.18732 makes confabulation predictable from scale and topic prevalence, but not causally explained.
+- arxiv-2605.18738 reveals high behavioral determinism under ethical ambiguity.
+- arxiv-2605.18746 exposes high-confidence premature commitment in embodied spatial tasks.
+- arxiv-2605.18745 needs posterior calibration evidence because it claims posterior-correct inference.
 
-### Best Podcast Anchors
+### Best Anchors For The Episode
 
-The most discussable anchors are arxiv-2605.18738 and arxiv-2605.18746 because they reveal behavioral failures that are intuitive and consequential: medical LLMs choosing deterministic values under ethical ambiguity, and spatial agents failing to seek the evidence they need. The best technical anchors are arxiv-2605.18753 and arxiv-2605.18750 because their mechanisms are crisp and practically relevant. arxiv-2605.18732 is the best factuality anchor because the task is memorable and verifiable.
+- Primary anchor for agent behavior: arxiv-2605.18746.
+- Primary anchor for technical systems: arxiv-2605.18753.
+- Primary anchor for value and safety discussion: arxiv-2605.18738.
+- Primary anchor for factuality and hallucination: arxiv-2605.18732.
+- Useful systems companion: arxiv-2605.18750.
+- Skeptical overclaim segment: arxiv-2605.18745 and arxiv-2605.18743.
 
 ## Verdict For The Listener
 
-Cover this as an episode about interfaces, not just capabilities. The strongest papers show that frontier ML progress depends on the structures around the model: evidence-gathering policies, value interfaces, verification oracles, runtime queues, attention routers, particle proposals, keypoint state representations, and executable harnesses.
+This roundup is strongest when framed around bottlenecks that become visible only after leaving ordinary benchmark accuracy behind. The standout papers do not merely report higher scores; they expose where the system is wasting evidence, making rigid choices, overpaying attention, blocking on unavailable work, or fabricating under long-tail uncertainty.
 
-Recommended emphasis:
+Recommended coverage priority:
 
-- Lead with arxiv-2605.18746: spatial intelligence is knowing what to look at next, not just recognizing pixels.
-- Pair with arxiv-2605.18738: ethical pluralism cannot be inferred from fluent pluralistic explanations if the model’s actual choices are deterministic.
-- Use arxiv-2605.18732 as the factuality segment: confabulation is patterned by scale and topic prevalence, but the causal story is proxy-based.
-- Use arxiv-2605.18753 and arxiv-2605.18750 as the systems segment: fixed budgets and fixed schedules are brittle; adaptive routing and readiness-aware execution are the frontier systems theme.
-- Treat arxiv-2605.18735, arxiv-2605.18740, arxiv-2605.18743, and arxiv-2605.18745 as promising but critique-heavy method papers where the headline claim outruns the validation setting.
-- Use arxiv-2605.18747 as connective tissue, not as a central empirical result: it supplies vocabulary for harnesses, oracles, state, and execution, but not strong evidence by itself.
+1. Lead with arxiv-2605.18746 because it has the clearest episode-level thesis: intelligence is not just seeing, it is choosing what to inspect.
+2. Pair it with arxiv-2605.18740 as the single-image version of the evidence-use problem.
+3. Use arxiv-2605.18738 and arxiv-2605.18732 to show that language models can be predictable in troubling ways: deterministic ethics decisions and scale/topic-dependent reference confabulation.
+4. Use arxiv-2605.18753 and arxiv-2605.18750 as the technical systems core: adaptive sparse attention and readiness-aware training runtimes.
+5. Treat arxiv-2605.18735 as a promising applied vision interface with clear validation gaps.
+6. Treat arxiv-2605.18745 and arxiv-2605.18743 as examples where attractive math or representation stories need more careful claims.
+7. Use arxiv-2605.18747 as framing vocabulary only, not as empirical evidence.
 
-Bottom line: the episode should be optimistic about mechanisms and skeptical about slogans. The week’s papers suggest real progress in making ML systems more controllable and efficient, but the decisive evidence usually appears where authors test the interface directly. When they only test the surrounding proxy, the claims need to be narrowed.
+The listener should come away with a sharper question for frontier ML papers: what exactly is the bottleneck the method claims to remove, and did the experiment isolate that bottleneck or merely show a useful system working in a favorable setup?
 
 ## Source Notes And Local Input Paths
 
-This dossier synthesizes the embedded review JSON inputs for the following papers and should be treated as a compressed factual source for NotebookLM. It does not include dialogue, narration, host notes, or stage directions.
+This dossier is synthesized from local review records supplied for the episode. The review JSON files are provenance inputs and should not be uploaded directly to NotebookLM.
 
-Local review inputs used as provenance:
+Review inputs:
 
-- `data/reviews/arxiv-2605.18732.json`
-- `data/reviews/arxiv-2605.18735.json`
-- `data/reviews/arxiv-2605.18738.json`
-- `data/reviews/arxiv-2605.18740.json`
-- `data/reviews/arxiv-2605.18743.json`
-- `data/reviews/arxiv-2605.18745.json`
-- `data/reviews/arxiv-2605.18746.json`
-- `data/reviews/arxiv-2605.18747.json`
-- `data/reviews/arxiv-2605.18750.json`
-- `data/reviews/arxiv-2605.18753.json`
+- data/reviews/arxiv-2605.18732.json
+- data/reviews/arxiv-2605.18735.json
+- data/reviews/arxiv-2605.18738.json
+- data/reviews/arxiv-2605.18740.json
+- data/reviews/arxiv-2605.18743.json
+- data/reviews/arxiv-2605.18745.json
+- data/reviews/arxiv-2605.18746.json
+- data/reviews/arxiv-2605.18747.json
+- data/reviews/arxiv-2605.18750.json
+- data/reviews/arxiv-2605.18753.json
 
-Recommended original-paper upload budget: use at most two originals. The best candidates are arxiv-2605.18746 for the active/passive/oracle evaluation design and arxiv-2605.18738 for the clinical-ethics value-profile machinery. DashAttention is technically strong, but the synthesized dossier likely contains enough for an audio roundup unless the episode wants a deeper sparse-attention mechanism segment.
+Suggested NotebookLM upload set: upload this research_dossier.md plus the original papers for arxiv-2605.18746 and arxiv-2605.18753 if upload budget allows. ESI-Bench deserves direct source access because its benchmark construction and evaluation paradigms are central to the episode thesis. DashAttention deserves direct source access because its mechanism, ablations, and kernel-versus-serving caveat are technical and benefit from the original paper context.
