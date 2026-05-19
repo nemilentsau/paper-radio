@@ -1,0 +1,25 @@
+{
+  "tags": {
+    "active-evidence-acquisition": {
+      "aliases": [
+        "evidence-seeking",
+        "active inspection"
+      ],
+      "rationale": "Captures recurring evaluations where models must choose what evidence to gather before answering."
+    },
+    "agent-evaluation": {
+      "aliases": [
+        "agent evals",
+        "agent benchmarks"
+      ],
+      "rationale": "General tag for benchmark and diagnostic claims about agent behavior."
+    },
+    "belief-revision": {
+      "aliases": [
+        "metacognitive calibration",
+        "premature commitment"
+      ],
+      "rationale": "Captures recurring failures where models fail to update, stop too early, or remain overconfident under new evidence."
+    }
+  }
+}

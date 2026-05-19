@@ -31,7 +31,7 @@ Upload exactly these files for the normal production run:
 
 - `episodes/2026-05-19/01_frontier_ml_roundup/notebooklm_bundle/research_dossier.md`
 - `data/papers/pdfs/arxiv-2605.18746.pdf`
-- `data/papers/pdfs/arxiv-2605.18738.pdf`
+- `data/papers/pdfs/arxiv-2605.18753.pdf`
 
 Keep `research_dossier.md` as the controlling source even when anchor papers are added.
 
@@ -39,8 +39,8 @@ Keep `research_dossier.md` as the controlling source even when anchor papers are
 
 The source-dossier job chose these original paper sources:
 
-- `data/papers/pdfs/arxiv-2605.18746.pdf` (arxiv-2605.18746, paper_pdf): ESI-Bench is the best episode anchor and its passive/active/oracle evaluation design, task taxonomy, and behavioral diagnostics would benefit from NotebookLM seeing the original figures, tables, and setup directly.
-- `data/papers/pdfs/arxiv-2605.18738.pdf` (arxiv-2605.18738, paper_pdf): The clinical-ethics paper is another anchor, and the value-profile GLM, entropy results, physician comparison, and Overton-style reasoning analysis are subtle enough that the original paper is worth the limited upload budget.
+- `data/papers/pdfs/arxiv-2605.18746.pdf` (arxiv-2605.18746, paper_pdf): ESI-Bench is the best episode anchor for the active evidence-acquisition thesis. NotebookLM would benefit from seeing the original benchmark taxonomy, evaluation paradigms, and active-versus-oracle results directly.
+- `data/papers/pdfs/arxiv-2605.18753.pdf` (arxiv-2605.18753, paper_pdf): DashAttention is the strongest technical systems anchor. The mechanism, sparsity ablations, and kernel-level speed caveat are detailed enough that the original paper is worth upload budget.
 
 ## Optional Focus Papers
 

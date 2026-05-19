@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from paper_radio.memory.cards import ensure_memory_scaffold, memory_cards_dir
 from paper_radio.papers import load_paper_record
 from paper_radio.source_fetch import validate_full_text_source
 
@@ -11,6 +12,7 @@ from paper_radio.source_fetch import validate_full_text_source
 class EpisodeJobPlan:
     review_job_ids: list[str]
     source_dossier_job_id: str
+    promote_memory_job_id: str | None = None
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -107,20 +109,59 @@ def _source_dossier_job(manifest: dict[str, Any], episode_path: str) -> dict[str
         "schema_path": "schemas/source-dossier.schema.json",
         "notebooklm_bundle_dir": f"{episode_path}/notebooklm_bundle",
         "bundle_output_path": f"{episode_path}/notebooklm_bundle/research_dossier.md",
+        "memory_note_path": f"{episode_path}/memory_note.md",
+    }
+
+
+def _candidate_card_paths(root: Path) -> list[str]:
+    cards_dir = memory_cards_dir(root)
+    if not cards_dir.exists():
+        return []
+    return [path.relative_to(root).as_posix() for path in sorted(cards_dir.glob("*/*.md"))[:50]]
+
+
+def _promote_memory_job(root: Path, manifest: dict[str, Any], episode_path: str) -> dict[str, Any]:
+    episode_id = str(manifest["episode_id"])
+    return {
+        "job_id": f"{episode_id}-promote-memory",
+        "kind": "promote_memory",
+        "episode_id": episode_id,
+        "title": str(manifest["title"]),
+        "episode_type": str(manifest["episode_type"]),
+        "paper_ids": _paper_ids(manifest),
+        "episode_manifest_path": f"{episode_path}/manifest.json",
+        "bundle_output_path": f"{episode_path}/notebooklm_bundle/research_dossier.md",
+        "memory_note_path": f"{episode_path}/memory_note.md",
+        "vocab_path": "data/memory/vocab.json",
+        "cards_dir": "data/memory/cards",
+        "candidate_card_paths": _candidate_card_paths(root),
+        "input_paths": [
+            f"{episode_path}/manifest.json",
+            f"{episode_path}/script.json",
+            f"{episode_path}/notebooklm_bundle/research_dossier.md",
+            f"{episode_path}/memory_note.md",
+            "data/memory/vocab.json",
+        ],
+        "output_path": f"{episode_path}/memory_update.json",
+        "schema_path": "schemas/memory-update.schema.json",
     }
 
 
 def write_episode_job_manifests(root: Path, episode_path: str) -> EpisodeJobPlan:
+    ensure_memory_scaffold(root)
     relative_episode_path = _relative_episode_path(root, episode_path)
     manifest = _read_json(_manifest_path(root, episode_path))
     paper_paths = _paper_paths(manifest)
     review_jobs = [_review_job(root, paper_id, paper_paths) for paper_id in _paper_ids(manifest)]
     source_dossier_job = _source_dossier_job(manifest, relative_episode_path)
+    promote_memory_job = _promote_memory_job(root, manifest, relative_episode_path)
 
     _upsert_jobs(root / "jobs" / "reviews.jsonl", review_jobs)
     _upsert_jobs(root / "jobs" / "source-dossiers.jsonl", [source_dossier_job])
+    _upsert_jobs(root / "jobs" / "memory-updates.jsonl", [promote_memory_job])
 
     return EpisodeJobPlan(
         review_job_ids=[str(job["job_id"]) for job in review_jobs],
         source_dossier_job_id=str(source_dossier_job["job_id"]),
+        promote_memory_job_id=str(promote_memory_job["job_id"]),
     )

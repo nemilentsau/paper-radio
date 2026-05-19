@@ -15,9 +15,9 @@ The current system can:
 5. Build one episode-level factual source dossier.
 6. Prepare a NotebookLM handoff bundle.
 
-The next planned step is to add lightweight memory so future episodes can be
-grounded in what previous runs already learned, without jumping straight to a
-large RAG system.
+The current memory layer is intentionally lightweight: each completed source
+dossier writes a per-episode `memory_note.md`, then a validated promotion job can
+create or update small durable cards under `data/memory/`.
 
 ## Project Status
 
@@ -28,13 +28,14 @@ Working today:
 - ordered single-episode production runner
 - NotebookLM handoff bundle with recommended sources and prompt
 - quality gates for review and dossier outputs
+- basic promoted memory: episode notes, durable cards, vocab validation, and
+  prompt-time retrieval
 
 Planned next:
 
-- `memory_note.md` per episode
-- curated durable memory cards under `data/memory/`
-- memory retrieval for future source-dossier prompts
 - broader discovery lanes: Hugging Face papers, research blogs, and applied domain papers
+- richer portfolio selection across source lanes
+- weekly and monthly memory products
 
 See:
 
@@ -208,12 +209,11 @@ schema-shaped so runs can be validated, resumed, and handed off cleanly.
 
 ## Current Refactor Direction
 
-Before expanding memory and source lanes, the codebase should get a small
-structure pass:
+Before expanding source lanes, the codebase should get a small structure pass:
 
 - extract shared JSONL helpers
 - extract project and episode path helpers
-- introduce `paper_radio/memory/` as a real package
+- keep `paper_radio/memory/` focused on notes, cards, retrieval, and validation
 - keep the production runner explicit and ordered
 
 Avoid broad framework work for now. The system is still small enough that clear

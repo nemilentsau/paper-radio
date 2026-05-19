@@ -65,9 +65,11 @@ class EpisodePlanningTest(unittest.TestCase):
 
             review_jobs = read_jsonl(root / "jobs" / "reviews.jsonl")
             source_jobs = read_jsonl(root / "jobs" / "source-dossiers.jsonl")
+            memory_jobs = read_jsonl(root / "jobs" / "memory-updates.jsonl")
 
             self.assertEqual(result.review_job_ids, ["review-arxiv-2604.01694", "review-arxiv-2604.09999"])
             self.assertEqual(result.source_dossier_job_id, "episode-2026-05-12-01-dossier")
+            self.assertEqual(result.promote_memory_job_id, "episode-2026-05-12-01-promote-memory")
             self.assertEqual([job["job_id"] for job in review_jobs], result.review_job_ids)
             self.assertEqual(review_jobs[0]["kind"], "review")
             self.assertEqual(review_jobs[0]["paper_id"], "arxiv-2604.01694")
@@ -90,6 +92,14 @@ class EpisodePlanningTest(unittest.TestCase):
                 source_jobs[0]["bundle_output_path"],
                 "episodes/2026-05-12/01_peft/notebooklm_bundle/research_dossier.md",
             )
+            self.assertEqual(source_jobs[0]["memory_note_path"], "episodes/2026-05-12/01_peft/memory_note.md")
+
+            self.assertEqual(len(memory_jobs), 1)
+            self.assertEqual(memory_jobs[0]["kind"], "promote_memory")
+            self.assertEqual(memory_jobs[0]["job_id"], "episode-2026-05-12-01-promote-memory")
+            self.assertEqual(memory_jobs[0]["memory_note_path"], "episodes/2026-05-12/01_peft/memory_note.md")
+            self.assertEqual(memory_jobs[0]["vocab_path"], "data/memory/vocab.json")
+            self.assertTrue((root / "data" / "memory" / "vocab.json").exists())
 
     def test_write_episode_job_manifests_upserts_existing_jobs(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -127,11 +137,15 @@ class EpisodePlanningTest(unittest.TestCase):
 
             review_jobs = read_jsonl(root / "jobs" / "reviews.jsonl")
             source_jobs = read_jsonl(root / "jobs" / "source-dossiers.jsonl")
+            memory_jobs = read_jsonl(root / "jobs" / "memory-updates.jsonl")
 
             self.assertEqual(len(review_jobs), 1)
             self.assertEqual(len(source_jobs), 1)
+            self.assertEqual(len(memory_jobs), 1)
             self.assertEqual(source_jobs[0]["title"], "Updated title")
             self.assertEqual(source_jobs[0]["episode_type"], "anchor")
+            self.assertEqual(memory_jobs[0]["title"], "Updated title")
+            self.assertEqual(memory_jobs[0]["episode_type"], "anchor")
 
     def test_write_episode_job_manifests_rejects_missing_full_text_source(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -63,6 +63,7 @@ class EpisodeRunnerTest(unittest.TestCase):
                     "review-arxiv-2604.01694",
                     "review-arxiv-2604.09999",
                     "episode-2026-05-12-01-dossier",
+                    "episode-2026-05-12-01-promote-memory",
                 ],
             )
 
@@ -207,11 +208,19 @@ class EpisodeRunnerTest(unittest.TestCase):
 
             self.assertEqual(
                 [call.args[1] for call in run_job_mock.call_args_list],
-                ["review-arxiv-2604.09999", "episode-2026-05-12-01-dossier"],
+                [
+                    "review-arxiv-2604.09999",
+                    "episode-2026-05-12-01-dossier",
+                    "episode-2026-05-12-01-promote-memory",
+                ],
             )
             self.assertEqual(
                 [command[1] for command in commands],
-                ["review-arxiv-2604.09999", "episode-2026-05-12-01-dossier"],
+                [
+                    "review-arxiv-2604.09999",
+                    "episode-2026-05-12-01-dossier",
+                    "episode-2026-05-12-01-promote-memory",
+                ],
             )
 
 

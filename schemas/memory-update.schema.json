@@ -1,0 +1,120 @@
+{
+  "type": "object",
+  "properties": {
+    "episode_id": {
+      "type": "string"
+    },
+    "updates": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "create",
+              "update"
+            ]
+          },
+          "card_path": {
+            "type": "string"
+          },
+          "card_type": {
+            "type": "string",
+            "enum": [
+              "benchmark",
+              "domain",
+              "lab",
+              "method",
+              "red-flag",
+              "topic"
+            ]
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "updated_at": {
+            "type": "string"
+          },
+          "body_markdown": {
+            "type": "string"
+          },
+          "changelog_entry": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "card_path",
+          "card_type",
+          "tags",
+          "aliases",
+          "evidence",
+          "updated_at",
+          "body_markdown",
+          "changelog_entry"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "proposed_new_tags": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "tag": {
+            "type": "string"
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rationale": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag",
+          "aliases",
+          "rationale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "no_update_reason": {
+      "type": "string"
+    },
+    "citations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "episode_id",
+    "updates",
+    "proposed_new_tags",
+    "no_update_reason",
+    "citations"
+  ],
+  "additionalProperties": false
+}

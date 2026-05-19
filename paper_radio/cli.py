@@ -112,6 +112,7 @@ def cmd_plan_episode(args: argparse.Namespace) -> None:
             {
                 "review_job_ids": result.review_job_ids,
                 "source_dossier_job_id": result.source_dossier_job_id,
+                "promote_memory_job_id": result.promote_memory_job_id,
             },
             indent=2,
         )
