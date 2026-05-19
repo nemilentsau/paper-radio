@@ -3,6 +3,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from paper_radio.memory.cards import MemoryValidationError, validate_memory_update_record
 from paper_radio.notebooklm_handoff import validate_notebooklm_handoff
 
 REVIEW_STRING_FIELDS = (
@@ -284,3 +285,20 @@ def validate_job_output(root: Path, job: Mapping[str, object]) -> None:
         validate_review_file(root, str(job["paper_id"]))
     elif kind == "source_dossier":
         validate_source_dossier_files(root, job)
+    elif kind == "promote_memory":
+        output_path = _resolve_project_path(root, job["output_path"])
+        if not output_path.exists():
+            raise OutputValidationError(
+                f"Memory update output is not production-ready:\n- {_relative(output_path, root)} is missing"
+            )
+        try:
+            output = _read_json(output_path)
+        except json.JSONDecodeError as error:
+            raise OutputValidationError(
+                "Memory update output is not production-ready:\n"
+                f"- {_relative(output_path, root)} is not valid JSON: {error}"
+            ) from error
+        try:
+            validate_memory_update_record(job, output, root=root)
+        except MemoryValidationError as error:
+            raise OutputValidationError(str(error)) from error

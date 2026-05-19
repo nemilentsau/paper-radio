@@ -2,6 +2,9 @@ import json
 from pathlib import Path
 from typing import Any
 
+from paper_radio.memory.cards import ALLOWED_CARD_TYPES
+from paper_radio.memory.context import build_memory_context
+
 TRIAGE_RECORD_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
@@ -105,6 +108,60 @@ SOURCE_DOSSIER_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
 }
 
+MEMORY_UPDATE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "episode_id": {"type": "string"},
+        "updates": {
+            "type": "array",
+            "maxItems": 3,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["create", "update"]},
+                    "card_path": {"type": "string"},
+                    "card_type": {"type": "string", "enum": sorted(ALLOWED_CARD_TYPES)},
+                    "tags": {"type": "array", "items": {"type": "string"}},
+                    "aliases": {"type": "array", "items": {"type": "string"}},
+                    "evidence": {"type": "array", "items": {"type": "string"}},
+                    "updated_at": {"type": "string"},
+                    "body_markdown": {"type": "string"},
+                    "changelog_entry": {"type": "string"},
+                },
+                "required": [
+                    "action",
+                    "card_path",
+                    "card_type",
+                    "tags",
+                    "aliases",
+                    "evidence",
+                    "updated_at",
+                    "body_markdown",
+                    "changelog_entry",
+                ],
+                "additionalProperties": False,
+            },
+        },
+        "proposed_new_tags": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "tag": {"type": "string"},
+                    "aliases": {"type": "array", "items": {"type": "string"}},
+                    "rationale": {"type": "string"},
+                },
+                "required": ["tag", "aliases", "rationale"],
+                "additionalProperties": False,
+            },
+        },
+        "no_update_reason": {"type": "string"},
+        "citations": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["episode_id", "updates", "proposed_new_tags", "no_update_reason", "citations"],
+    "additionalProperties": False,
+}
+
 JOBS_README = """# Paper Radio Jobs
 
 This directory holds JSONL job manifests for headless Codex or Claude Code runs.
@@ -112,6 +169,7 @@ This directory holds JSONL job manifests for headless Codex or Claude Code runs.
 - `triage.jsonl`: fast paper triage jobs
 - `reviews.jsonl`: full paper review jobs
 - `source-dossiers.jsonl`: episode-level NotebookLM source dossier jobs
+- `memory-updates.jsonl`: post-dossier durable memory promotion jobs
 
 Use `scripts/run_episode` for production episode runs so review readiness is checked before a source dossier is created.
 """
@@ -128,6 +186,7 @@ def write_agent_job_artifacts(root: Path) -> None:
     _write_json(schemas_dir / "triage-record.schema.json", TRIAGE_RECORD_SCHEMA)
     _write_json(schemas_dir / "review-record.schema.json", REVIEW_RECORD_SCHEMA)
     _write_json(schemas_dir / "source-dossier.schema.json", SOURCE_DOSSIER_SCHEMA)
+    _write_json(schemas_dir / "memory-update.schema.json", MEMORY_UPDATE_SCHEMA)
     jobs_dir.mkdir(parents=True, exist_ok=True)
     (jobs_dir / "README.md").write_text(JOBS_README, encoding="utf-8")
 
@@ -181,6 +240,7 @@ def build_source_dossier_prompt(job: dict[str, Any], root: Path | None = None) -
     paper_ids = "\n".join(f"- {_prompt_text(paper_id)}" for paper_id in job.get("paper_ids", []))
     review_paths = "\n".join(f"- {_prompt_text(path)}" for path in job.get("review_paths", []))
     embedded_reviews = _embedded_review_inputs(job, root)
+    memory_context = build_memory_context(root, job)
     return f"""Write one factual NotebookLM source dossier for a Paper Radio episode.
 
 Job ID: {job["job_id"]}
@@ -199,6 +259,13 @@ Review inputs to read:
 Embedded review JSON inputs:
 
 {embedded_reviews}
+
+Memory context for this episode:
+
+{memory_context}
+
+Use the memory context only as framing guidance. Current paper sources and current review records remain the evidence.
+If no durable card matched, do not force a weak analogy.
 
 NotebookLM will generate the conversational audio. Do not write dialogue, speaker names, stage directions,
 banter, cold opens, finished narration, or host patter.
@@ -235,10 +302,85 @@ NotebookLM dossier markdown output path for upload.
 """
 
 
+def _embedded_file(path_label: object, root: Path | None) -> str:
+    label = _prompt_text(path_label)
+    resolved = _resolve_prompt_path(root, path_label)
+    if not resolved.exists():
+        return f"### {label}\n\nMISSING: {label}"
+    return f"### {label}\n\n{resolved.read_text(encoding='utf-8')}"
+
+
+def build_promote_memory_prompt(job: dict[str, Any], root: Path | None = None) -> str:
+    memory_note = _embedded_file(job["memory_note_path"], root)
+    dossier = _embedded_file(job["bundle_output_path"], root)
+    vocab = _embedded_file(job["vocab_path"], root)
+    existing_cards = []
+    for card_path in job.get("candidate_card_paths", []):
+        existing_cards.append(_embedded_file(card_path, root))
+    existing_cards_text = (
+        "\n\n".join(existing_cards) if existing_cards else "No candidate existing cards were provided."
+    )
+    return f"""Decide whether this Paper Radio episode should promote durable memory.
+
+Job ID: {job["job_id"]}
+Episode ID: {job["episode_id"]}
+Output path: {job["output_path"]}
+Required schema: {job["schema_path"]}
+
+Durable memory cards are curated compression for future episodes. They are not episode summaries.
+Most episodes should create zero or one updates. Use no updates when the observation is too paper-specific.
+
+Allowed card types:
+- topic
+- benchmark
+- red-flag
+- lab
+- domain
+- method
+
+Promotion criteria:
+- The point is likely reusable across future papers.
+- The point describes a claim family, benchmark, method, lab/source behavior, domain workflow, or recurring red flag.
+- The point changes how future papers should be evaluated.
+- The body can stay compact without crowding out current evidence.
+
+Rules:
+- Return only JSON matching the schema.
+- Do not write card files yourself. The local runner applies validated updates.
+- updates may be [].
+- If updates is [], write a concrete no_update_reason and keep proposed_new_tags [].
+- If you use a tag that is not already in vocab, include it in proposed_new_tags.
+- Use canonical slug-style tags, for example `agent-memory`, `clinical-evals`, `stale-baselines`.
+- evidence must include the current episode ID: {job["episode_id"]}.
+- citations must include both `{job["memory_note_path"]}` and `{job["bundle_output_path"]}`.
+- card_path must be `data/memory/cards/<card_type>/<slug>.md`.
+- body_markdown should be 75-900 words and must distinguish current evidence from prior framing.
+- changelog_entry must mention {job["episode_id"]}.
+
+Current vocab:
+
+{vocab}
+
+Existing candidate cards:
+
+{existing_cards_text}
+
+Episode memory note:
+
+{memory_note}
+
+Current source dossier:
+
+{dossier}
+"""
+
+
 def build_job_prompt(job: dict[str, Any], root: Path | None = None) -> str:
     kind = str(job.get("kind", ""))
     if kind == "source_dossier":
         return build_source_dossier_prompt(job, root=root)
+    if kind == "promote_memory":
+        return build_promote_memory_prompt(job, root=root)
     if kind == "review":
         input_paths = "\n".join(f"- {_prompt_text(path)}" for path in job.get("input_paths", []))
         return f"""Critically review one ML paper for Paper Radio.

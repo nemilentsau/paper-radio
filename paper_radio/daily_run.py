@@ -34,6 +34,7 @@ class DailyRunReport:
     episode_path: Path
     review_job_ids: list[str]
     source_dossier_job_id: str
+    promote_memory_job_id: str | None
     episode_commands_run: int
     script_path: Path
     notebooklm_bundle_path: Path
@@ -51,6 +52,7 @@ class DailyRunReport:
             "episode_path": self.episode_path.as_posix(),
             "review_job_ids": self.review_job_ids,
             "source_dossier_job_id": self.source_dossier_job_id,
+            "promote_memory_job_id": self.promote_memory_job_id,
             "episode_commands_run": self.episode_commands_run,
             "script_path": self.script_path.as_posix(),
             "notebooklm_bundle_path": self.notebooklm_bundle_path.as_posix(),
@@ -178,6 +180,7 @@ def run_daily(
         episode_path=episode_path,
         review_job_ids=episode_plan.review_job_ids,
         source_dossier_job_id=episode_plan.source_dossier_job_id,
+        promote_memory_job_id=episode_plan.promote_memory_job_id,
         episode_commands_run=len(episode_commands),
         script_path=episode_path / "script.json",
         notebooklm_bundle_path=episode_path / "notebooklm_bundle" / "research_dossier.md",

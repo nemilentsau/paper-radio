@@ -28,12 +28,20 @@ def _source_dossier_manifest_path(root: Path) -> Path:
     return root / "jobs" / "source-dossiers.jsonl"
 
 
+def _memory_update_manifest_path(root: Path) -> Path:
+    return root / "jobs" / "memory-updates.jsonl"
+
+
 def _paper_ids(manifest: dict[str, Any]) -> list[str]:
     return [str(paper_id) for paper_id in manifest["paper_ids"]]
 
 
 def _script_job_id(manifest: dict[str, Any]) -> str:
     return str(manifest.get("script_job_id", f"{manifest['episode_id']}-dossier"))
+
+
+def _promote_memory_job_id(manifest: dict[str, Any]) -> str:
+    return f"{manifest['episode_id']}-promote-memory"
 
 
 def validate_reviews_ready(root: Path, paper_ids: list[str]) -> None:
@@ -59,6 +67,13 @@ def plan_episode_jobs(episode_path: str, root: Path = PROJECT_ROOT) -> list[dict
             "kind": "source_dossier",
             "manifest": str(_source_dossier_manifest_path(root)),
             "job_id": _script_job_id(manifest),
+        }
+    )
+    plan.append(
+        {
+            "kind": "promote_memory",
+            "manifest": str(_memory_update_manifest_path(root)),
+            "job_id": _promote_memory_job_id(manifest),
         }
     )
     return plan
@@ -87,6 +102,7 @@ def run_episode(
 
     validate_reviews_ready(root, paper_ids)
     commands.append(run_job(_source_dossier_manifest_path(root), _script_job_id(manifest), agent, root=root))
+    commands.append(run_job(_memory_update_manifest_path(root), _promote_memory_job_id(manifest), agent, root=root))
     return commands
 
 

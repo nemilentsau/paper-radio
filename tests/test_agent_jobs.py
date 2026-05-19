@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from paper_radio.agent_jobs import (
+    MEMORY_UPDATE_SCHEMA,
     REVIEW_RECORD_SCHEMA,
     SOURCE_DOSSIER_SCHEMA,
     TRIAGE_RECORD_SCHEMA,
@@ -26,6 +27,8 @@ class AgentJobsTest(unittest.TestCase):
         self.assertIn("research_dossier_markdown", SOURCE_DOSSIER_SCHEMA["required"])
         self.assertIn("recommended_upload_sources", SOURCE_DOSSIER_SCHEMA["required"])
         self.assertEqual(SOURCE_DOSSIER_SCHEMA["properties"]["recommended_upload_sources"]["maxItems"], 2)
+        self.assertIn("updates", MEMORY_UPDATE_SCHEMA["required"])
+        self.assertEqual(MEMORY_UPDATE_SCHEMA["properties"]["updates"]["maxItems"], 3)
 
     def test_write_agent_job_artifacts_creates_schema_files(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -36,6 +39,7 @@ class AgentJobsTest(unittest.TestCase):
             self.assertTrue((root / "schemas" / "triage-record.schema.json").exists())
             self.assertTrue((root / "schemas" / "review-record.schema.json").exists())
             self.assertTrue((root / "schemas" / "source-dossier.schema.json").exists())
+            self.assertTrue((root / "schemas" / "memory-update.schema.json").exists())
             self.assertTrue((root / "jobs" / "README.md").exists())
 
             source_schema = json.loads((root / "schemas" / "source-dossier.schema.json").read_text())
@@ -58,6 +62,8 @@ class AgentJobsTest(unittest.TestCase):
 
         self.assertIn("NotebookLM will generate the conversational audio", prompt)
         self.assertIn("Embedded review JSON inputs", prompt)
+        self.assertIn("Memory context for this episode", prompt)
+        self.assertIn("Current paper sources and current review records remain the evidence", prompt)
         self.assertIn("Do not write dialogue", prompt)
         self.assertIn("research_dossier_markdown", prompt)
         self.assertIn("recommended_upload_sources", prompt)
@@ -96,6 +102,40 @@ class AgentJobsTest(unittest.TestCase):
         self.assertIn("triage_rationale", prompt)
         self.assertIn("Use a 0 to 10 scale", prompt)
         self.assertIn("Score both research quality and podcast value", prompt)
+
+    def test_promote_memory_prompt_requires_validated_card_updates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            episode_dir = root / "episodes" / "2026-05-12" / "01_peft"
+            bundle_dir = episode_dir / "notebooklm_bundle"
+            bundle_dir.mkdir(parents=True)
+            (episode_dir / "memory_note.md").write_text(
+                "# Memory Note\n\nReusable benchmark warning.",
+                encoding="utf-8",
+            )
+            (bundle_dir / "research_dossier.md").write_text("# Dossier\n\nCurrent source material.", encoding="utf-8")
+            vocab_path = root / "data" / "memory" / "vocab.json"
+            vocab_path.parent.mkdir(parents=True)
+            vocab_path.write_text('{"tags": {}}\n', encoding="utf-8")
+            job = {
+                "job_id": "episode-2026-05-12-01-promote-memory",
+                "kind": "promote_memory",
+                "episode_id": "episode-2026-05-12-01",
+                "output_path": "episodes/2026-05-12/01_peft/memory_update.json",
+                "schema_path": "schemas/memory-update.schema.json",
+                "memory_note_path": "episodes/2026-05-12/01_peft/memory_note.md",
+                "bundle_output_path": "episodes/2026-05-12/01_peft/notebooklm_bundle/research_dossier.md",
+                "vocab_path": "data/memory/vocab.json",
+                "candidate_card_paths": [],
+            }
+
+            prompt = build_job_prompt(job, root=root)
+
+        self.assertIn("Decide whether this Paper Radio episode should promote durable memory", prompt)
+        self.assertIn("Do not write card files yourself", prompt)
+        self.assertIn("updates may be []", prompt)
+        self.assertIn("proposed_new_tags", prompt)
+        self.assertIn("Episode memory note", prompt)
 
 
 if __name__ == "__main__":

@@ -7,6 +7,8 @@ from typing import Any
 
 from paper_radio.agent_jobs import build_job_prompt, find_job
 from paper_radio.config import PROJECT_ROOT
+from paper_radio.memory.cards import apply_memory_update_file
+from paper_radio.memory.notes import write_memory_note
 from paper_radio.notebooklm_handoff import handoff_path_for_bundle, render_notebooklm_handoff
 from paper_radio.output_validation import (
     OutputValidationError,
@@ -175,6 +177,17 @@ def _validate_written_job_output(job: Mapping[str, object], root: Path) -> None:
         raise
 
 
+def _apply_valid_job_side_effects(job: Mapping[str, object], root: Path) -> None:
+    kind = str(job.get("kind", ""))
+    if kind == "source_dossier":
+        output_path = _resolve_project_path(root, job["output_path"])
+        output = json.loads(output_path.read_text(encoding="utf-8"))
+        if isinstance(output, Mapping):
+            write_memory_note(root, job, output)
+    elif kind == "promote_memory":
+        apply_memory_update_file(root, job)
+
+
 def run_job(
     manifest_path: Path,
     job_id: str,
@@ -203,6 +216,7 @@ def run_job(
         subprocess.run(command, cwd=root, check=True)
         _write_codex_sidecar_outputs(job, root)
         _validate_written_job_output(job, root)
+        _apply_valid_job_side_effects(job, root)
     else:
         result = subprocess.run(command, cwd=root, text=True, capture_output=True, check=True)
         output = _extract_claude_output(result.stdout)
@@ -211,6 +225,7 @@ def run_job(
             validate_source_dossier_record(job, output, root=root)
         _write_structured_output(job, output, root)
         _validate_written_job_output(job, root)
+        _apply_valid_job_side_effects(job, root)
     return command
 
 
