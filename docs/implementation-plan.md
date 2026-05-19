@@ -32,26 +32,17 @@ The useful pattern from `landscape_of_consciousness` is not its exact capsule sy
 
 **memory should be curated compression, not an ever-growing context document.**
 
-Use three layers:
+Memory lives in three layers, with explicit artifacts for each:
 
-1. **Raw archive**
-   - all paper records, review records, dossiers, full text, and PDFs
-   - complete provenance
-   - not meant to fit into prompt context
+1. **Raw archive** — already exists. Paper records, review records, dossiers, full text, and PDFs under `data/` and `episodes/`. Plus a new per-episode `memory_note.md` written at the end of every run. Append-only. Never rewritten.
 
-2. **Recent working memory**
-   - last 7-14 days of episode summaries and review highlights
-   - useful for trend detection and "what have we been seeing lately?"
-   - allowed to age out
+2. **Recent working memory** — a *view* over the archive, not a new artifact. The dossier job reads bounded sections from recent `research_dossier.md` files, such as `Concise Thesis`, `Verdict For The Listener`, and source notes from the last 14 days. No summarizer job, no separate file to maintain.
 
-3. **Promoted durable memory**
-   - only the few claims, red flags, benchmark warnings, lab priors, and topic summaries worth carrying forward
-   - updated over time rather than appended forever
-   - small enough to retrieve directly without full RAG
+3. **Promoted durable memory** — typed cards under `data/memory/cards/<type>/<slug>.md`. Rewritten in place. Small enough to retrieve directly without RAG.
 
 Most daily observations should stay in the archive. Only a few should be promoted.
 
-Durable memory should be represented as living cards:
+Card types:
 
 - topic cards
 - benchmark cards
@@ -60,20 +51,56 @@ Durable memory should be represented as living cards:
 - domain cards
 - model-family or method-family cards
 
-Each card should stay short, probably 300-700 words. When new evidence arrives, rewrite or amend the card rather than adding another unbounded note.
+Each card body stays short, probably 300-700 words. When new evidence arrives, rewrite the body in place rather than appending another unbounded note. Provenance is preserved via append-only frontmatter and changelog (see schema below).
+
+### Card schema
+
+Every card file has YAML frontmatter:
+
+```
+---
+id: card-benchmark-mmlu
+type: benchmark        # topic | benchmark | red-flag | lab | domain | method
+tags: [mmlu, evals]
+aliases: ["Massive Multitask Language Understanding"]
+evidence: [ep-2026-05-19, ep-2026-05-21]   # append-only
+updated_at: 2026-05-19
+---
+
+<body, 300-700 words, rewritten in place>
+
+## Changelog
+- 2026-05-19: initial card from ep-2026-05-19
+- 2026-05-21: amended re: contamination concerns (ep-2026-05-21)
+```
+
+The body is allowed to drift as the LLM rewrites it. `evidence` and `Changelog` are append-only in intent so provenance survives rewrites; validation should check that existing evidence and changelog entries were preserved.
+
+The frontmatter is also the upgrade path to embeddings: when tag retrieval stops being good enough, batch-embed card bodies and store vectors alongside. The schema does not change; only the index does.
+
+### Tag vocabulary
+
+A hand-curated `data/memory/vocab.json` lists canonical tags and aliases. The promote-memory job is required to map every new tag to an existing canonical tag or explicitly propose a new one. This keeps retrieval working without embeddings.
+
+### Promotion is its own job
+
+After every episode, run a `promote-memory` job (same headless-agent runner as review/dossier). It can: create a new card, amend an existing card in place, or no-op. Promotion criteria are in "Memory Guardrails" below.
+
+The job should produce a structured proposed update first, then write the card only after validation. Durable memory is too important to let a bad model run smear a card silently.
+
+### Memory notes vs cards
+
+Memory notes are per-episode artifacts in the raw archive, one per episode, never rewritten. Cards are topic-keyed and rewritten over time. They are not the same thing.
+
+### Concurrency
+
+Episodes run serially through `scripts/run_episode`. Cards are mutated in place under that assumption. Do not parallelize episode runs without revisiting this.
 
 ## Phase 3: Make Future Dossiers Memory-Aware
 
 Before generating a new episode dossier, retrieve a small set of relevant durable cards and recent working-memory items.
 
-Use simple matching first:
-
-- topic tags
-- benchmark names
-- method tags
-- domain tags
-- lab or author names
-- recurring red flag tags
+Retrieve cards by `tag ∈ card.tags ∪ card.aliases`, ranked by `updated_at` desc. Working memory is the last 14 days of dossier headers, read directly off disk.
 
 For a normal episode, include at most:
 
@@ -81,9 +108,13 @@ For a normal episode, include at most:
 - 0-1 benchmark card
 - 0-1 red-flag card
 - 0-1 lab/source card
-- 0-2 recent episode capsules
+- 0-2 recent episode capsules (working memory)
 
-This keeps context bounded without building full retrieval infrastructure.
+Hard token budget for the memory block: ~2k tokens. Drop oldest-amended cards first if over.
+
+### When nothing matches
+
+If no cards match, the dossier prompt must say so explicitly ("no prior cards matched this topic") rather than injecting the loosest available card. This is how we avoid self-confirming bias on new topics.
 
 Important rule:
 
@@ -95,6 +126,7 @@ Success criterion:
 
 - today's dossier can say, "This resembles a prior pattern we saw before," without relying on the model's memory.
 - the prompt stays small even after a month of daily runs.
+- an empty memory block is valid and tested.
 
 ## Phase 4: Widen Candidate Discovery
 
@@ -172,28 +204,47 @@ Promotion criteria:
 - the point changes how we should evaluate future work
 - the point is short enough to be carried forward without crowding out current evidence
 
-Depromotion criteria:
+### Pruning (deferred)
+
+Depromotion is deferred until the card set exceeds ~50 cards. Below that threshold, hand-pruning is cheaper than a janitor job. Revisit when the threshold is crossed.
+
+When pruning does come online, depromotion criteria:
 
 - no related papers appear after several weeks
 - the point was too paper-specific
 - later evidence reverses it
 - a broader card now covers it better
 
+## Memory Quality Gates
+
+Before a memory update is accepted, check:
+
+- card frontmatter parses cleanly
+- `type` is one of the allowed card types
+- tags map to `data/memory/vocab.json`
+- existing `evidence` entries are preserved
+- existing changelog entries are preserved
+- new evidence points to an existing episode or review artifact
+- card body stays roughly within the target length
+- card body distinguishes current evidence from prior framing
+- no card is injected into a dossier when there is no tag/alias match
+- the final memory block stays under the token budget
+
+These checks can begin as ordinary Python validation, not a database or RAG system.
+
 ## Current Recommendation
 
 Build in this order:
 
-1. Promoted memory skeleton.
-2. Recent working-memory summary.
-3. Bounded memory retrieval for dossiers.
-4. Hugging Face ingest.
-5. Lab blog ingest.
-6. Domain application lane.
-7. Portfolio selection.
-8. Weekly digest.
+1. Per-episode `memory_note.md` writer (raw archive).
+2. Card schema + `data/memory/` directory + empty `vocab.json`.
+3. `promote-memory` headless job, wired into the episode runner after dossier generation.
+4. Memory retrieval helper: tag/alias lookup + last-14-days dossier header reader.
+5. Inject retrieved cards + working memory into the source-dossier prompt, with the "no match" branch.
+6. Then: HF ingest, lab blogs, domain lane, portfolio selection, weekly digest.
 
-The first real milestone is:
+The first real milestone:
 
-**Run tomorrow's episode with one or two durable cards and a recent working-memory summary available to the source-dossier job.**
+**Tomorrow's episode runs through the existing pipeline, writes a memory note, runs the promote-memory job (likely a no-op on day 1), and the source-dossier job receives a memory block — empty on day 1, populated within a week.**
 
 That is the smallest step that changes the character of the system from daily summarization to cumulative research memory without pretending we already need full RAG.
