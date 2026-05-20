@@ -1,0 +1,197 @@
+[
+  {
+    "paper_id": "arxiv-2605.19895",
+    "source": "arxiv",
+    "source_id": "2605.19895",
+    "title": "Streamlined Constraint Reasoning via CNN Pattern Recognition on Enumerated Solutions",
+    "authors": [
+      "Patrick Spracklen"
+    ],
+    "author_affiliations": [],
+    "abstract": "Constraint programming practitioners accelerate hard problems through a layered set of techniques applied in order of risk. Standard hardening (symmetry-breaking and implied constraints) is applied first and preserves satisfiability. Streamliner constraints, which restrict search to a structural sub-family of solutions, do not preserve satisfiability and are reserved as a final lever. Existing automated streamliner-synthesis approaches either search a constraint grammar or prompt a Large Language Model directly on the problem model. We propose a different approach: enumerate feasible solutions, train a Convolutional Neural Network contrastively against perturbed non-solutions to detect structural patterns, and translate the CNN's discriminative signal into candidate MiniZinc streamliners through LLM-driven synthesis. The CNN grounds the LLM's constraint generation in observed solution structure rather than model text alone. We evaluate on hardened benchmark models where streamliner discovery is the residual performance lever. Our pipeline achieves 98.8% portfolio time reduction on hardened Vessel Loading, 98.6% on hardened Social Golfers, and 89.4% on Black Hole, with best-single streamliners reaching geometric-mean speedups of 932x, 356x, and 1103x respectively. Discovered streamliners include class-based packing constraints on Vessel Loading, beyond-hardening canonicalisations on Social Golfers, and layout-coordinate bounds on Black Hole.",
+    "published_at": "2026-05-19T14:25:39Z",
+    "updated_at": "2026-05-19T14:25:39Z",
+    "categories": [
+      "cs.AI"
+    ],
+    "pdf_url": "https://arxiv.org/pdf/2605.19895",
+    "abs_url": "https://arxiv.org/abs/2605.19895",
+    "source_types": [
+      "arxiv_applied_domain",
+      "applied_domain:finance_modeling"
+    ],
+    "status": "candidate",
+    "trusted_orgs": [],
+    "triage_decision": null,
+    "triage_rationale": null,
+    "research_score_estimate": null,
+    "podcast_score_estimate": null,
+    "local_pdf_path": null,
+    "full_text_path": null,
+    "candidate_score": null,
+    "decision": "untriaged",
+    "applied_domain": "finance_modeling",
+    "applied_domain_label": "Finance and economic modeling workflows",
+    "applied_domain_score": 7,
+    "matched_applied_keywords": [
+      "large language model",
+      "llm",
+      "portfolio"
+    ],
+    "matched_workflow_terms": [
+      "portfolio",
+      "risk"
+    ],
+    "matched_required_terms": [
+      "portfolio"
+    ],
+    "matched_model_terms": [
+      "large language model",
+      "llm"
+    ],
+    "application_signal": "workflow_terms_present",
+    "source_query_categories": [
+      "q-fin.CP",
+      "q-fin.EC",
+      "q-fin.GN",
+      "q-fin.PM",
+      "q-fin.RM",
+      "econ.EM",
+      "stat.ML",
+      "cs.AI"
+    ]
+  },
+  {
+    "paper_id": "arxiv-2605.20098",
+    "source": "arxiv",
+    "source_id": "2605.20098",
+    "title": "Neurosymbolic Learning for Inference-Time Argumentation",
+    "authors": [
+      "Gabriel Freedman",
+      "Adam Dejl",
+      "Adam Gould",
+      "Mansi",
+      "Lihu Chen",
+      "Jianqi Jiang",
+      "Francesca Toni"
+    ],
+    "author_affiliations": [],
+    "abstract": "Claim verification is an important problem in high-stakes settings, including health and finance. When information underpinning claims is incomplete or conflicting, uncertain answers may be more appropriate than binary true or false classifications. In all cases, faithful explanations of the considerations determining the final verdict are crucial. We introduce inference-time argumentation (ITA), a trainable neurosymbolic framework for ternary claim verification in which a formal argumentation semantics giving the strength of claims is used both (i) to guide LLM training as models learn to generate arguments and assign them base scores (representing intrinsic strengths) and (ii) to compute ternary (true/false/uncertain) predictions from generated, scored arguments. As a result, at training time, argument generation and scoring can be optimised according to the quality of the induced argumentative predictions. Moreover, at inference time, the final prediction is faithful, by construction, to the arguments and scores determining the verdict, rather than being justified by a potentially unfaithful post-hoc reasoning trace as in conventional reasoning models. We finally show that, on two datasets for ternary claim verification, ITA improves upon argumentative baselines and can perform competitively against non-argumentative direct-prediction baselines, while providing verdicts that are computed deterministically from explicit, inspectable argumentative structures.",
+    "published_at": "2026-05-19T16:49:29Z",
+    "updated_at": "2026-05-19T16:49:29Z",
+    "categories": [
+      "cs.AI"
+    ],
+    "pdf_url": "https://arxiv.org/pdf/2605.20098",
+    "abs_url": "https://arxiv.org/abs/2605.20098",
+    "source_types": [
+      "arxiv_applied_domain",
+      "applied_domain:finance_modeling"
+    ],
+    "status": "candidate",
+    "trusted_orgs": [],
+    "triage_decision": null,
+    "triage_rationale": null,
+    "research_score_estimate": null,
+    "podcast_score_estimate": null,
+    "local_pdf_path": null,
+    "full_text_path": null,
+    "candidate_score": null,
+    "decision": "untriaged",
+    "applied_domain": "finance_modeling",
+    "applied_domain_label": "Finance and economic modeling workflows",
+    "applied_domain_score": 3,
+    "matched_applied_keywords": [
+      "llm",
+      "finance"
+    ],
+    "matched_workflow_terms": [],
+    "matched_required_terms": [
+      "finance"
+    ],
+    "matched_model_terms": [
+      "llm"
+    ],
+    "application_signal": "llm_keyword_only",
+    "source_query_categories": [
+      "q-fin.CP",
+      "q-fin.EC",
+      "q-fin.GN",
+      "q-fin.PM",
+      "q-fin.RM",
+      "econ.EM",
+      "stat.ML",
+      "cs.AI"
+    ]
+  },
+  {
+    "paper_id": "arxiv-2605.19674",
+    "source": "arxiv",
+    "source_id": "2605.19674",
+    "title": "Beyond Rational Illusion: Behaviorally Realistic Strategic Classification",
+    "authors": [
+      "Xinpeng Lv",
+      "Yunxin Mao",
+      "Renzhe Xu",
+      "Chunyuan Zheng",
+      "Yikai Chen",
+      "Haoxuan Li",
+      "Yang Shi",
+      "Jinxuan Yang",
+      "Zhouchen Lin",
+      "Yuanlong Chen",
+      "Yuanxing Zhang",
+      "Shaowu Yang",
+      "Wenjing Yang",
+      "Haotian Wang"
+    ],
+    "author_affiliations": [],
+    "abstract": "Strategic classification(SC) studies the interaction between decision models and agents who strategically manipulate their features for favorable outcomes. Existing SC frameworks typically rely on the idealized assumption that agents are strictly rational. However, evidence from behavioral economics and psychology consistently shows that real-world decision-making is often shaped by cognitive biases, deviating from pure rationality. To formalize this limitation, we identify and define a new problem setting, termed the behaviorally realistic strategic classification problem, where agents' strategic manipulations deviate from full rationality due to psychological biases. Motivated by the identified limitation, we propose the Prospect-Guided Strategic Framework (Pro-SF) to address the problem, a principled framework grounded in prospect theory to model and learn under behaviorally realistic strategic responses. Specifically, to capture behaviorally realistic strategic manipulations, our framework reformulates the Stackelberg-style interaction between agents and the decision-maker by incorporating three key mechanisms inspired by prospect theory, including the asymmetry between benefits and costs, different subjective reference points, and non-rational probability distortion. Experiments on synthetic and real-world datasets establish Pro-SF as a behaviorally grounded approach to strategic classification, bridging machine learning and behavioral economics for more reliable deployment in the real world.",
+    "published_at": "2026-05-19T11:04:55Z",
+    "updated_at": "2026-05-19T11:04:55Z",
+    "categories": [
+      "cs.AI"
+    ],
+    "pdf_url": "https://arxiv.org/pdf/2605.19674",
+    "abs_url": "https://arxiv.org/abs/2605.19674",
+    "source_types": [
+      "arxiv_applied_domain",
+      "applied_domain:finance_modeling"
+    ],
+    "status": "candidate",
+    "trusted_orgs": [],
+    "triage_decision": null,
+    "triage_rationale": null,
+    "research_score_estimate": null,
+    "podcast_score_estimate": null,
+    "local_pdf_path": null,
+    "full_text_path": null,
+    "candidate_score": null,
+    "decision": "untriaged",
+    "applied_domain": "finance_modeling",
+    "applied_domain_label": "Finance and economic modeling workflows",
+    "applied_domain_score": 3,
+    "matched_applied_keywords": [
+      "economic",
+      "agent"
+    ],
+    "matched_workflow_terms": [],
+    "matched_required_terms": [
+      "economic"
+    ],
+    "matched_model_terms": [
+      "agent"
+    ],
+    "application_signal": "llm_keyword_only",
+    "source_query_categories": [
+      "q-fin.CP",
+      "q-fin.EC",
+      "q-fin.GN",
+      "q-fin.PM",
+      "q-fin.RM",
+      "econ.EM",
+      "stat.ML",
+      "cs.AI"
+    ]
+  }
+]

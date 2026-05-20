@@ -1,19 +1,15 @@
 import argparse
-import json
 from pathlib import Path
 from typing import Any
 
 from paper_radio.agent_runner import run_job
 from paper_radio.config import PROJECT_ROOT
+from paper_radio.io import read_json
 from paper_radio.output_validation import OutputValidationError, validate_review_file
 
 
 class ReviewReadinessError(OutputValidationError):
     pass
-
-
-def _read_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _manifest_path(root: Path, episode_path: str) -> Path:
@@ -57,7 +53,9 @@ def validate_reviews_ready(root: Path, paper_ids: list[str]) -> None:
 
 
 def plan_episode_jobs(episode_path: str, root: Path = PROJECT_ROOT) -> list[dict[str, str]]:
-    manifest = _read_json(_manifest_path(root, episode_path))
+    manifest = read_json(_manifest_path(root, episode_path))
+    if not isinstance(manifest, dict):
+        raise ValueError(f"Expected episode manifest object at {_manifest_path(root, episode_path)}")
     plan = [
         {"kind": "review", "manifest": str(_review_manifest_path(root)), "job_id": f"review-{paper_id}"}
         for paper_id in _paper_ids(manifest)
@@ -85,7 +83,9 @@ def run_episode(
     root: Path = PROJECT_ROOT,
     dry_run: bool = False,
 ) -> list[list[str]]:
-    manifest = _read_json(_manifest_path(root, episode_path))
+    manifest = read_json(_manifest_path(root, episode_path))
+    if not isinstance(manifest, dict):
+        raise ValueError(f"Expected episode manifest object at {_manifest_path(root, episode_path)}")
     paper_ids = _paper_ids(manifest)
     if dry_run:
         return [[step["manifest"], step["job_id"]] for step in plan_episode_jobs(episode_path, root)]
@@ -118,6 +118,8 @@ def main() -> None:
     args = build_parser().parse_args()
     result = run_episode(args.episode_path, args.agent, dry_run=args.dry_run)
     if args.dry_run:
+        import json
+
         print(json.dumps(result, indent=2))
 
 

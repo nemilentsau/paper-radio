@@ -8,7 +8,7 @@
 - Published: 2026-05-19T17:58:37Z
 - Updated: 2026-05-19T17:58:37Z
 - Categories: cs.CL
-- Source signals: arxiv_recent
+- Source signals: arxiv_applied_domain, applied_domain:bio_medicine
 - Triage decision: advance_to_review
 - Triage rationale: The abstract describes a concrete systems contribution with both a new benchmark and multi-model results across text-only and multimodal clinical tasks, which makes it substantively reviewable. It also has clear podcast value because it sits at the intersection of agentic LLMs, clinical reasoning, and multimodal evidence seeking.
 - Research score estimate: 7.8

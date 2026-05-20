@@ -1,0 +1,120 @@
+[
+  {
+    "paper_id": "arxiv-2605.19747",
+    "source": "arxiv",
+    "source_id": "2605.19747",
+    "title": "Direct Simulation of LiNi0.8Mn0.1Co0.1O2 Transport Properties Using an Efficient and Accurate Machine Learning Potential",
+    "authors": [
+      "Jian He",
+      "Constantijn H. J. A. van de Wetering",
+      "Rolande W. Nolsen",
+      "Nongnuch Artrith"
+    ],
+    "author_affiliations": [],
+    "abstract": "The rate capability of layered lithium nickel manganese cobalt oxide (NMC) cathode materials plays a decisive role in high-power applications such as fast charging, necessitating a detailed understanding of lithium-ion diffusion. However, the mechanisms governing lithium-ion transport in NMC remain insufficiently understood, both experimentally and computationally. In this study, we employ an advanced and efficient machine learning potential (MLP) to simulate lithium self-diffusion in LiNi0.8Mn0.1Co0.1O2 (NMC811), enabling direct large-scale molecular dynamics (MD) simulations. The workflow integrates a fine-tuned MACE (Message Passing Atomic Cluster Expansion) foundation model as a structural generator and leverages an active learning strategy applied to a near-ground-state dataset. This approach enables the construction of a reliable MLP for NMC811 in a data-efficient manner using a limited number of density functional theory (DFT) reference calculations. Based on this potential, we performed MD simulations to predict lithium diffusion coefficients. The MLP-based simulations preserve the accuracy of DFT while overcoming its time and length scale limitations, thereby allowing direct simulation of lithium self-diffusion in NMC811.",
+    "published_at": "2026-05-19T12:16:08Z",
+    "updated_at": "2026-05-19T12:16:08Z",
+    "categories": [
+      "cond-mat.mtrl-sci"
+    ],
+    "pdf_url": "https://arxiv.org/pdf/2605.19747",
+    "abs_url": "https://arxiv.org/abs/2605.19747",
+    "source_types": [
+      "arxiv_applied_domain",
+      "applied_domain:chemistry_materials"
+    ],
+    "status": "candidate",
+    "trusted_orgs": [],
+    "triage_decision": null,
+    "triage_rationale": null,
+    "research_score_estimate": null,
+    "podcast_score_estimate": null,
+    "local_pdf_path": null,
+    "full_text_path": null,
+    "candidate_score": null,
+    "decision": "untriaged",
+    "applied_domain": "chemistry_materials",
+    "applied_domain_label": "Chemistry and materials workflows",
+    "applied_domain_score": 4,
+    "matched_applied_keywords": [
+      "materials",
+      "foundation model"
+    ],
+    "matched_workflow_terms": [],
+    "matched_required_terms": [
+      "materials",
+      "cond-mat"
+    ],
+    "matched_model_terms": [
+      "foundation model"
+    ],
+    "application_signal": "llm_keyword_only",
+    "source_query_categories": [
+      "physics.chem-ph",
+      "cond-mat.mtrl-sci",
+      "cs.LG",
+      "stat.ML"
+    ]
+  },
+  {
+    "paper_id": "arxiv-2605.19677",
+    "source": "arxiv",
+    "source_id": "2605.19677",
+    "title": "Agentic Discovery of Cryomicroneedle Formulations",
+    "authors": [
+      "Hao Li",
+      "Lifu Du",
+      "Nurul Hameed",
+      "Shemonti Saha Authai",
+      "Zlata Stefanovic",
+      "Chenjie Xu"
+    ],
+    "author_affiliations": [],
+    "abstract": "Cryomicroneedles offer a route to minimally invasive intradermal delivery of living cells, but their cryogenic formulations must reconcile cell protection with constraints on toxicity and device fabrication. Here we report an AI-assisted, closed-loop workflow for cryomicroneedle cryoprotectant discovery that combines literature curation, Gaussian-process surrogate modelling, Bayesian optimization, and sequential wet-lab validation. A curated dataset of 198 mesenchymal stem-cell cryopreservation formulations from 42 studies was converted into 21 ingredient features and used to train an uncertainty-aware literature prior. This model captured moderate structure in the literature data but failed prospectively, motivating iterative wet-lab correction. Across ten validation iterations and 106 wet-lab observations, the model progressively adapted to cryomicroneedle-specific outcomes: batch RMSE decreased from 41.21 to 6.86 percentage points, later-stage rank correlations became consistently positive, and the cumulative wet-lab predicted-versus-measured summary reached $R^2 = 0.942$. The best validated formulation achieved 95.15\\% post-thaw viability with low DMSO, ectoin, ethylene glycol, and fetal bovine serum. However, high viability alone did not ensure intact cryomicroneedle formation, highlighting the need for future multi-objective optimization. These results demonstrate that agent-assisted computational infrastructure can make data-efficient formulation discovery more accessible to labs with minimal data expertise in-house. Project code is available at https://github.com/baitmeister/ML-for-CryoMN.",
+    "published_at": "2026-05-19T11:09:46Z",
+    "updated_at": "2026-05-19T11:09:46Z",
+    "categories": [
+      "cs.LG",
+      "q-bio.QM"
+    ],
+    "pdf_url": "https://arxiv.org/pdf/2605.19677",
+    "abs_url": "https://arxiv.org/abs/2605.19677",
+    "source_types": [
+      "arxiv_applied_domain",
+      "applied_domain:chemistry_materials"
+    ],
+    "status": "candidate",
+    "trusted_orgs": [],
+    "triage_decision": null,
+    "triage_rationale": null,
+    "research_score_estimate": null,
+    "podcast_score_estimate": null,
+    "local_pdf_path": null,
+    "full_text_path": null,
+    "candidate_score": null,
+    "decision": "untriaged",
+    "applied_domain": "chemistry_materials",
+    "applied_domain_label": "Chemistry and materials workflows",
+    "applied_domain_score": 4,
+    "matched_applied_keywords": [
+      "lab",
+      "agent"
+    ],
+    "matched_workflow_terms": [
+      "optimization"
+    ],
+    "matched_required_terms": [
+      "lab"
+    ],
+    "matched_model_terms": [
+      "agent"
+    ],
+    "application_signal": "workflow_terms_present",
+    "source_query_categories": [
+      "physics.chem-ph",
+      "cond-mat.mtrl-sci",
+      "cs.LG",
+      "stat.ML"
+    ]
+  }
+]

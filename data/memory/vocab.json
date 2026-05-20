@@ -20,6 +20,14 @@
         "premature commitment"
       ],
       "rationale": "Captures recurring failures where models fail to update, stop too early, or remain overconfident under new evidence."
+    },
+    "proxy-workflow-validation": {
+      "aliases": [
+        "workflow surrogate mismatch",
+        "proxy objective mismatch",
+        "domain decision proxy"
+      ],
+      "rationale": "Captures recurring applied-domain evaluation failures where benchmark, simulator, surrogate objective, synthetic judge, or partial workflow evidence is substituted for the actual domain decision."
     }
   }
 }

@@ -1,0 +1,36 @@
+{
+  "episode_id": "episode-2026-05-20-02-applied-domain-llm-roundup",
+  "title": "Applied-domain LLM roundup",
+  "episode_type": "applied_domain_llm_roundup",
+  "paper_ids": [
+    "arxiv-2605.19674",
+    "arxiv-2605.19677",
+    "arxiv-2605.19747",
+    "arxiv-2605.19895",
+    "arxiv-2605.20025",
+    "arxiv-2605.20098",
+    "arxiv-2605.20158",
+    "arxiv-2605.20176"
+  ],
+  "paper_titles": {
+    "arxiv-2605.19674": "Beyond Rational Illusion: Behaviorally Realistic Strategic Classification",
+    "arxiv-2605.19677": "Agentic Discovery of Cryomicroneedle Formulations",
+    "arxiv-2605.19747": "Direct Simulation of LiNi0.8Mn0.1Co0.1O2 Transport Properties Using an Efficient and Accurate Machine Learning Potential",
+    "arxiv-2605.19895": "Streamlined Constraint Reasoning via CNN Pattern Recognition on Enumerated Solutions",
+    "arxiv-2605.20025": "AutoResearchClaw: Self-Reinforcing Autonomous Research with Human-AI Collaboration",
+    "arxiv-2605.20098": "Neurosymbolic Learning for Inference-Time Argumentation",
+    "arxiv-2605.20158": "Rethinking Visual Attribution for Chest X-ray Reasoning in Large Vision Language Models",
+    "arxiv-2605.20176": "ClinSeekAgent: Automating Multimodal Evidence Seeking for Agentic Clinical Reasoning"
+  },
+  "paper_paths": {
+    "arxiv-2605.19674": "data/papers/arxiv-2605.19674.md",
+    "arxiv-2605.19677": "data/papers/arxiv-2605.19677.md",
+    "arxiv-2605.19747": "data/papers/arxiv-2605.19747.md",
+    "arxiv-2605.19895": "data/papers/arxiv-2605.19895.md",
+    "arxiv-2605.20025": "data/papers/arxiv-2605.20025.md",
+    "arxiv-2605.20098": "data/papers/arxiv-2605.20098.md",
+    "arxiv-2605.20158": "data/papers/arxiv-2605.20158.md",
+    "arxiv-2605.20176": "data/papers/arxiv-2605.20176.md"
+  },
+  "script_job_id": "episode-2026-05-20-02-applied-domain-llm-roundup-dossier"
+}

@@ -1,0 +1,22 @@
+{
+  "paper_id": "arxiv-2605.19677",
+  "title": "Agentic Discovery of Cryomicroneedle Formulations",
+  "core_claim": "An AI-assisted closed-loop workflow combining literature curation, surrogate modeling, Bayesian optimization, and sequential wet-lab validation can efficiently discover cryoprotectant formulations for cryomicroneedles with improved post-thaw viability.",
+  "triage_rationale": "This is a concrete domain workflow paper, not a benchmark-only study: it includes iterative wet-lab validation, measurable gains over rounds, and an explicit materials/formulation discovery loop. The evidence in the abstract is strong enough to merit full review because the claims are tied to experimental outcomes, though the multi-objective limitation suggests some caution.",
+  "topic_tags": [
+    "applied-ml",
+    "materials-discovery",
+    "closed-loop-optimization",
+    "bayesian-optimization",
+    "wet-lab-validation",
+    "cell-cryopreservation"
+  ],
+  "likely_red_flags": [
+    "Prospective performance initially failed before iterative correction, so generalization appears fragile.",
+    "High viability did not guarantee intact device formation, indicating the objective may be only partially solved.",
+    "The abstract emphasizes agentic infrastructure, but the core contribution may be the closed-loop optimization pipeline rather than a broadly general agent method."
+  ],
+  "research_score_estimate": 7.6,
+  "podcast_score_estimate": 6.8,
+  "decision": "advance_to_review"
+}

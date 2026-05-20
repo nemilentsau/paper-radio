@@ -5,7 +5,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from paper_radio.agent_jobs import load_jsonl
+from paper_radio.io import load_jsonl
 from paper_radio.papers import PaperRecord, write_paper_record
 
 SELECTED_TRIAGE_DECISIONS = frozenset(("advance_to_review", "queue_for_review"))

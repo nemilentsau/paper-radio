@@ -5,6 +5,7 @@ from pathlib import Path
 
 from paper_radio.agent_jobs import write_agent_job_artifacts
 from paper_radio.agent_runner import run_job
+from paper_radio.applied_domains import fetch_applied_domain_candidates
 from paper_radio.arxiv import fetch_recent_candidates, ingest_arxiv_ids
 from paper_radio.config import PROJECT_ROOT
 from paper_radio.daily_run import (
@@ -46,6 +47,18 @@ def cmd_candidate_arxiv(args: argparse.Namespace) -> None:
     print(json.dumps({"json_path": str(paths.json_path), "markdown_path": str(paths.markdown_path)}, indent=2))
 
 
+def cmd_candidate_applied_domain(args: argparse.Namespace) -> None:
+    paths = fetch_applied_domain_candidates(
+        PROJECT_ROOT,
+        preset_name=args.preset,
+        max_results=args.max_results,
+        keep_results=args.keep_results,
+        min_score=args.min_score,
+        run_date=args.run_date or date.today().isoformat(),
+    )
+    print(json.dumps({"json_path": str(paths.json_path), "markdown_path": str(paths.markdown_path)}, indent=2))
+
+
 def cmd_ingest_arxiv(args: argparse.Namespace) -> None:
     papers = ingest_arxiv_ids(PROJECT_ROOT, args.id)
     print(json.dumps({"paper_ids": [paper.paper_id for paper in papers]}, indent=2))
@@ -80,6 +93,7 @@ def cmd_promote_triage(args: argparse.Namespace) -> None:
         PROJECT_ROOT,
         triage_dir=Path(args.triage_dir),
         manifest_path=Path(args.manifest),
+        paper_ids=args.paper_id,
     )
     print(
         json.dumps(
@@ -165,6 +179,33 @@ def build_parser() -> argparse.ArgumentParser:
     candidate_arxiv_parser.add_argument("--run-date", help="Candidate batch date, defaults to today")
     candidate_arxiv_parser.set_defaults(func=cmd_candidate_arxiv)
 
+    candidate_applied_parser = subparsers.add_parser("candidate-applied-domain")
+    candidate_applied_parser.add_argument(
+        "--preset",
+        default="bio_medicine",
+        help="Applied-domain preset: bio_medicine, chemistry_materials, finance_modeling, scientific_discovery",
+    )
+    candidate_applied_parser.add_argument(
+        "--max-results",
+        type=int,
+        default=100,
+        help="Maximum arXiv results to fetch before filtering",
+    )
+    candidate_applied_parser.add_argument(
+        "--keep-results",
+        type=int,
+        default=10,
+        help="Maximum filtered candidates to keep for triage",
+    )
+    candidate_applied_parser.add_argument(
+        "--min-score",
+        type=int,
+        default=2,
+        help="Minimum applied-domain keyword score to keep",
+    )
+    candidate_applied_parser.add_argument("--run-date", help="Candidate batch date, defaults to today")
+    candidate_applied_parser.set_defaults(func=cmd_candidate_applied_domain)
+
     ingest_arxiv_parser = subparsers.add_parser("ingest-arxiv")
     ingest_arxiv_parser.add_argument("--id", action="append", required=True, help="arXiv ID. Repeat for multiple IDs.")
     ingest_arxiv_parser.set_defaults(func=cmd_ingest_arxiv)
@@ -185,6 +226,11 @@ def build_parser() -> argparse.ArgumentParser:
     promote_triage_parser = subparsers.add_parser("promote-triage")
     promote_triage_parser.add_argument("--triage-dir", default="data/triage", help="Directory of triage JSON records")
     promote_triage_parser.add_argument("--manifest", default="jobs/triage.jsonl", help="Triage job manifest path")
+    promote_triage_parser.add_argument(
+        "--paper-id",
+        action="append",
+        help="Limit promotion to one paper ID. Repeat for multiple papers.",
+    )
     promote_triage_parser.set_defaults(func=cmd_promote_triage)
 
     create_episode_parser = subparsers.add_parser("create-episode")

@@ -1,10 +1,11 @@
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from paper_radio.io import read_json, upsert_jsonl_by_key
 from paper_radio.memory.cards import ensure_memory_scaffold, memory_cards_dir
 from paper_radio.papers import load_paper_record
+from paper_radio.paths import project_relative
 from paper_radio.source_fetch import validate_full_text_source
 
 
@@ -15,46 +16,8 @@ class EpisodeJobPlan:
     promote_memory_job_id: str | None = None
 
 
-def _read_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def _load_jsonl(path: Path) -> list[dict[str, Any]]:
-    if not path.exists():
-        return []
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
-
-
-def _write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    text = "\n".join(json.dumps(row, ensure_ascii=False) for row in rows)
-    path.write_text(f"{text}\n" if text else "", encoding="utf-8")
-
-
-def _upsert_jobs(path: Path, jobs: list[dict[str, Any]]) -> None:
-    existing = _load_jsonl(path)
-    replacements = {str(job["job_id"]): job for job in jobs}
-    seen: set[str] = set()
-    updated: list[dict[str, Any]] = []
-    for job in existing:
-        job_id = str(job.get("job_id", ""))
-        if job_id in replacements:
-            updated.append(replacements[job_id])
-            seen.add(job_id)
-        else:
-            updated.append(job)
-    for job in jobs:
-        job_id = str(job["job_id"])
-        if job_id not in seen:
-            updated.append(job)
-    _write_jsonl(path, updated)
-
-
 def _relative_episode_path(root: Path, episode_path: str) -> str:
-    path = Path(episode_path)
-    if path.is_absolute():
-        return path.relative_to(root).as_posix()
-    return path.as_posix()
+    return project_relative(root, Path(episode_path))
 
 
 def _manifest_path(root: Path, episode_path: str) -> Path:
@@ -150,15 +113,17 @@ def _promote_memory_job(root: Path, manifest: dict[str, Any], episode_path: str)
 def write_episode_job_manifests(root: Path, episode_path: str) -> EpisodeJobPlan:
     ensure_memory_scaffold(root)
     relative_episode_path = _relative_episode_path(root, episode_path)
-    manifest = _read_json(_manifest_path(root, episode_path))
+    manifest = read_json(_manifest_path(root, episode_path))
+    if not isinstance(manifest, dict):
+        raise ValueError(f"Expected episode manifest object at {_manifest_path(root, episode_path)}")
     paper_paths = _paper_paths(manifest)
     review_jobs = [_review_job(root, paper_id, paper_paths) for paper_id in _paper_ids(manifest)]
     source_dossier_job = _source_dossier_job(manifest, relative_episode_path)
     promote_memory_job = _promote_memory_job(root, manifest, relative_episode_path)
 
-    _upsert_jobs(root / "jobs" / "reviews.jsonl", review_jobs)
-    _upsert_jobs(root / "jobs" / "source-dossiers.jsonl", [source_dossier_job])
-    _upsert_jobs(root / "jobs" / "memory-updates.jsonl", [promote_memory_job])
+    upsert_jsonl_by_key(root / "jobs" / "reviews.jsonl", review_jobs)
+    upsert_jsonl_by_key(root / "jobs" / "source-dossiers.jsonl", [source_dossier_job])
+    upsert_jsonl_by_key(root / "jobs" / "memory-updates.jsonl", [promote_memory_job])
 
     return EpisodeJobPlan(
         review_job_ids=[str(job["job_id"]) for job in review_jobs],

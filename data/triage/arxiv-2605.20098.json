@@ -1,0 +1,22 @@
+{
+  "paper_id": "arxiv-2605.20098",
+  "title": "Neurosymbolic Learning for Inference-Time Argumentation",
+  "core_claim": "The paper proposes inference-time argumentation, a trainable neurosymbolic framework for ternary claim verification that uses formal argumentation semantics to guide LLM argument generation and scoring, then deterministically produces true/false/uncertain verdicts from the resulting argumentative structure.",
+  "triage_rationale": "This looks methodologically interesting because it couples explicit argumentative structure with trainable LLM behavior and evaluates ternary verification rather than simple binary classification. I would not advance it directly from the abstract alone because the domain signal is still generic claim verification with only weak evidence of a concrete finance workflow or strong real-world validation.",
+  "topic_tags": [
+    "neurosymbolic",
+    "argumentation",
+    "claim-verification",
+    "llm",
+    "ternary-classification",
+    "faithful-reasoning"
+  ],
+  "likely_red_flags": [
+    "Applied-domain signal is weak: finance is mentioned in the framing, but the abstract reads like a generic claim-verification method.",
+    "Comparison set may be limited to argumentative baselines and direct-prediction baselines; the abstract does not mention expert annotation, deployment, or domain-specific workflow validation.",
+    "Potentially benchmark-driven claim verification without clear leakage or robustness details in the abstract."
+  ],
+  "research_score_estimate": 6.2,
+  "podcast_score_estimate": 7.4,
+  "decision": "queue_for_review"
+}

@@ -1,0 +1,999 @@
+Neurosymbolic Learning
+for Inference-Time Argumentation
+Gabriel Freedman∗ Adam Dejl∗ Adam Gould∗ Mansi∗
+Lihu Chen Junqi Jiang Francesca Toni
+Department of Computing, Imperial College London
+{g.freedman22, ad5518, amg2118, m24}@imperial.ac.uk
+{junqi.jiang, lihu.chen, ft}@imperial.ac.uk
+Abstract
+Claim verification is an important problem in high-stakes settings, including health
+and finance. When information underpinning claims is incomplete or conflicting,
+uncertain answers may be more appropriate than binary true or false classifica-
+tions. In all cases, faithful explanations of the considerations determining the
+final verdict are crucial. We introduceinference-time argumentation (ITA), a train-
+able neurosymbolic framework for ternary claim verification in which a formal
+argumentation semantics giving the strength of claims is used both (i) to guide
+LLM training as models learn togenerate argumentsandassign them base scores
+(representing intrinsic strengths) and (ii) to compute ternary (true/false/uncertain)
+predictions from generated, scored arguments. As a result, at training time, ar-
+gument generation and scoring can be optimised according to the quality of the
+induced argumentative predictions. Moreover, at inference time, the final prediction
+is faithful, by construction, to the arguments and scores determining the verdict,
+rather than being justified by a potentially unfaithful post-hoc reasoning trace
+as in conventional reasoning models. We finally show that, on two datasets for
+ternary claim verification, ITA improves upon argumentative baselines and can
+perform competitively against non-argumentative direct-prediction baselines, while
+providing verdicts that are computed deterministically from explicit, inspectable
+argumentative structures.
+1 Introduction
+Claim verification amounts to ascertaining the veracity of textual claims. It is a widely studied
+problem, recently as a potential application for LLMs [Dmonte et al., 2024], and is used in many
+high-stakes settings, including healthcare [Vladika et al., 2025], finance [Zhao et al., 2024] and
+scientific discovery [Alvarez et al., 2024]. In all settings, information underpinning the claims is
+crucial in ascertaining their veracity, but when this information is incomplete or conflicting,uncertain
+answersmay be more appropriate than true or false classifications. For example FEVER [Thorne
+et al., 2018] uses Supported, Refuted, and NotEnoughInfo labels, while A VeriTeC [Schlichtkrull
+et al., 2023] distinguishes between Supported, Refuted, Not Enough Evidence, and Conflicting
+Evidence/Cherry-picking. No matter the veracity labels,faithful explanationsof the considerations
+determining the labels are crucial in claim verification [Freedman et al., 2025].
+In this paper we consider claim verification as a three-valued prediction problem. Given a natural
+language claim, we aim to automatically predict a verdict ˆy∈ {True,False,Uncertain}. TheUn-
+certainlabel is not treated as failure to classify, but as a substantive verdict for cases in which the
+available information does not warrant accepting or rejecting the claim, as in Figure 1. To support
+∗Equal contribution.
+Preprint.
+arXiv:2605.20098v1  [cs.AI]  19 May 2026
+
+Figure 1: An example argumentative structure for a claim adapted from DEBATunE [Li et al., 2024a].
+Arguments 1-3 attack the claim and 4-6 support it. For claim/argument x, τ(x) is the base score
+and σ(x) the argumentative strength computed by the DF-QuAD semantics [Rago et al., 2016]. ITA
+classifies this claim asUncertainas its strength is close to the midpoint of [0,1].
+this form of ternary claim verification while also guaranteeing faithful explanations for veracity
+verdicts, we introduceinference-time argumentation (ITA), a novel neurosymbolic framework for
+training LLMs to argue about the veracity of claims. Rather than treating veracity outcomes as labels
+to be predicted directly, ITA derives them from the formal evaluation of generated supporting and
+attacking arguments, making prediction an argumentative verdict rather than a bare classification. In
+ITA, similarly to ArgLLMs [Freedman et al., 2025], verdicts are obtained by applying thresholds to a
+continuousargumentative strengthcomputed with a (deterministic) argumentation semantics [Rago
+et al., 2016]. The final verdicts are thus derived based on the argumentative structure of supporting
+and attacking arguments and the associatedbase scoresfor all arguments and the claim, representing
+their intrinsic strength. As in ArgLLMs, the argumentative structure serves as a faithful explanation
+for the verdict. However, rather than using off-the-shelf LLMs for generating and scoring arguments
+as ArgLLMs do [Freedman et al., 2025, Zhou et al., 2025], ITA is based on training them so that
+LLMs learn how to generate and/or score arguments optimally for the downstream prediction. Thus,
+in ITA, the argumentation semantics also informs training. Specifically, it supervises the arguments’
+base score generation and provides feedback for argument generation with reinforcement learning.
+ITA differs from (non-argumentative) inference-time reasoning approaches based on reinforcement
+learning from verifiable rewards [Guo et al., 2025] in its focus on a task where outcomes may be
+uncertain, rather than exact and automatically checkable with certainty (e.g. as in mathematics or
+programming), and in its guarantees of faithful explainability, rather than with reasoning traces
+understood post-hoc as explanations, with several documented limitations [Chen et al., 2025, Cornish
+and Rogers, 2025, Yu et al., 2026].
+In summary, our contributions are as follows. First, we introduce ITA, a trainable neurosymbolic
+framework for three-valued claim verification in which verdicts are computed from argumentative
+structures (see Figure 2). Second, we introduce two training strategies for ITA, respectively based
+on (i) learning base scores for generated arguments through objectives defined over the downstream
+argumentative verdict, rather than relying only on base scores provided by base LLMs as in Freed-
+man et al. [2025], and (ii) optimising the argument generator using feedback induced by formal
+argumentation semantics, turning argumentation from an inference-time decision layer into a train-
+ing signal. Finally, we evaluate ITA on two claim-verification datasets against non-argumentative
+direct-prediction baselines and argumentative baselines, showing that we outperform all faithfully
+explainable baselines while performing competitively against others. We obtain the datasets by adapt-
+2
+
+ing three human-curated datasets: A VeriTeC [Schlichtkrull et al., 2023], StrategyClaim [Freedman
+et al., 2025] and DEBATunE [Li et al., 2024a].
+2 Related Work
+Abstention.Several LLM-based claim verification methods exist [Dmonte et al., 2024]. Here we
+focus on methods aware of their knowledge boundaries, that honestly say “I do not know” for non-
+answerable questions, known as abstention [Li et al., 2024b, Wen et al., 2025]. Existing approaches
+teach LLMs to perform abstention through fine-tuning strategies [Amayuelas et al., 2024, Kapoor
+et al., 2024]. Cohen et al. [2024] further improves this line of research by introducing a special[IDK]
+(“I don’t know”) token into the model’s vocabulary. While these approaches all focus on training
+models to refuse to answer certain queries, they do not provide faithful explanations for why these
+refusals are the appropriate response. Nor do they seek to explicitly surface their reasoning when
+conflicting evidence, rather than just lack of knowledge, is the cause for their uncertainty.
+Learning and Argumentation.Argumentation has been advocated in combination with learning in
+several settings (as recently surveyed by Proietti and Toni [2023], Rago et al. [2024]). In the context of
+RL, Gao and Toni [2014] use reasoning with argumentation frameworks to shape rewards, in a multi-
+agent simulated game setting, and Ward et al. [2022] replace human feedback in RL with reasoning
+in preference-based argumentation, in a maze environment. Neither of these approaches generates
+arguments or uses gradual argumentation semantics as we do. In the context of neurosymbolic,
+end-to-end learning, Gould and Toni [2025] adopt gradual argumentation semantics as well as, like in
+our approach, base score model learning. However, in their approach arguments are given rather than
+generated by LLMs, and no RL takes place.
+LLMs and Argumentation.Closest to our work are the proposals by Freedman et al. [2025], Zhu
+et al. [2025], both using argumentation in combination with LLMs, and highlighting its benefits in
+terms of faithfulness of explanations. However, both approaches focus on generation of arguments
+and base scores from off-the-shelf LLMs rather than training them. Also, both focus on binary rather
+than ternary claim verification. Further, Vasileiadis et al. [2025] use a transformer-based encoder for
+feature extraction as an input to a symbolic learner for argumentation frameworks. However, the
+resulting neurosymbolic approach is not end-to-end. Moreover, the learning does not make use of
+argumentation semantics, focusing on a different form of (structured) argumentation.
+3 Background
+Quantitative Bipolar Argumentation Frameworks (QBAFs) and Argumentation Semantics.
+QBAFs [Baroni et al., 2019] are graphical argumentative structures from the field of Argumenta-
+tion [Atkinson et al., 2017], in which arguments are nodes and relations are edges representing
+support or attack relations, and arguments are assigned intrinsic strengths (referred to asbase scores).
+Formally, a QBAF is Q=⟨A, R −, R+, τ⟩, where A is a finite set of arguments, R− ⊆A×A is an
+attack relation, R+ ⊆A×A is a support relation, and τ:A→[0,1] assigns each argument a base
+score (⟨A, R−, R+⟩ alone is called a BAF). Intuitively,(a, b)∈R + means that argument a supports
+argument b, and (a, b)∈R − means that argument a attacks argument b. Argumentation semantics
+assign(argumentative) strengthsto the arguments in a QBAF by aggregating their base scores with
+the effects of their supporters and attackers. Formally, for a QBAF Q, an argumentation semantics is
+a function σQ :A→[0,1] . Different semantics encode different assumptions about how support and
+attack should interact. In this work, we use DF-QuAD [Rago et al., 2016] for direct comparison with
+ArgLLMs which uses it already [Freedman et al., 2025] (see Appendix D for the formal definition).
+Argumentative LLMs (ArgLLMs).ArgLLMs [Freedman et al., 2025] instantiate QBAFs and
+argumentation semantics for binary (True/False) claim verification. They use an LLM to construct
+a QBAF Qc =⟨A c, R−
+c , R+
+c , τc⟩ for each given claim c. As arguments are represented in free text,
+we use the set T to refer to all possible sequences of input tokens and the set A ⊆ T as the set of
+all possible arguments. Thus, we have that Ac ⊆ A. In ArgLLMs, like in our approach, the claim
+is represented as an argument ac ∈A c, and generated arguments in Ac \ {a c} either support or
+attack ac, as illustrated in Figure 1. Then, an argumentation semantics σ is applied to obtain the
+claim strength σQ(ac)2. A verdict is finally derived from this strength. While ITA keeps the same
+2In the remainder, for readability, we will often omit the QBAFQand simply writeσ(a c), as in Figure 1.
+3
+
+Figure 2: Overview of inference-time argumentation. Given a claim, the argument generator produces
+supporting and attacking arguments about the claim. A base score module assigns intrinsic strengths
+to the generated arguments. These steps induce a QBAF centred on the claim, which receives a fixed
+neutral base score of 0.5. The regression head of the base score model can be primed using generated
+base scores during training (training phase 1⃝). An argumentation semantics produces a final claim
+strength, which is thresholded intoTrue,False, orUncertain. During training, the same semantic
+evaluation informs a weakly-supervised loss for training the base score model (training phase 2⃝) and
+argumentation-based reward for the argument generator (training phase 3⃝).
+argumentative structure (QBAFs) and semantics (DF-QuAD) as ArgLLMs, it differs by focusing on
+QBAFs of depth 1 only (ignoring QBAFs of depth 2) but with any number of attackers and supporters
+(rather than one attacker and one supporter). Also, while ArgLLMs are training-free, ITA learns how
+to generate arguments and how to assign base scores to them.
+Group Relative Policy Optimisation (GRPO).GRPO [Shao et al., 2024] is a critic-free method for
+RL fine-tuning of LLMs, introduced as a resource efficient variant of Proximal Policy Optimisation.
+Given a prompt, the policy samples a group of completions, each of which receives a reward. Rather
+than learning a separate value model, GRPO estimates relative advantages by comparing rewards
+within the sampled group. We adapt GRPO to argument generation, using rewards based on semantics.
+4 Framework Overview
+The ITA framework consists of two trainable components (see Figure 2). The first is anargument
+generator, parameterised byθ, producing arguments supporting and attackingc:
+Dθ(c) = (Sc, Tc),
+where Sc and Tc are the set of generated supporting and attacking arguments, respectively. These
+arguments induce a BAF ⟨Ac, R+
+c , R−
+c ⟩ centred on the claim, c, represented as an argument ac, with:
+Ac ={a c} ⊎S c ⊎T c, R +
+c ={(a, a c) :a∈S c}, R −
+c ={(a, a c) :a∈T c}.
+The resulting graph represents the reasons offered for and against the veracity of the claim.
+The second component is abase score model (BSM), parameterised by ϕ, assigning base scores to the
+generated arguments. This BSM is a learnable function fϕ :A × A × {0,1} →[0,1] that takes as
+input ac, an argument a and their relationship as given by the indicator function 1a∈Sc (returning 0
+for attacks and 1 for supports), and outputs a value in [0,1] . The claim argument itself is not scored
+but instead its base score is fixed to a neutral prior of0.5. This gives the QBAF
+Qθ,ϕ
+c =⟨A c, R−
+c , R+
+c , τϕ,c⟩,withτ ϕ,c(a) =
+0.5a=a c,
+fϕ(ac, a,1 a∈Sc)otherwise.
+When the parameters are clear from context, we will write Qc for Qθ,ϕ
+c and similarly suppress for
+readability the dependence on the parameters for both trainable components. An argumentation
+semantics σ then aggregates the effects of supporting and attacking arguments, given their base scores,
+to compute the final strength of the claim argument: ˆvc =σ(a c)∈[0,1]. This value represents
+4
+
+the argumentative strength of the claim after evaluating the generated debate. It is mapped to a
+three-valued verdict using fixed thresholds at1/3and2/3:
+ˆyc =h(ˆvc) =
+
+
+
+Falseifˆv c ≤ 1
+3 ,
+Trueifˆv c ≥ 2
+3 ,
+Uncertainotherwise.
+Thus,Uncertaincorresponds to an intermediate argumentative strength, arising when the debate
+represented by the QBAF does not make the claim sufficiently strong to accept or weak to reject.
+5 Weakly Supervised Learning for Base Score Attribution
+For our trained BSMs, we instantiatef ϕ as follows:
+fϕ(ac, a,1 a∈Sc) =f ϕreg(fϕllm(g(ac, a,1 a∈Sc)))
+We use three components. First, g:A × A × {0,1} → T constructs a task-specific prompt3 from
+the claim, the argument and their relationship. Second, fϕllm :T →R d maps the prompt to a
+d-dimensional latent space embedding using an LLM. Finally, fϕreg :R d →[0,1] is a feed-forward
+regression head that converts the embedding to a scalar score. Intuitively, the prompt generator
+encodes the scoring task, the LLM produces a contextual embedding of the argument relative to the
+claim, and the regression head maps this embedding to a base score.
+Then, the BSM is trained in two phases. In the first phase ( 1⃝ in Figure 2) the regression head is
+primed with no regard for the prediction task. Thus, the parameters of fϕllm are frozen and only
+the parameters of fϕreg are allowed to update. In this phase, claim, argument and base score triples
+(ac, a, t) are used in a supervised manner to update the regression head. In all our experiments, the
+target base scores t are generated by directly prompting the base LLM, optimising the regression
+head to use argument quality information already reflected in the model embedding. For each claim-
+argument pair, we compute ˆt=f ϕ(ac, a,1 a∈Sc). Using a standard gradient-based optimiser, we can
+update the parametersϕ reg using a mean square error loss function
+Lprimed(ˆt, t) =L M SE(ˆt, t).
+This step is shown in Figure 2 as the priming loss.
+In the second phase of training ( 2⃝ in Figure 2), all trainable model parameters can freely update. In
+this phase, the BSM is trained using weak supervision for the claim verification task. Each step of
+training requires a provided claim, sets of supporting and attacking arguments, and the ground-truth
+labelling of the claim. For each argument a base score is computed with fϕ followed by application
+of the argumentation semantics to give a strength for the claim. As DF-QuAD is differentiable, we
+can back-propagate through it to update the parameters of the BSM. The loss function is
+Lsem(ˆvc, vc) =L M SE(ˆvc, vc)
+where ˆvc =σ(a c) and vc ∈ {0,0.5,1} is a mapping of the ground truth label of the claim:Trueto
+1,Falseto 0, andUncertainto 0.5. This step is shown in Figure 2 as the base score loss. Note that
+this is a neurosymbolic semantic loss function using argumentation constraints rather than logical
+constraints to weakly supervise the BSM.
+Additional loss terms can be used in combination with this semantic loss to optimise for desired
+behaviours of the BSM. We propose two such behaviours: (i) consistency in scoring semantically
+similar arguments and, (ii) making the BSM-induced ranking of arguments conform to some provided
+ordering. For (i), the consistency loss is
+Lcon(ac,C) = 1
+n
+nX
+i=1
+(ti − ¯t)2
+where C= (a 1, a2, . . . , an) is a tuple of arguments generated for ac assumed to be semantically
+equivalent (i.e. paraphrases), ti =f ϕ(ac, ai,1 ai∈Sc) and ¯t= 1
+n
+P ti. In effect, the goal of this loss
+3Provided in Appendix A.2.
+5
+
+is to minimise the variance of computed base scores for arguments that are semantically similar.
+However, C must be pre-generated for all input claims, which may result in a large number of samples
+not feasible for training. Thus, we generate C for only a subset of claims and then randomly sample
+claim-tuple pairs therefrom and compute the associated loss. For (ii), the ranking loss is
+Lrank(ac,P) = 2
+n×(n−1)
+nX
+i=1
+nX
+j=i+1
+max(0, m−(t i −t j))
+where P= (a 1, a2, . . . , an) is a tuple of arguments generated for ac in ranked order where the
+base score of ai is expected to be greater than aj for i < j and, as before, ti =f ϕ(ac, ai,1 ai∈Sc).
+In effect, this is a pairwise margin ranking loss that encourages the base scores to conform to a
+predefined ordering and to be separated by at least a margin of m, which is a hyperparameter. Again,
+asPmust be pre-generated, we randomly sample claim-tuple pairs to compute this loss.
+The full loss in phase 2 can be summarised as:
+L=L sem +λ rankLrank +λ conLcon4
+whereλ rank andλ con are hyperparameters that weigh their respective loss functions.
+6 Reinforcement Learning for Argument Generation
+The argument generator is trained using a GRPO procedure with the aim of encouraging the generation
+of arguments helpful for the downstream claim verification task. The training process takes a training
+dataset D={(c i, yi)}N
+i=1 composed of claims ci and corresponding ground-truth labels yi, aninitial
+argument generator Dθinit, a fixed BSM fϕ and an argumentation semantics σ. During training, each
+claim in the dataset is passed to thecurrent argument generator Dθcurr to generate the associated sets
+of supporting and attacking arguments. These arguments are then scored by the BSM, organised
+with their respective claim into a QBAF and evaluated by σ, yielding final strengths for the claims,
+as described in Section 4. For each claim, we sample G outputs from Dθcurr to obtain the group
+of samples required by GRPO. For each obtained claim strength ˆvc, we compute a scalar reward
+r∆(y,ˆvc), with(c, y)∈ D, using our customreward function, which is defined, for∆∈[0, 1
+3], as:
+r∆(True,ˆvc) =
+100ifˆv c ≥1−∆
+200× ˆvc
+1−∆ −100otherwise
+r∆(False,ˆvc) =
+100ifˆv c ≤∆
+200× 1−ˆvc
+1−∆ −100otherwise
+r∆(Uncertain,ˆvc) =
+(
+100if|ˆv c − 1
+2 | ≤ ∆
+2
+100−200× |ˆvc− 1
+2 |− ∆
+2
+1
+2 − ∆
+2
+otherwise
+Here, ∆ denotes the size of the intervals over which the reward function should provide the maximum
+reward of 100. To keep the reward function consistent with our thresholding function h (see Section
+4), we set ∆ = 1
+3 in all our experiments. This causes the reward function to provide a maximum
+reward for any claim strength that would result in the correct classification while assigning lower
+rewards to scores that would result in prediction errors, decreasing linearly with the increasing
+distance to the corresponding threshold. To make the rewards consistent across the three labels,
+we enforce that
+R 1
+0 r∆(y,ˆvc)dˆvc = 100×∆ for all y∈ {True,False,Uncertain} . The reward as
+defined above is then used with the standard GRPO loss function [Shao et al., 2024] during training.
+7 Data
+ITA requires both claim-level labels and argument-level supervision for constructing and scoring
+argumentative debates. Since existing claim verification datasets do not provide these resources, we
+combine human-curated claim datasets with LLM-generated support and attack arguments, as well as
+auxiliary objective data. We use separate data resources for training, validation, and final evaluation,
+4The three constituent losses are estimated from separate data resources. The fully specified loss is given in Appendix E.
+6
+
+with full construction details provided in Appendix B. Training and validation include LLM-generated
+arguments, while final evaluation is conducted on claims drawn from existing human-curated datasets
+(where necessary minimally modified to become appropriate for stand-alone claim verification). We
+keep the two evaluation datasets strictly separate from data used in any training resource.
+For training, we constructTFU Training Claims, a set of 1,000 claims evenly split between labels
+True,False, orUncertain. TheTrueandFalseclaims are drawn from TruthfulClaim [Freedman
+et al., 2025], while theUncertainclaims are drawn from the Rational Probabilistic Beliefs dataset
+[Freedman and Toni, 2025]. For training the BSMs, we generate two sets of supporting and attacking
+arguments for a subset of the claims inTFU Training Claims, using GPT-5 [Singh et al., 2025] and
+Qwen3-8B [Yang et al., 2025] respectively. We also generate ranking and consistency datasets for the
+respective losses described in Section 5. The consistency dataset is generated from a subset of the
+Qwen3-8B arguments based onTFU Training Claims, by generating three semantically-equivalent
+paraphrases of each argument with GPT-5. The ranking dataset is also based on a subset ofTFU
+Training Claims, and uses GPT-5 to generate four candidate arguments in descending order of quality.
+The validation data is composed of 150 synthetically generated claims (using GPT-5 and Claude
+Sonnet 4.5), evenly split across the three classes, together with supporting and attacking arguments
+generated by Qwen3-8B.
+We evaluate on two ternary claim-verification datasets. The first,TFU Evaluation Claims, contains
+750 claims balanced acrossTrue,False, andUncertain. TheTrueandFalseclaims are drawn from
+StrategyClaim [Freedman et al., 2025], while theUncertainclaims are drawn from DEBATunE
+[Li et al., 2024a]. Where necessary, DEBATunE questions are converted into declarative factual
+claims using GPT-5, as well as filtered to exclude statements of opinion using simple string-matching
+(e.g. excluding any sample containing ‘should’), and human verification. The second evaluation set
+contains 1,746 real-world claims from A VeriTeC [Schlichtkrull et al., 2023]. Where the claims have
+an ambiguous temporal component, we use GPT-5 to add the date provided in the metadata to the
+claim, forming a single sentence. Since the resulting A VeriTeC split is imbalanced, with 334True,
+1,190False, and 222Uncertainclaims, we report balanced accuracy.
+8 Experiments
+We evaluate whether training the components of ITA improves ternary claim verification while
+preserving the constraint that predictions are computed from explicit argumentative structures. All
+experiments use Qwen3-8B [Yang et al., 2025] as the underlying LLM. We use Qwen3-8B because it
+is a strong open-weight model that fits our compute budget and is supported by our fine-tuning stack,
+allowing all direct and argumentative variants to be compared under the same base model. Training is
+performed using low-rank adaptation (LORA) parameter-efficient fine-tuning where applicable [Hu
+et al., 2022]. All argumentative variants (baselines and ours) use fixed thresholds at 1/3 and 2/3 and
+DF-QuAD semantics. Furthermore, the argumentative baselines and trained BSM experiments all
+use the same argumentative structures generated by an untuned Qwen3-8B model, to make sure the
+results are only measuring variation in base score attribution (but naturally in the experiments with
+trained argument generators we do not impose this restriction).
+We report accuracy onTFU Evaluation Claimsand balanced accuracy on the A VeriTeC evaluation
+set. Further implementation details, including hyperparameters, are given in Appendix G.1.
+8.1 Experimental Variations
+We experiment with five classes of systems, as in Table 1:Non-Argumentative Baselines,Argumenta-
+tive Baselines,Argument Generator Model,Base Score ModelsandCombination of Models.
+Non-Argumentative Baselines.The first variety of baselines classifies claims without constructing
+QBAFs. These include the untuned Qwen3-8B model, a supervised fine-tuned direct predictor (SFT),
+and a direct GRPO model trained with reward on the final label. These baselines test whether ITA
+provides benefits beyond standard prompting, supervised fine-tuning, or reinforcement learning on
+labels. Full details of the baselines can be found in Appendix C.
+Argumentative Baselines.The second variety of baselines constructs QBAFs but does not train
+ITA components. In these variants, arguments are generated by Qwen3-8B and base scores are
+7
+
+Table 1: Main performance results (accuracy on TFU and balanced accuracy on A VeriTeC). For the
+argumentative baselines and our models, A+B indicates which method A was used for argument
+generation (args) and which method B for generation of base scores. ‘BSM-Q’ stands for ‘base
+score model trained on arguments generated by Qwen3-8B’, and ‘BSM-G’ stands for ‘base score
+model trained on arguments generated by GPT-5’. ‘sem’, ‘rank’ and ‘con’ refer to different losses
+(see Section 5). The best results overall are bolded while the best argumentative method results
+are underlined. The only trained ITA model performing marginally worse than the argumentative
+baselines is in italics. See Table 4 in the SM for further results and confidence intervals.
+Variant TFU A VeriTeC
+Non-Argumentative Baselines
+Qwen direct baseline 0.635 0.454
+Qwen direct SFT 0.659 0.446
+Qwen direct GRPO 0.5920.485
+Argumentative Baselines
+Qwen args + constant 0.5 base scores 0.555 0.405
+Qwen args + Qwen base scores 0.585 0.406
+Argument Generator Model (Ours)
+Qwen GRPO args + Qwen base scores 0.591 0.426
+Base Score Models (Ours)
+Qwen args + BSM-Q (primed & sem) 0.588 0.415
+Qwen args + BSM-Q (primed & sem & rank & con) 0.590 0.471
+Qwen args + BSM-G (primed & sem)0.677 0.460
+Qwen args + BSM-G (primed & sem & rank & con) 0.584 0.466
+Combination of Models (Ours)
+Qwen GRPO args + BSM-Q (primed & sem & rank & con)0.5810.468
+Qwen GRPO args + BSM-G (primed & sem) 0.668 0.458
+either fixed to 0.5 or assigned by prompting Qwen3-8B. These baselines isolate the effect of formal
+argumentative inference without training, as in ArgLLMs [Freedman et al., 2025].
+Base Score Models.These variants keep the evaluation-time arguments fixed to the same Qwen3-8B
+generations as inArgumentative Baselines, but replace constant or prompted base scores with a
+learned base score model. This isolates the effect of training argument scores through the downstream
+argumentative verdict. We consider BSMs trained on Qwen3-8B-generated arguments (BSM-Q) and
+GPT-5-generated arguments (BSM-G), using either the semantic loss alone or the semantic loss with
+ranking and consistency auxiliaries, as described in Section 5.
+Argument Generator Model.Here, the argument generator is optimised with GRPO using
+argumentation-based feedback (see Section 6), while base scores are assigned by the prompted
+untuned Qwen-3-8B scorer. This isolates whether reinforcement learning improves the generated
+argumentative structure independently of the learned base score module.
+Combination of Models.These variants pair the GRPO-trained argument generator with a learned
+BSM. We select one BSM-Q and one BSM-G variant based on validation performance, testing
+whether trained generation and trained scoring provide complementary gains.
+8.2 Main Performance Results
+Table 1 reports the main results. The non-argumentative (direct-prediction) baselines are strong,
+with supervised fine-tuning performing best on TFU and direct GRPO performing best on A VeriTeC.
+The overall strong performance is expected as these models are optimised to predict labels directly,
+without requiring the prediction to be mediated by generated arguments and formal semantics.
+8
+
+Table 2: Diagnostic results for base score estimation strategies. Inconsistency reports the variance in
+scores assigned to semantically equivalent arguments (lower is better). Ranking reports Spearman
+rank agreement with the expected ordering of strengths (higher is better). Best results are in bold.
+Variant Inconsistency (↓) Ranking (↑)
+Argumentative Baseline
+Qwen args + Qwen base scores 0.013 0.878
+Base Score Models (Ours)
+Qwen args + BSM-Q (primed & sem) 0.007 0.525
+Qwen args + BSM-Q (primed & sem & rank & con)0.005 0.944
+Qwen args + BSM-G (primed & sem) 0.008 0.709
+Qwen args + BSM-G (primed & sem & rank & con) 0.006 0.921
+The training-free argumentative baselines perform below the direct baselines. Constant base scores
+test whether the generated graph structure alone is sufficient, while prompted Qwen scores test
+whether an untuned LLM can assign useful intrinsic strengths.
+The learned BSMs provide the clearest gains among the argumentative variants. On TFU, the best
+learned scorer improves over both argumentative baselines and the strongest direct-prediction baseline.
+On A VeriTeC, learned base scores substantially improve over constant and prompted argumentative
+scoring, and approach the strongest direct baseline. In particular, the best-performing BSM on the
+validation data, ‘BSM-G (primed & sem)’, significantly outperforms argumentative baselines on
+both test datasets, as indicated by the confidence intervals in Table 4. These results support the
+central claim that formal argumentation semantics can be used as a useful training signal for argument
+scoring, rather than only as an inference-time aggregation rule.
+The GRPO-trained argument generator gives mixed but informative results. When paired with
+prompted Qwen3-8B scores, it improves slightly over the corresponding Qwen3-8B-generated
+argumentative baseline on both datasets, suggesting that argumentation-based feedback can shape
+generation. However, the current results indicate that generator training is less consistently beneficial
+than base score training. This suggests that argumentation-based reward can shape generation in a
+useful direction, but the effect is modest compared with base score learning.
+Finally, combining GRPO training for argument generation with the best learned BSMs does not yield
+additive improvements. The combined systems remain competitive with the strongest argumentative
+models, but slightly underperform the corresponding BSMs evaluated on the original Qwen3-8B-
+generated arguments. This suggests that improving argument generation and improving argument
+scoring are not independent plug-in gains. Rather, the scorer is calibrated to a particular argument
+distribution. Under the current sequential pipeline, base score learning is thus the more reliable
+component. Future work should investigate joint or alternating optimisation of generator and scorer.
+8.3 Additional BSM Experiments
+We conducted further experiments to measure whether BSM training can impart desirable argumenta-
+tive properties beyond downstream accuracy: consistency in scores assigned to equivalent arguments
+and correct ranking of arguments gradually decreasing in quality. The results are summarised in
+Table 2 and discussed in Appendix F.
+9 Conclusion
+We introducedinference-time argumentation(ITA), a trainable neurosymbolic framework for three-
+valued claim verification extending the role of argumentation from an inference-time explanation
+layer into a learning interface for LLM-based claim verification. Our experiments show that, training
+the argumentative components, especially the base score model, can benefit downstream performance.
+Learned base score models improve over argumentative baselines, and auxiliary consistency and
+ranking objectives improve desirable local properties of the scores. The resulting explanations are
+9
+
+faithful by construction, as the final verdict is derived from the generated debate, the learned base
+scores, and the chosen argumentation semantics, rather than justified by a post-hoc reasoning trace.
+Future Work.ITA currently reasons over generated arguments without requiring them to be
+grounded in retrieved evidence - for practical claim verification, future work should integrate evidence
+retrieval so that generated support and attacks are tied to external sources rather than only to model
+knowledge. Another important direction is to move beyond the single layer QBAFs used here,
+allowing arguments to support or attack one another and thereby represent richer debates. Future
+work could also conduct human-centred evaluations of the contestability offered by ITA, in the spirit
+of Freedman et al. [2025]. Finally, we leave to future work the optimisation of all hyperparameters
+within ITA, including the study of calibrated verdict thresholds.
+Acknowledgments and Disclosure of Funding
+Freedman was funded by UKRI through the CDT in Safe and Trusted Artificial Intelligence (Grant
+No. EP/S023356/1). Dejl, Chen and Toni were partially supported by ERC under the EU’s Horizon
+2020 research and innovation programme (grant agreement No. 101020934, ADIX). Toni was also
+funded by EPSRC (grant UKRI3928, NeSyDebates). Gould was supported by UK Research and
+Innovation [UKRI Centre for Doctoral Training in AI for Healthcare grant number EP/S023283/1].
+Finally, Mansi was supported by the Imperial College Departmental Scholarship.
+References
+Carlos Alvarez, Maxwell Bennett, and Lucy Wang. Zero-shot scientific claim verification us-
+ing LLMs and citation text. In Tirthankar Ghosal, Amanpreet Singh, Anita Waard, Philipp
+Mayr, Aakanksha Naik, Orion Weller, Yoonjoo Lee, Shannon Shen, and Yanxia Qin, editors,
+Proceedings of the Fourth Workshop on Scholarly Document Processing (SDP 2024), pages
+269–276, Bangkok, Thailand, August 2024. Association for Computational Linguistics. URL
+https://aclanthology.org/2024.sdp-1.25/.
+Alfonso Amayuelas, Kyle Wong, Liangming Pan, Wenhu Chen, and William Yang Wang. Knowledge
+of knowledge: Exploring known-unknowns uncertainty with large language models. InFindings
+of the Association for Computational Linguistics ACL 2024, pages 6416–6432, 2024.
+Katie Atkinson, Pietro Baroni, Massimiliano Giacomin, Anthony Hunter, Henry Prakken, Chris
+Reed, Guillermo Simari, Matthias Thimm, and Serena Villata. Toward artificial argumentation.AI
+Mag., 38(3):25–36, September 2017. ISSN 0738-4602. doi: 10.1609/aimag.v38i3.2704. URL
+https://doi.org/10.1609/aimag.v38i3.2704.
+Pietro Baroni, Antonio Rago, and Francesca Toni. From fine-grained properties to broad principles for
+gradual argumentation: A principled spectrum.International Journal of Approximate Reasoning,
+105:252–286, 2019. ISSN 0888-613X. doi: https://doi.org/10.1016/j.ijar.2018.11.019. URL
+https://www.sciencedirect.com/science/article/pii/S0888613X18304651.
+Yanda Chen, Joe Benton, Ansh Radhakrishnan, Jonathan Uesato, Carson Denison, John Schulman,
+Arushi Somani, Peter Hase, Misha Wagner, Fabien Roger, Vlad Mikulik, Samuel R. Bowman, Jan
+Leike, Jared Kaplan, and Ethan Perez. Reasoning models don’t always say what they think, 2025.
+URLhttps://arxiv.org/abs/2505.05410.
+Roi Cohen, Konstantin Dobler, Eden Biran, and Gerard de Melo. I don’t know: Explicit modeling
+of uncertainty with an [IDK] token.Advances in Neural Information Processing Systems, 37:
+10935–10958, 2024. URLhttps://www.proceedings.com/079017-0349.html.
+Chrisanna Cornish and Anna Rogers. Examining the faithfulness of deepseek R1’s chain-of-thought
+reasoning. In Aman Sinha, Raúl Vázquez, Timothee Mickus, Rohit Agarwal, Ioana Buhnila,
+Patrícia Schmidtová, Federica Gamba, Dilip K. Prasad, and Jörg Tiedemann, editors,Proceedings
+of the 1st Workshop on Confabulation, Hallucinations and Overgeneration in Multilingual and
+Practical Settings (CHOMPS 2025), pages 11–19, Mumbai, India, December 2025. Association
+for Computational Linguistics. ISBN 979-8-89176-308-1. doi: 10.18653/v1/2025.chomps-main.2.
+URLhttps://aclanthology.org/2025.chomps-main.2/.
+10
+
+Adam Dejl, Matthew Williams, and Francesca Toni. Argumentation for explainable and globally
+contestable decision support with LLMs.CoRR, abs/2603.14643, 2026. doi: 10.48550/ARXIV .
+2603.14643. URLhttps://doi.org/10.48550/arXiv.2603.14643.
+Alphaeus Dmonte, Roland Oruche, Marcos Zampieri, Prasad Calyam, and Isabelle Augenstein. Claim
+verification in the age of large language models: A survey.CoRR, abs/2408.14317, 2024. doi:
+10.48550/ARXIV .2408.14317. URLhttps://doi.org/10.48550/arXiv.2408.14317.
+Gabriel Freedman and Francesca Toni. Exploring the potential for large language models to demon-
+strate rational probabilistic beliefs. InThe International FLAIRS Conference Proceedings, 2025.
+Gabriel Freedman, Adam Dejl, Deniz Gorur, Xiang Yin, Antonio Rago, and Francesca Toni. Argumen-
+tative large language models for explainable and contestable claim verification. InProceedings of
+the Thirty-Ninth AAAI Conference on Artificial Intelligence and Thirty-Seventh Conference on Inno-
+vative Applications of Artificial Intelligence and Fifteenth Symposium on Educational Advances in
+Artificial Intelligence, AAAI’25/IAAI’25/EAAI’25. AAAI Press, 2025. ISBN 978-1-57735-897-8.
+doi: 10.1609/aaai.v39i14.33637. URLhttps://doi.org/10.1609/aaai.v39i14.33637.
+Yang Gao and Francesca Toni. Argumentation accelerated reinforcement learning for coopera-
+tive multi-agent systems. In Torsten Schaub, Gerhard Friedrich, and Barry O’Sullivan, editors,
+ECAI 2014 - 21st European Conference on Artificial Intelligence, 18-22 August 2014, Prague,
+Czech Republic - Including Prestigious Applications of Intelligent Systems (PAIS 2014), Fron-
+tiers in Artificial Intelligence and Applications, pages 333–338. IOS Press, 2014. doi: 10.3233/
+978-1-61499-419-0-333. URLhttps://doi.org/10.3233/978-1-61499-419-0-333.
+Adam Gould and Francesca Toni. Neuro-argumentative learning with case-based reasoning. In
+Leilani H. Gilpin, Eleonora Giunchiglia, Pascal Hitzler, and Emile van Krieken, editors,Proceed-
+ings of The 19th International Conference on Neurosymbolic Learning and Reasoning (NeSy 2025),
+8-10 September 2025, Santa Cruz, CA, USA, Proceedings of Machine Learning Research, pages
+1090–1106. PMLR, 2025. URLhttps://proceedings.mlr.press/v284/gould25a.html.
+Daya Guo, Dejian Yang, Haowei Zhang, Junxiao Song, Peiyi Wang, Qihao Zhu, Runxin Xu, Ruoyu
+Zhang, Shirong Ma, Xiao Bi, et al. DeepSeek-R1 incentivizes reasoning in LLMs through
+reinforcement learning.Nature, 645(8081):633–638, 2025. ISSN 1476-4687. doi: 10.1038/
+s41586-025-09422-z. URLhttp://dx.doi.org/10.1038/s41586-025-09422-z.
+Edward J Hu, yelong shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang,
+and Weizhu Chen. LoRA: Low-rank adaptation of large language models. InInternational
+Conference on Learning Representations, 2022. URL https://openreview.net/forum?id=
+nZeVKeeFYf9.
+Sanyam Kapoor, Nate Gruver, Manley Roberts, Katherine M Collins, Arka Pal, Umang Bhatt, Adrian
+Weller, Samuel Dooley, Micah Goldblum, and Andrew Gordon Wilson. Large language models
+must be taught to know what they don’t know. InThe Thirty-eighth Annual Conference on Neural
+Information Processing Systems, 2024.
+Ming Li, Jiuhai Chen, Lichang Chen, and Tianyi Zhou. Can LLMs speak for diverse people? Tuning
+LLMs via debate to generate controllable controversial statements. In Lun-Wei Ku, Andre Martins,
+and Vivek Srikumar, editors,Findings of the Association for Computational Linguistics ACL
+2024, pages 16160–16176, Bangkok, Thailand and virtual meeting, August 2024a. Association for
+Computational Linguistics. URLhttps://aclanthology.org/2024.findings-acl.956.
+Moxin Li, Yong Zhao, Yang Deng, Wenxuan Zhang, Shuaiyi Li, Wenya Xie, See-Kiong Ng, and
+Tat-Seng Chua. Knowledge boundary of large language models: A survey.arXiv preprint
+arXiv:2412.12472, 2024b.
+Maurizio Proietti and Francesca Toni. A roadmap for neuro-argumentative learning. In Artur S.
+d’Avila Garcez, Tarek R. Besold, Marco Gori, and Ernesto Jiménez-Ruiz, editors,Proceedings
+of the 17th International Workshop on Neural-Symbolic Learning and Reasoning, La Certosa di
+Pontignano, Siena, Italy, July 3-5, 2023, CEUR Workshop Proceedings, pages 1–8. CEUR-WS.org,
+2023. URLhttps://ceur-ws.org/Vol-3432/paper1.pdf.
+11
+
+Antonio Rago, Francesca Toni, Marco Aurisicchio, and Pietro Baroni. Discontinuity-free decision
+support with quantitative argumentation debates. InInternational Conference on Principles of
+Knowledge Representation and Reasoning, 2016. URL https://api.semanticscholar.org/
+CorpusID:32233959.
+Antonio Rago, Kristijonas ˇCyras, Jack Mumford, and Oana Cocarascu. Argumentation and machine
+learning. In Dov Gabbay, Gabriele Kern-Isberner, Guillermo R. Simari, and Matthias Thimm,
+editors,Handbook of Formal Argumentation, volume 3. College Publications, 2024.
+Michael Schlichtkrull, Zhijiang Guo, and Andreas Vlachos. A VERITEC: a dataset for real-world
+claim verification with evidence from the web. InProceedings of the 37th International Confer-
+ence on Neural Information Processing Systems, NIPS ’23, Red Hook, NY , USA, 2023. Curran
+Associates Inc.
+Zhihong Shao, Peiyi Wang, Qihao Zhu, Runxin Xu, Junxiao Song, Xiao Bi, Haowei Zhang,
+Mingchuan Zhang, Y . K. Li, Y . Wu, and Daya Guo. DeepSeekMath: Pushing the limits of mathemat-
+ical reasoning in open language models, 2024. URLhttps://arxiv.org/abs/2402.03300.
+Aaditya Singh, Adam Fry, Adam Perelman, Adam Tart, Adi Ganesh, Ahmed El-Kishky, Aidan
+McLaughlin, Aiden Low, AJ Ostrow, Akhila Ananthram, et al. OpenAI GPT-5 system card.arXiv
+preprint arXiv:2601.03267, 2025.
+James Thorne, Andreas Vlachos, Christos Christodoulopoulos, and Arpit Mittal. FEVER: a
+large-scale dataset for fact extraction and VERification. InProceedings of the 2018 Confer-
+ence of the North American Chapter of the Association for Computational Linguistics: Human
+Language Technologies, Volume 1 (Long Papers), pages 809–819, New Orleans, Louisiana,
+June 2018. Association for Computational Linguistics. doi: 10.18653/v1/N18-1074. URL
+https://aclanthology.org/N18-1074/.
+Petros Vasileiadis, Emanuele De Angelis, Maurizio Proietti, and Francesca Toni. Neuro-argumentative
+learning with legal text. InProceedings of the 1st International Workshop on Advanced Neuro-
+Symbolic Applications (ANSyA 2025), co-located with the 28th European Conference on Artificial
+Intelligence (ECAI 2025), volume 4125. CEUR Workshop Proceedings, 2025. URL https:
+//ceur-ws.org/Vol-4125/paper_22.pdf.
+Juraj Vladika, Ivana Hacajová, and Florian Matthes. Step-by-step fact verification system for
+medical claims with explainable reasoning. In Luis Chiruzzo, Alan Ritter, and Lu Wang, editors,
+Proceedings of the 2025 Conference of the Nations of the Americas Chapter of the Association
+for Computational Linguistics: Human Language Technologies, NAACL 2025 - Volume 2: Short
+Papers, Albuquerque, New Mexico, April 29 - May 4, 2025, pages 805–816. Association for
+Computational Linguistics, 2025. doi: 10.18653/V1/2025.NAACL-SHORT.68. URL https:
+//doi.org/10.18653/v1/2025.naacl-short.68.
+Francis Rhys Ward, Francesco Belardinelli, and Francesca Toni. Argumentative reward learning:
+Reasoning about human preferences. InICML 2022 Workshop on Human-Machine Collaboration
+and Teaming, 2022.
+Bingbing Wen, Jihan Yao, Shangbin Feng, Chenjun Xu, Yulia Tsvetkov, Bill Howe, and Lucy Lu
+Wang. Know your limits: A survey of abstention in large language models.Transactions of the
+Association for Computational Linguistics, 13:529–556, 2025.
+An Yang, Anfeng Li, Baosong Yang, Beichen Zhang, Binyuan Hui, Bo Zheng, Bowen Yu, Chang
+Gao, Chengen Huang, Chenxu Lv, et al. Qwen3 technical report.arXiv preprint arXiv:2505.09388,
+2025.
+Qinan Yu, Alexa Tartaglini, Peter Hase, Carlos Guestrin, and Christopher Potts. Outcome rewards do
+not guarantee verifiable or causally important reasoning, 2026. URL https://arxiv.org/abs/
+2604.22074.
+Yilun Zhao, Yitao Long, Tintin Jiang, Chengye Wang, Weiyuan Chen, Hongjun Liu, Xiangru Tang,
+Yiming Zhang, Chen Zhao, and Arman Cohan. FinDVer: Explainable claim verification over long
+and hybrid-content financial documents. InProceedings of the 2024 Conference on Empirical
+Methods in Natural Language Processing, pages 14739–14752, 2024.
+12
+
+Kevin Zhou, Adam Dejl, Gabriel Freedman, Lihu Chen, Antonio Rago, and Francesca Toni. Eval-
+uating uncertainty quantification methods in argumentative large language models. In Chris-
+tos Christodoulopoulos, Tanmoy Chakraborty, Carolyn Rose, and Violet Peng, editors,Find-
+ings of the Association for Computational Linguistics: EMNLP 2025, Suzhou, China, Novem-
+ber 4-9, 2025, pages 21700–21711. Association for Computational Linguistics, 2025. URL
+https://aclanthology.org/2025.findings-emnlp.1184/.
+Yuqicheng Zhu, Nico Potyka, Daniel Hernández, Yuan He, Zifeng Ding, Bo Xiong, Dongzhuoran
+Zhou, Evgeny Kharlamov, and Steffen Staab. ArgRAG: Explainable retrieval augmented generation
+using quantitative bipolar argumentation. In Leilani H. Gilpin, Eleonora Giunchiglia, Pascal
+Hitzler, and Emile van Krieken, editors,Proceedings of The 19th International Conference on
+Neurosymbolic Learning and Reasoning (NeSy 2025), 8-10 September 2025, Santa Cruz, CA,
+USA, Proceedings of Machine Learning Research, pages 697–718. PMLR, 2025. URL https:
+//proceedings.mlr.press/v284/zhu25a.html.
+A Prompts
+The prompts shown below are used for all variations of the respective components.
+A.1 Argument Generation
+Please provide a set of short arguments supporting and attacking the
+following claim.
+Construct the arguments so they refer to the truthfulness of the
+claim.
+The arguments should be short and concise, ideally one sentence per
+argument.
+The arguments should be based on factual information and logical
+reasoning.
+Only provide supporting or attacking arguments if you think there
+is a valid and convincing support or attack for this claim, meaning
+there is a non-zero probability that the claim is true or false;
+otherwise return: N/A.
+Provide as many unique supporting and attacking arguments as you
+think are correct and applicable to the claim.
+Respond in the following format:
+claim:
+“{claim}”.
+Output:
+{
+’support’: [
+“<SUPPORT ARGUMENT 1>”,
+“<SUPPORT ARGUMENT 2>”,
+...
+],
+’attack’: [
+“<ATTACK ARGUMENT 1>”,
+“<ATTACK ARGUMENT 2>”,
+...
+]
+}
+Claim: {claim}
+13
+
+A.2 Base Score Model
+You are an analyst evaluating the validity and relevance of
+arguments.
+For the argument:
+Argument: “{statement}”
+Please give your confidence that the argument presents a compelling
+case {in favour of / against} the statement:
+Statement: “{claim}”
+Your assessment should be based on how well the argument {supports
+/ refutes} the considered statement, as well as the correctness,
+accuracy, and truthfulness of the given argument.
+Your response should be between 0% and 100%, with 0% indicating that
+the considered argument is definitely invalid, 100% indicating that
+the considered argument is definitely valid, and values in between
+indicating various levels of uncertainty.
+Your estimates should be well-calibrated, so feel free to err on the
+side of caution and output moderate probabilities if you are not
+completely sure in your assessment.
+Please respond in the following form:
+[The predicted likelihood that the considered argument is valid as a
+number between 0 and 100]%
+Reply only with the predicted likelihood without any additional text
+or explanation.
+A.3 Baselines
+You are a careful fact-checking assistant.
+Classify the claim below using exactly one of the following three
+choices: True, False, or Uncertain.
+Return only your choice as a single word and nothing else.
+Claim: {claim}
+B Datasets
+We use separate data resources for claim labels, argument generation, base score training, and final
+evaluation. Training and validation partially consist of synthetic arguments produced by LLMs, while
+final evaluation is conducted on claims drawn from existing human-curated datasets. No evaluation
+claims are used to construct the training resources.
+B.1 Training
+TFU Training Claims.We construct a training set of 1,000 claims with labels in
+{True,False,Uncertain} . The set contains 333Trueclaims, 333Falseclaims, and 334Uncer-
+tainclaims. TheTrueandFalseclaims are drawn from TruthfulClaim [Freedman et al., 2025], while
+theUncertainclaims are drawn from the Rational Probabilistic Beliefs dataset [Freedman and Toni,
+2025].
+14
+
+TFU Training Arguments.For 499 claims from TFU Training Claims, we generate supporting
+and attacking arguments using GPT-5, and separately with Qwen3-8B. These claim-argument sets
+are used to train the base score model components.
+Consistency Training Arguments.We construct 2,330 paraphrase groups covering 284 claims
+fromTFU Training Arguments. Each group contains three semantically equivalent rewordings,
+generated by GPT-5, of a single argument. These groups are used to train the base score model to
+assign consistent scores to semantically equivalent arguments.
+Ranking Training Arguments.We construct ranking data for 493 claims fromTFU Training
+Claims. Each instance contains a list of four arguments ranked from strongest to weakest with respect
+to a fixed claim and relation type, giving 164 supporting sets and 329 attacking sets. Arguments are
+generated with GPT-5 and are then filtered by twice providing them as input to Claude Sonnet 4.5
+in a random order, and removing any that are not returned in the ‘correct’ generated order on both
+occasions. These data are used to train the base score module to respect relative argument strength.
+B.2 Validation
+TFU Validation Claims.We use 150 validation claims generated synthetically by Claude Sonnet
+4.5 and GPT-5, evenly split acrossTrue,False, andUncertain.
+TFU Validation Arguments.For each validation claim, we generate supporting and attacking
+arguments using Qwen3-8B, yielding 150 validation claim-argument sets.
+B.3 Evaluation
+Final evaluation is conducted on claims drawn from existing human-curated datasets. Where neces-
+sary, we use LLM-assisted rewriting only to convert source items into declarative factual claims.
+TFU Evaluation Claims.We construct a balanced evaluation set of 750 claims, with 250 claims in
+each ofTrue,False, andUncertain. TheTrueandFalseclaims are drawn from StrategyClaim [Freed-
+man et al., 2025], while theUncertainclaims are drawn from DEBATunE [Li et al., 2024a]. Where
+necessary, questions from DEBATunE are transformed into declarative factual claims using GPT-5
+and filtered to exclude opinion statements. For example, “The use of robotics in manufacturing leads
+to better product quality.” is retained as a factual claim, whereas statements involving prescriptions
+such as “We should ban lotteries.” are excluded.
+TFU Evaluation Arguments.For each TFU Evaluation Claim, we generate supporting and
+attacking arguments using Qwen3-8B, yielding 750 claim-argument sets. These are used to evaluate
+the base score model on arguments generated by the same model family used at test time.
+A V eriTeC Claims.We also evaluate on 1,746 real-world claims drawn from A VeriTeC [Schlichtkrull
+et al., 2023]. The resulting three-valued set is class imbalanced, with 1,190False, 334True, and 222
+Uncertainclaims, so we report balanced accuracy. For time-sensitive claims, we use the metadata
+accompanying the dataset to make the temporal context explicit without adding external information.
+For example, “All government schools in India are being privatised.” is rewritten as “As of August 22,
+2020, all government schools in India are being privatised.”. To assign labels, we map SUPPORTED
+toTrue, REFUTEDtoFalse, and CONFLICTINGEVIDENCE/CHERRY-PICKINGtoUncertain. NOT
+ENOUGHEVIDENCEclaims are disregarded, as we are more interested in claims that are uncertain
+due to conflicting information rather than just a lack of evidence.
+A V eriTeC Arguments.For each A VeriTeC claim, we generate supporting and attacking arguments
+using Qwen3-8B, yielding 1,746 claim-argument sets.
+Consistency Evaluation Arguments.We generate 150 sets of paraphrases for evaluation, using
+the same methodology asConsistency Training Argumentsin Appendix B.1, but instead usingTFU
+Evaluation Arguments.
+15
+
+Table 3: Summary of data resources used for training, validation, and evaluation.
+Resource Size Provenance Use
+TFU Training Claims 1,000 TruthfulClaim, RPB Claim-label training
+TFU Training Arguments 499 sets GPT-5 Argumentative training
+Consistency Training 2,330 groups GPT-5 base score consistency
+Ranking Training 493 groups GPT-5, Claude Sonnet 4.5 base score ranking
+TFU Validation Claims 150 GPT-5, Claude Sonnet 4.5 Validation
+TFU Evaluation Claims 750 StrategyClaim, DEBATunE Final evaluation
+A VeriTeC Claims 1,746 A VeriTeC Final evaluation
+Ranking Evaluation Arguments.Likewise, we construct an additional 150 sets of ranking argu-
+ments using the same methodology asRanking Training Arguments, but based onTFU Evaluation
+Claims.
+C Direct Prediction Baselines
+We compare our argumentative models against direct prediction baselines that use the same underlying
+LLM but do not construct an argumentation framework. These baselines are intended to isolate the
+contribution of inference-time argumentation from the benefits of standard prompting, supervised
+fine-tuning, and reinforcement learning on the final label. In all direct baselines, the model is given a
+claimcand is prompted to output exactly one label from{True,False,Uncertain}.
+Qwen Direct Baseline.The first baseline is an untuned direct predictor. We prompt Qwen3-8B to
+classify each claim directly asTrue,False, orUncertain. At evaluation time, generations are decoded
+greedily and the first valid label produced after any reasoning trace is parsed as the prediction. If no
+valid label can be parsed, the prediction is set toUncertain. This baseline measures the performance
+of the base model under the same three-valued output space as our method.
+Qwen Direct SFT.The second baseline fine-tunes Qwen3-8B directly on labelled claims,TFU
+Training Claims(see Appendix B.1). Given a claim, the model is trained to output only the gold
+label. We use parameter efficient LoRA fine-tuning, applying the language modelling loss only to the
+label tokens and masking the prompt tokens. This baseline tests whether the proposed argumentative
+pipeline improves over a model trained directly to map claims to labels using the same supervised
+data.
+Qwen Direct GRPO.The third baseline optimises the direct predictor using GRPO with an exact-
+match classification reward, also usingTFU Training Claims. For each claim, the model samples
+label predictions under the same direct classification prompt. A completion receives positive reward
+if the parsed label matches the gold label and negative reward otherwise. In our implementation,
+this reward is +100 for a correct label and −100 for an incorrect or unparseable label. This baseline
+controls for the possibility that any gains from our full system are due simply to reinforcement
+learning on the final verification label, rather than to the argumentative structure or the use of formal
+semantics.
+D Argument Semantics
+In our experiments we use the discontinuity-free quantitative argumentation debate semantics, DF-
+QuAD [Rago et al., 2016]. Let
+Q=⟨A, R −, R+, τ⟩
+be a QBAF. For an argument a∈A , let Att(a) ={b: (b, a)∈R −} and Sup(a) ={b: (b, a)∈
+R+} denote its direct attackers and supporters. DF-QuAD first combines a set of argument strengths
+using
+F(x 1, . . . , xk) =
+(
+0ifk= 0,
+1− Qk
+i=1(1−x i)otherwise.
+16
+
+Thus multiple attackers or supporters are aggregated into a single attacking or supporting force. For
+an argumenta, let
+v−
+a =F
+ 
+{σQ(b) :b∈Att(a)}
+
+, v +
+a =F
+ 
+{σQ(b) :b∈Sup(a)}
+
+,
+where σQ(b) is the final strength assigned to argument b. The final strength of a is then obtained by
+comparing the aggregate attacking and supporting forces:
+σQ(a) =
+
+
+
+τ(a)ifv −
+a =v +
+a ,
+τ(a)
+ 
+1−(v −
+a −v +
+a )
+
+ifv −
+a > v +
+a ,
+τ(a) + (1−τ(a))(v +
+a −v −
+a )ifv +
+a > v −
+a .
+Given fixed base scores and a fixed QBAF, DF-QuAD deterministically returns the final strengths of
+all arguments.
+E BSM Full Loss Function
+The full BSM loss is defined over three data resources: the semantic training data Dsem, the ranking
+dataD rank, and the consistency dataD con. It is given by
+L=E (ˆvc,vc)∼Dsem [Lsem(ˆvc, vc)]
++λ rankE(ac,P)∼D rank [Lrank(ac,P)]
++λ conE(ac,C)∼Dcon [Lcon(ac,C)].
+F Ranking and Consistency Experiments
+The main experiments evaluate BSMs through their effect on the downstream accuracy of the final
+argumentative verdict. We additionally assess whether the learned base scores satisfy two local
+desiderata for argument evaluation. First, scores should be stable under paraphrase: semantically
+equivalent arguments should receive similar base scores. Second, scores should preserve relative
+argument strength: arguments ranked as stronger should receive higher scores than weaker arguments.
+To measure this, we conduct experiments on constructed datasets, described in theConsistency
+Evaluation ArgumentsandRanking Evaluation Argumentssections in Appendix B.3. The results are
+reported in Table 2. Inconsistency is measured as the variance of the scores assigned to semantically
+equivalent arguments, averaged across paraphrase groups, so lower values indicate greater stability.
+Ranking is measured as rank agreement with the expected ordering of argument strengths, so higher
+values indicate better sensitivity to relative strength.
+Both the training regimes using just the priming and semantic loss, as well as those using the auxiliary
+consistency and ranking losses, substantially improve the consistency of the BSMs compared to the
+baseline. It is of note that even when not specifically optimising for consistency during training we
+observe a significant improvement. This is important, as it is the more robust of the two tasks (it
+is relatively simple for an LLM to generate semantically-equivalent paraphrases of an argument,
+compared to coming up with an accurate quality ranking), and is a fundamental property of a good
+base score predictor. The ranking performance worsens on the BSMs only trained on the semantic
+loss (possibly in part due to noise introduced by the synthetic nature of the dataset), but significantly
+improves on those trained on the auxiliary losses.
+G Experimental Details
+G.1 Architecture and Hyperparameters
+G.1.1 Direct Baselines
+For the direct SFT and direct GRPO baselines, we use LoRA adapters with rank 8, α= 32 , dropout
+0.05, and target the query, key, value, and output projection matrices. The SFT baseline is trained for
+three epochs with learning rate 2×10 −4, batch size 1, and gradient accumulation over 8 steps. The
+GRPO baseline is trained for three epochs with learning rate10−5, batch size1, gradient accumulation
+over 8 steps, 4 generations per prompt, temperature 1.0, and maximum completion lengths of 512
+tokens.
+17
+
+Table 4: Main performance results (accuracy on TFU and balanced accuracy on A VeriTeC) with 95%
+confidence intervals estimated using BCa bootstrap with 10,000 resamples. For the argumentative
+baselines and our models, A+B indicates which method A was used for argument generation (args)
+and which method B for generation of base scores. ‘BSM-Q’ stands for ‘base score model trained on
+arguments generated by Qwen3-8B’, and ‘BSM-G’ stands for ‘base score model trained on arguments
+generated by GPT-5’. ‘sem’, ‘rank’ and ‘con’ refer to different losses (see Section 5). The best results
+overall are bolded while the best argumentative method results are underlined.
+Variant TFU A VeriTeC
+Non-Argumentative Baselines
+Qwen direct baseline 0.635 (0.599, 0.668) 0.454 (0.427, 0.483)
+Qwen direct SFT 0.659 (0.624, 0.692) 0.446 (0.421, 0.472)
+Qwen direct GRPO 0.592 (0.556, 0.625)0.485 (0.461, 0.511)
+Argumentative Baselines
+Qwen args + constant 0.5 base scores 0.555 (0.519, 0.591) 0.405 (0.382, 0.427)
+Qwen args + Qwen base scores 0.585 (0.549, 0.620) 0.406 (0.381, 0.430)
+Argument Generator Model (Ours)
+Qwen GRPO args + Qwen base scores 0.591 (0.555, 0.625) 0.426 (0.401, 0.451)
+Base Score Models (Ours)
+Qwen args + BSM-Q (primed) 0.583 (0.546, 0.618) 0.408 (0.383, 0.431)
+Qwen args + BSM-Q (primed & sem) 0.588 (0.552, 0.623) 0.415 (0.388, 0.442)
+Qwen args + BSM-Q (primed & sem & rank & con) 0.590 (0.553, 0.626) 0.471 (0.442, 0.501)
+Qwen args + BSM-G (primed) 0.588 (0.552, 0.623) 0.410 (0.386, 0.435)
+Qwen args + BSM-G (primed & sem)0.677 (0.643, 0.712) 0.460 (0.431, 0.488)
+Qwen args + BSM-G (primed & sem & rank & con) 0.584 (0.548, 0.619) 0.466 (0.438, 0.495)
+Combination of Models (Ours)
+Qwen GRPO args + BSM-Q (primed & sem & rank & con) 0.581 (0.545, 0.616) 0.468 (0.439, 0.498)
+Qwen GRPO args + BSM-G (primed & sem) 0.668 (0.635, 0.701) 0.458 (0.429, 0.487)
+G.1.2 Argumentative Baselines
+These are the same as in [Freedman et al., 2025], apart from being restricted to a depth of 1 and not
+placing a restriction on the width of the frameworks (the original had a variant with depth of 2 and
+only allowed a maximum of a single supporting and attacking argument in each layer). Furthermore,
+for this baseline, there is no variation where the claim has an estimated base score (it is always fixed
+at 0.5), unlike in the original where this is one of the configurations.
+G.1.3 Base Score Model
+During the priming stage of training, we only optimized the BSM regression head, a two-layer MLP
+with a hidden size of 256, a ReLU hidden activation and a sigmoid output activation. The model was
+optimized using an AdamW optimizer with a learning rate of 1×10 −4, a dropout of 0.1 and a batch
+size of8. Training was run over a single epoch.
+During the second training phase relying on the semantic loss and optionally the ranking and
+consistency loss, we optimised the regression head as well as LoRA adapters with rank 8, α= 32
+and dropout 0.1 targeting the query, key, value, output, gate, up and down projection matrices. We
+again used an AdamW optimizer with a learning rate 1×10 −4, but used gradient accumulation over
+8 steps and gradient checkpointing to reduce memory requirements. In settings where semantic and
+consistency losses were used, we set λrank = 1 and λcon = 1 with m= 0.1 . As for priming, the
+training was done over a single epoch, with samples for the ranking and consistency losses being
+randomly sampled at each main training step.
+G.1.4 Reinforcement Learning for Argument Generation
+We fine-tune Qwen3-8B using Group Relative Policy Optimisation (GRPO) with standard Hugging-
+Face Transformers and PEFT. To reduce memory requirements, the model is loaded in bfloat16
+18
+
+precision with gradient checkpointing enabled. We attach LoRA adapters of rank r= 8 , scaling
+factor α= 32 , and dropout 0.1, targeting the query and value projection matrices only. The model
+is optimised using a learning rate of 1×10 −5 over 2 epochs, with a per-device batch size of 2 and
+gradient accumulation over 4 steps, yielding an effective batch size of 8. Each GRPO step samples 2
+completions per prompt, with a maximum prompt length of 512 tokens and a maximum completion
+length of2,048tokens.
+The argumentative reward signal is derived from the gradual semantics score of the model’s output
+argument. When using a learned BSM, the base score for each claim is computed by the pre-
+trained BSM regression head prior to each reward evaluation, and injected into the gradual semantics
+computation. When using an LLM-based base score, the base score is instead queried from a frozen
+language model at inference time, replacing the regression head with a prompted LLM call, all
+remaining training hyperparameters remain identical across both configurations.
+G.2 Computational Resources
+Base Score ModelWe trained all our BSMs on three NVIDIA A100 80GB accessed via a cloud
+server running a customized distribution of Ubuntu 24.04.2. On this hardware, the generation of the
+target base scores for priming via direct prompting took approximately3 minutes, with the subsequent
+training on these scores taking approximately 2 minutes. The second phase of the training took
+approximately10minutes when not using the ranking and consistency losses and approximately20
+minutes with these losses.
+Argument Generation ModelSimilar to the BSMs, we finetuned all our models on three NVIDIA
+A100 80GB GPUs accessed via a cloud server running a customized distribution of Ubuntu 24.04.2.
+On this hardware, the training for 450 steps took 11 hours using the learned BSM and 19 hours using
+the LLM-based BSM.
+H Licences
+Qwen3-8B is released under Apache-2.0. TruthfulQA and StrategyQA, which underlie TruthfulClaim
+and StrategyClaim, are released under Apache-2.0 and MIT respectively. The ArgLLMs repository
+containing the adapted claim-verification datasets is released under the Argumentative LLMs Aca-
+demic Public Licence, which permits non-commercial academic use. RPB is released under MIT,
+while A VeriTeC is released under CC BY-NC 4.0. DEBATunE does not appear to provide an explicit
+redistribution licence, however we reached out to the authors and are still awaiting a response. Other
+releases by the research group use a BSD 3-Clause License. Synthetic arguments and auxiliary labels
+generated using GPT-5 and Claude are subject to the applicable OpenAI and Anthropic terms of
+service.
+I Limitations
+This work studies claim-only verification without external evidence retrieval. Generated arguments
+may therefore be plausible but factually unsupported. Incorporating approaches such as RAG into
+our framework, in the spirit of ArgRAG [Zhu et al., 2025], is a promising avenue for future work.
+While ITA provides procedural faithfulness, i.e., the verdict deterministically follows from the
+considered argumentative structure, scores, thresholds, and semantics, the arguments themselves
+may be incomplete or incorrect. Our QBAFs are also restricted to depth-one structures, and some
+supervision signals are synthetically generated, which may introduce artifacts. Finally, we limit
+ourselves to the task of ternary claim verification. Future work could explore the extension of our
+framework to domains involving open-ended decision-making, e.g., drawing from the methodology
+of ArgEval [Dejl et al., 2026], an argumentative approach designed for such domains.
+Due to a lack of computational resources, we were limited in the scope of experiments we could
+carry out. Importantly, we were not able to carry out a search over hyperparameters, so these were
+chosen by estimation and following conventions from the literature rather than empirically validated
+as the best choice, and therefore our presented results may be an underestimation of the true potential
+performance of the proposed method.
+19
+
+J Safeguards
+ITA should be used as an interpretable research tool, not as an automated authority on factual truth.
+Its outputs should be inspected against trusted evidence, especially in high-stakes domains. Generated
+arguments and scores should be presented as model-produced rationales, not as verified evidence.
+K Broader Impacts
+This work may improve transparency in claim verification by making predictions reconstructible
+from explicit argumentative structures. However, fluent generated arguments can also make incorrect
+verdicts appear more credible. Real-world use should therefore pair argumentative explanations with
+evidence retrieval, source attribution, and human review.
+20

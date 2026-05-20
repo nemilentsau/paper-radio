@@ -1,0 +1,22 @@
+{
+  "paper_id": "arxiv-2605.19895",
+  "title": "Streamlined Constraint Reasoning via CNN Pattern Recognition on Enumerated Solutions",
+  "core_claim": "A hybrid pipeline that trains a CNN on enumerated feasible solutions, then uses the learned signal to guide LLM synthesis of MiniZinc streamliners can discover useful constraint strengthening rules on hardened benchmark models and produce large portfolio-time reductions.",
+  "triage_rationale": "This looks like a genuinely novel hybrid of pattern learning and constraint-program synthesis, with concrete benchmark gains and specific discovered streamliners rather than a benchmark-only LLM application. The evidence is still narrow to constraint-programming benchmarks, but the method and results are substantial enough to merit review.",
+  "topic_tags": [
+    "constraint programming",
+    "streamliner synthesis",
+    "llm-assisted synthesis",
+    "cnn",
+    "combinatorial optimization"
+  ],
+  "likely_red_flags": [
+    "Single-author paper",
+    "Benchmark-heavy evaluation",
+    "Claims are limited to hardened benchmark models",
+    "No indication of external validation beyond curated problems"
+  ],
+  "research_score_estimate": 7.8,
+  "podcast_score_estimate": 6.7,
+  "decision": "advance_to_review"
+}

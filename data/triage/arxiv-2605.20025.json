@@ -1,0 +1,21 @@
+{
+  "paper_id": "arxiv-2605.20025",
+  "title": "AutoResearchClaw: Self-Reinforcing Autonomous Research with Human-AI Collaboration",
+  "core_claim": "A multi-agent autonomous research pipeline with debate, self-healing execution, verifiable reporting, human-in-the-loop control, and cross-run memory improves experiment-stage research workflows and beats AI Scientist v2 on ARC-Bench.",
+  "triage_rationale": "This is a concrete scientific-discovery workflow paper rather than a generic benchmark claim: the abstract names specific mechanisms, a human-in-the-loop ablation, and a cross-run learning loop. The main risk is that the evidence described in the abstract is still benchmark-centered and may overstate general scientific usefulness, so it deserves review but not automatic advancement.",
+  "topic_tags": [
+    "scientific-discovery",
+    "multi-agent-systems",
+    "human-in-the-loop",
+    "autonomous-research",
+    "workflow-automation"
+  ],
+  "likely_red_flags": [
+    "Benchmark-heavy evidence from a 25-topic ARC-Bench may not generalize to real scientific work",
+    "Strong performance claims are based on the abstract only and may depend on system-specific scaffolding",
+    "Could overstate autonomy benefits without showing expert comparative evaluation across real research tasks"
+  ],
+  "research_score_estimate": 7.4,
+  "podcast_score_estimate": 7.8,
+  "decision": "queue_for_review"
+}

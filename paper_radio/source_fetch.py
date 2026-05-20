@@ -1,3 +1,4 @@
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -48,6 +49,10 @@ def extract_pdf_text(pdf_path: Path) -> str:
     return "\n\n".join(text.strip() for text in page_text if text.strip())
 
 
+def _clean_extracted_text(text: str) -> str:
+    return re.sub(r"[\ud800-\udfff]", "\ufffd", text)
+
+
 def _write_atomic(path: Path, data: bytes | str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary_path = path.with_suffix(path.suffix + ".tmp")
@@ -81,7 +86,7 @@ def fetch_paper_source(
 
     _write_atomic(pdf_path, pdf_bytes)
     try:
-        full_text = extract_pdf_text(pdf_path)
+        full_text = _clean_extracted_text(extract_pdf_text(pdf_path))
         _validate_full_text(full_text, paper_id)
     except Exception as error:
         if isinstance(error, SourceFetchError):
