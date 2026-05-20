@@ -1,0 +1,21 @@
+{
+  "paper_id": "arxiv-2605.20176",
+  "title": "ClinSeekAgent: Automating Multimodal Evidence Seeking for Agentic Clinical Reasoning",
+  "core_claim": "ClinSeekAgent is an agentic framework that actively seeks multimodal clinical evidence from raw sources, improves performance on clinical reasoning tasks, and can distill its trajectories into smaller open-source models.",
+  "triage_rationale": "The abstract describes a concrete systems contribution with both a new benchmark and multi-model results across text-only and multimodal clinical tasks, which makes it substantively reviewable. It also has clear podcast value because it sits at the intersection of agentic LLMs, clinical reasoning, and multimodal evidence seeking.",
+  "topic_tags": [
+    "clinical-ai",
+    "llm-agents",
+    "multimodal",
+    "evidence-retrieval",
+    "medical-benchmark",
+    "ehr"
+  ],
+  "likely_red_flags": [
+    "Abstract is heavily benchmark-and-improvement driven, so claims may depend on task construction and evaluation choices.",
+    "Clinical setting raises higher scrutiny for data provenance, safety, and generalization, but none of that is visible from the abstract alone."
+  ],
+  "research_score_estimate": 7.8,
+  "podcast_score_estimate": 7.4,
+  "decision": "advance_to_review"
+}

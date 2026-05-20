@@ -1,0 +1,22 @@
+{
+  "paper_id": "arxiv-2605.20177",
+  "title": "From Seeing to Thinking: Decoupling Perception and Reasoning Improves Post-Training of Vision-Language Models",
+  "core_claim": "Separating visual perception, visual reasoning, and textual reasoning into staged post-training improves VLM performance, and perception-focused optimization appears to reduce unnecessary reasoning length.",
+  "triage_rationale": "The abstract describes a concrete training methodology with clear empirical comparisons across multiple VLMs and named benchmark gains, which makes it likely to be technically substantive. It also has strong podcast potential because it challenges the common assumption that longer reasoning traces are the main lever for VLM improvement.",
+  "topic_tags": [
+    "vision-language models",
+    "post-training",
+    "curriculum learning",
+    "reasoning",
+    "RL",
+    "perception"
+  ],
+  "likely_red_flags": [
+    "Abstract is self-reported and may overstate benchmark gains without broader validation",
+    "Claims about superiority among open-weight VLMs depend on benchmark selection and training setup",
+    "No affiliation or venue signal is available"
+  ],
+  "research_score_estimate": 8.1,
+  "podcast_score_estimate": 7.8,
+  "decision": "advance_to_review"
+}

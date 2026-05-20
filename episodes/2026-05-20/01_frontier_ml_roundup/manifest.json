@@ -1,0 +1,42 @@
+{
+  "episode_id": "episode-2026-05-20-01-frontier-ml-roundup",
+  "title": "Frontier ML roundup for 2026-05-20",
+  "episode_type": "frontier_ml_roundup",
+  "paper_ids": [
+    "arxiv-2605.20164",
+    "arxiv-2605.20167",
+    "arxiv-2605.20170",
+    "arxiv-2605.20172",
+    "arxiv-2605.20173",
+    "arxiv-2605.20174",
+    "arxiv-2605.20176",
+    "arxiv-2605.20177",
+    "arxiv-2605.20179",
+    "arxiv-2605.20182"
+  ],
+  "paper_titles": {
+    "arxiv-2605.20164": "Not Every Rubric Teaches Equally: Policy-Aware Rubric Rewards for RLVR",
+    "arxiv-2605.20167": "HaorFloodAlert: Deseasonalized ML Ensemble for 72-Hour Flood Prediction in Bangladesh Haor Wetlands",
+    "arxiv-2605.20170": "KoRe: Compact Knowledge Representations for Large Language Models",
+    "arxiv-2605.20172": "Long-term Power Grid Planning via Answer Set Programming",
+    "arxiv-2605.20173": "A Methodology for Selecting and Composing Runtime Architecture Patterns for Production LLM Agents",
+    "arxiv-2605.20174": "Multi-axis Analysis of Image Manipulation Localization",
+    "arxiv-2605.20176": "ClinSeekAgent: Automating Multimodal Evidence Seeking for Agentic Clinical Reasoning",
+    "arxiv-2605.20177": "From Seeing to Thinking: Decoupling Perception and Reasoning Improves Post-Training of Vision-Language Models",
+    "arxiv-2605.20179": "TIDE: Efficient and Lossless MoE Diffusion LLM Inference with I/O-aware Expert Offload",
+    "arxiv-2605.20182": "Atoms of Thought: Universal EEG Representation Learning with Microstates"
+  },
+  "paper_paths": {
+    "arxiv-2605.20164": "data/papers/arxiv-2605.20164.md",
+    "arxiv-2605.20167": "data/papers/arxiv-2605.20167.md",
+    "arxiv-2605.20170": "data/papers/arxiv-2605.20170.md",
+    "arxiv-2605.20172": "data/papers/arxiv-2605.20172.md",
+    "arxiv-2605.20173": "data/papers/arxiv-2605.20173.md",
+    "arxiv-2605.20174": "data/papers/arxiv-2605.20174.md",
+    "arxiv-2605.20176": "data/papers/arxiv-2605.20176.md",
+    "arxiv-2605.20177": "data/papers/arxiv-2605.20177.md",
+    "arxiv-2605.20179": "data/papers/arxiv-2605.20179.md",
+    "arxiv-2605.20182": "data/papers/arxiv-2605.20182.md"
+  },
+  "script_job_id": "episode-2026-05-20-01-frontier-ml-roundup-dossier"
+}

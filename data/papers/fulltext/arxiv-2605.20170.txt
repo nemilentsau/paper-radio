@@ -1,0 +1,481 @@
+KoRe: Compact Knowledge Representations for Large
+Language Models
+Davide Cavicchini1,*, Fausto Giunchiglia 1 and Jacopo Staiano 1
+1University of Trento, Via Calepina, 14, 38122 Trento TN, Italy
+Abstract
+Modern Large Language Models (LLMs) have shown impressive performances in user-facing tasks such as question
+answering, as well as consistent improvements in reasoning capabilities. Still, the way these models encode
+knowledge seems inherently flawed: by design, LLMs encode world-knowledge within their parameters. This way
+of representing knowledge is inherently opaque, difficult to debug and update, and prone to hallucinations. On the
+other hand, Knowledge Graphs can provide human-readable and easily editable world knowledge representations,
+and their application in knowledge-intensive tasks has consistently proven beneficial to downstream performance.
+Nonetheless, current integration techniques require extensive retraining or finetuning. To overcome this issue,
+we introduce KoRe, a methodology to encode 1-hop sub-graphs into compact discrete knowledge tokens and
+inject them into a LLM backbone. We test the proposed approach on three established benchmarks, and report
+competitive performances coupled with a significant reduction (up to 10x) in token usage. Our results show that
+compact discrete KG representations can efficiently and effectively be used to ground modern LLMs.
+The code will be available at https://github.com/DavidC001/KoRe
+Keywords
+Large Language Models, Knowledge Graph, Token Embedding, Graph Neural Networks, Vector Quantization
+1. Introduction
+Arguably, Large Language Models have revolutionized natural language processing, demonstrating
+unprecedented capabilities in text generation, reasoning, and complex task execution. However, these
+models bear a fundamental limitation, as their knowledge is implicitly encoded within billions of
+parameters, making it opaque, static, and prone to hallucinations: when dealing with factual information,
+LLMs may generate plausible-sounding but incorrect responses, struggle with recent events not present
+in their training data, or fail to provide verifiable sources for their claims.
+We posit Knowledge Graphs (KGs) as a valid solution to these challenges. Unlike the parametric
+knowledge stored in LLMs, KGs providestructured,interpretable, andupdatablerepresentations of
+factual information. KGs organize knowledge as networks of entities connected by typed relationships,
+enabling precise querying, easy verification, and efficient updates. The central challenge, however, is
+bridging the representational gap between a graph and the token sequences a language model consumes.
+This integration often relies ontextual serializationof KG information, converting structured triples
+into natural language descriptions that are then concatenated with the input prompt. This approach
+suffers from severe token inefficiency: a single logical fact may consume dozens of tokens when
+expressed in natural language, and high computational costs.
+Some studies proposed the use of small LoRA-like [ 1]adaptersto store new information in the
+model’s parameters, or rely on trained Knowledge Graph Embedding (KGE) models and inject them
+into inner layers of the model; however, these techniques require re-training for each new piece of
+information, which can lead to costly updates in dynamic environments. An alternative solution relies
+on injecting knowledge ascontinuous embeddingsrather than text. Prior work has explored this
+research direction for standard graph-related tasks such as node classification and link prediction,
+*Corresponding author.
+/envel⌢pe-⌢pendavide.cavicchini@unitn.it (D. Cavicchini); fausto.giunchiglia@unitn.it (F. Giunchiglia); jacopo.staiano@unitn.it
+(J. Staiano)
+/orcid0009-0005-9662-8496 (D. Cavicchini); 0000-0002-5903-6150 (F. Giunchiglia); 0000-0002-1260-4640 (J. Staiano)
+©2026 Copyright for this paper by its authors. Use permitted under Creative Commons License Attribution 4.0 International (CC BY 4.0).
+
+Knowledge Augmentation for LLMs
+Legend & Guidance
+Tag definitions
+PROMPT Knowledge is added at inference time in context.
+TRAIN Knowledge is integrated during training or fine-tuning (parametric).
+TEXT Knowledge is serialized as text (passages, triples, templates).
+EMB Knowledge is injected as embeddings/tokens/adapters.
+Knowledge Augmentation Approaches
+Retrieval-based (Prompt-time, Text)
+Standard RAG PROMPTTEXT
+KG-RAG PROMPTTEXT
+Textual Injection (Training-time, Architecture)
+K-BERT TRAIN TEXT
+KnowBert TRAIN TEXT
+Parametric Adaptation (Training-time)
+K-Adapter TRAIN EMB
+KnowLA TRAIN EMB
+Embedding/Token-level Graph Injection
+GraphToken PROMPTEMB
+TEA-GLMPROMPTEMB
+ConceptFormerPROMPTEMB
+GQT PROMPTEMB
+file:///H:/Il mio Drive/MASTER_AIS/TESI/taxonomy.html 1/1
+Figure 1:Taxonomy of Knowledge Augmentation Approaches for LLMs
+while little attention has been given to using this approach to injectfactualinformation into LLMs for
+natural language tasks such as question answering. The few attempts have so far been validated only
+on small-scale language models [2], leaving open the question of whether embedding-based discrete
+injection can yield improvements on modern, larger LLM backbones.
+In this work, we propose the KoRe architecture, which advances the state-of-the-art by addressing
+four critical research gaps:
+• Token-Efficient Knowledge Representation:To overcome the context pressure of text-based
+injection, KoRe utilizes a Directional Residual Vector Quantization (RVQ) scheme. This compresses
+graph structures into a minimal sequence of discrete "knowledge tokens, " achieving a dramatic
+reduction in token consumption while preserving the essential factual information required for
+accurate grounding.
+• Factual Conveyance via GNNs:Unlike prior GNN-based approaches that focus on standard
+graph tasks, KoRe investigates whether GNN encodings can effectively transfer thefactual content
+of KGs to improve LLM accuracy in question answering.
+• Generalization to unseen entities:Contrary to previous knowledge integration approaches,
+our proposed pipeline allows for the encoding of arbitrary knowledge graphs without requiring
+prior training of KGE models. We use a pretrained sentence-encoder to initialize node and edge
+embeddings with the intended semantics and let the GNN aggregate this information into a single
+representation.
+2. Related Work
+To address the knowledge cutoff and factual limitations of LLMs, numerous techniques have been
+developed to provide models with the information needed to perform open-ended tasks. Some methods
+focus on the ability to encode knowledge within the model parameters, while others try to embed it
+into the context window. A taxonomy of the evaluated literature is depicted in Figure 1
+Retrieval-Augmented Generation (RAG) [3], along with variants tailored to structured data such as
+KG-RAG [4], mitigates hallucinations by appending external information to the prompt. While these
+can be considered elegant and effective solutions, they incur the issue of inflating the context window,
+ultimately leading to high inference costs. Alternative text-based injection methods, such as K-BERT [5]
+and KnowBert [6], opt to incorporate knowledge via sentence trees or entity embeddings, but typically
+require extensive retraining of the LLM backbone or are specialized for a particular set of entities.
+Other works have focused on techniques that use Parameter-Efficient Fine-Tuning (PEFT). Methods
+like K-Adapter [7] and KnowLA [8] use lightweight adapters to incorporate knowledge into the LLM.
+
+Figure 2:KoRe at a glance: (1) star-graph extraction; (2) GNN encoder; (3) residual vector quantization (RVQ)
+into Q tokens; (4) dynamic injection at <KG EMBEDDING> placeholders; (5) LLM generation.
+KnowLA can be considered closest to our proposed approach, as it uses external entity embeddings
+derived from a Knowledge graph to enhance the LLM. However, it requires embeddings to be pre-
+computed before training, severely impacting the ability to generalize to unseen graphs.
+Another active area of research is the integration of the graph directly as token embeddings, a sort of
+Graph-Prompting. Examples of this approach are GraphToken [9], TEA-GLM [10], and GQT [11], which
+use GNNs to generate "soft" token embeddings that represent structural information. While bearing
+resemblance to our proposed architecture, these methods target graph-specific benchmarks rather
+than general-purpose factual grounding for LLM reasoning. Further, a more sophisticated integration
+approach has been proposed in ConceptFormer [2], which injects "concept vectors" to reduce token
+consumption; while showing promising results for knowledge injection, its evaluation was limited to
+smaller models like GPT-2 0.1B.
+3. Methodology
+3.1. Problem Formulation
+Let 𝐺𝑥 = (𝒱 𝑥,ℰ 𝑥,ℛ 𝑥) be the 1-hop star subgraph centered on query entity 𝑐, extracted from Wiki-
+data [12]. Given query 𝑥 and corresponding 𝐺𝑥, the model must generate answer 𝑦 grounded in the
+factual triples contained in 𝐺𝑥. The task can be seen as aknowledge-conditionedlanguage-modelling
+objective, where the conditioning signal is a compact representation of 𝐺𝑥 that fits within the LLM’s
+context.
+3.2. Model Architecture
+KoReis composed by four trainable modules grafted onto a largely frozen Qwen3-8B backbone with
+LoRA adaptation(Figure 2):
+1. Graph extraction:This module uses the relevant entities in the query to extract from WikiData
+the relevant sub-graph;
+
+2. Graph Encoding:First, entities and relations are mapped to dense vectors using a frozen sentence
+encoder (Qwen-Embeddings); then, a TransformerConv network, with edge-type embeddings
+and GraphNorm, produces a single𝑑 gnn-dimensional graph summary;
+3. Vector Quantization:The summary is compressed into 𝑄 discrete codebook indices (𝑖1, . . . , 𝑖𝑄);
+4.Alignment:The quantised discrete embeddings are projected into the LLM token space, mean-
+standardisation matching is applied, and a <KG_EMBEDDING> placeholder is replaced in the
+tool-response template.
+Graph Extraction & EncodingFor each textual instance, we extract relevant knowledge in the form
+of star graphs centered around key entities mentioned in the text. To manage computational costs and
+focus on the most relevant information, we implement a neighbor selection strategy that ranks entities
+by their global PageRank scores. For the Tri-REx, we reuse the data from Tri-REx star [13] with 100
+maximum edges. While the QA datasets keep up to 10,000 edges, allowing us to evaluate the models
+under much noisier input conditions.
+To be fed into a Graph Neural Network, we embed the graph nodes and edges using their labels
+passed through a frozen sentence encoder 𝜑:text→R 𝑑𝜑, where the hidden size 𝑑𝜑 determines both
+the node and edge feature dimensions fed to the GNN (𝑑𝜑 =𝑑 node =𝑑 edge). Using this approach, the
+initial node and edge representations are already aligned with the text domain, making the mapping to
+the LLM embedding space easier.
+The computed embeddings are fed into a TransformerConv GNN layer from [ 14], followed by
+GraphNorm from [15] and residual connections. This process aggregates the graph information into
+the central node. To obtain the final graph embedding g∈R 𝑑, we perform central-node pooling by
+selecting only the representation of the central node. This summary g is then passed to the residual
+vector quantization (RVQ) layer to be converted into𝑄knowledge tokens.
+Directional Residual Vector QuantisationFor compressing the graph representation into multiple
+discrete vector indices, we follow Meta’s GQT [11] and use a residual vector quantization strategy. RVQ
+iteratively subtracts the chosen code vector from the residual: 𝑟𝑡+1 =𝑟 𝑡 −𝑒 𝑡. However, preliminary
+experiments consistently lead to codebook collapse. To mitigate this issue, we modified the formulation
+to make use of a ℓ2-normalized codebook and a cosine-similarity selection mechanism, as proposed in
+[16], with adirectionalupdate:
+𝑟𝑡+1 =𝑟 𝑡 − ⟨𝑟𝑡, 𝑐𝑡⟩𝑐 𝑡,
+which removes only thecomponentof the residual along the chosen code direction. This incentivises
+codes to span orthogonal subspaces, resulting in higher codebook capacity and diversity.
+The training loss combines a directional commitment term and a final residual norm:
+ℒRVQ =𝛽
+𝑄−1∑︁
+𝑡=0
+(︀
+1−cos(𝑟 𝑡, 𝑐𝑡)
+)︀
++‖𝑟 𝑄‖2.
+This, using the Straight-Through Estimator (STE), propagates the gradients to the encoder, ensuring the
+generated representation uses the codebooks properly. The codes are updated using an exponential
+moving average (EMA) of the input residuals with dead-code reset after 𝑁𝑑𝑒𝑎𝑑 *codebook_size
+training graphs of unuse (i.e., we require the codes to have a probability of being samples of 1/𝑁𝑑𝑒𝑎𝑑).
+Alignment and InjectionThe 𝑄 discrete quantized tokens Z= [ ˆ𝑘1;. . .; ˆ𝑘𝑄] are then processed
+through a residual MLP 𝑓out and a linear skip connection to project these tokens into the LLM’s
+embedding dimension 𝑑llm. To ensure the injected tokens are numerically stable, we normalize each
+graph representation by normalizing its sequence of tokens to a mean of 0 and a variance of 1 across the
+𝑄 and 𝑑llm dimensions. This normalized tensor is then scaled by the text embedding standard deviation
+and adjusted by a learned mean shift𝜇 llm:
+˜Z=StdMatch(LN(𝑓 out(Z) +skip(Z))) +𝜇 llm
+
+The aligned tokens ˜Z replace a special placeholder token <KG_EMBEDDING> within the prompt, using
+a prefix mechanism similar to [2].
+Training ObjectiveThe final composite loss used is
+ℒ=ℒ LM(answer tokens only) +ℒ RVQ,
+where ℒLM is the standard causal language-modelling cross-entropy computed solely on the target
+answer span. This focus prevents the model from wasting capacity on reconstructing the prompt
+structure.
+4. Experimental Design
+To train and evaluate our model, we use both synthetic corpora and QA benchmarks.
+4.1. Datasets
+Tri-REx[17]The dedicated dataset Tri-REx Star [ 13] provides the star graphs extracted from Wikidata
+for each sentence in Tri-REx. Following the ConceptFormer [2] approach, we use Tri-REx for training
+our knowledge graph encoder to convey factual information to the LLM backbone. This dataset is
+well-suited for testing the factual recall ability gained by the model, given the absence of overlap
+between training, validation, and testing entities, which penalizes models that rely on memorization
+rather than exploiting the available knowledge.
+SimpleQuestions[18]Dataset used to evaluate our model on simple one-hop question answering,
+and experimenting on continual finetuning. In particular, we use the answerable split provided by [19],
+which maps the dataset to the Wikidata KG and keeps only the questions for which they were able to
+find answers in Wikidata by mapping the properties. This leaves the dataset with 14894 train samples,
+2210 validation samples, and 4295 test samples. However, due to retrieval limitations from the public
+SPARQL endpoint1, we excluded cases where the central or target entity was absent from the retrieved
+subgraph. This filtering resulted in a final dataset comprising 9294 training samples, 1377 validation
+samples, and2677test samples.
+WebQSP[20]We use this dataset to test the zero-shot capabilities of our model. We never trained on
+nor used this dataset for validation and held it out only for testing. Similarly to SimpleQuestions, we
+mapped the dataset to the Wikidata KG using the preprocessed files from [21].
+4.2. Baselines
+We compare our model against the following baselines:
+• Vanilla Qwen3-8B(parametric only) to isolate the baseline performance coming from the
+memorization the LLM underwent during its pretraining.
+• Textualization(graph triples → natural-language prompt) as the most straightforward injection
+methodology.
+• LoRA-only(no KG) to isolate the contribution of our injection mechanism for integrating new
+knowledge from simply matching the distribution of the training data or memorizing the answers.
+• ConceptFormer(GPT-2 baseline from literature [ 2]) to evaluate the scalability of the approach.
+1https://query.wikidata.org/bigdata/namespace/wdq/sparql
+
+4.3. Metrics
+Our evaluation focuses on the model’s ability to correctly predict object entities mentioned in ground
+truth answers, which are the most critical factual components. For this reason, the primary evaluation
+metric isHit@k, which measures the proportion of test instances where the correct answer token
+appears among the top 𝑘 predictions. For each test instance containing a query 𝑥 and target answer 𝑦,
+we:
+1. Token-level ranking: For each position 𝑡 in the target answer sequence, we compute the rank
+of the true token 𝑦𝑡 among all vocabulary tokens based on the model’s output logits. The rank is
+defined as:
+rank𝑡 = 1 +
+∑︁
+𝑣∈𝒱
+1[logit(𝑣)>logit(𝑦 𝑡)]
+where𝒱is the vocabulary and1[·]is the indicator function.
+2. Object boundary identification: We identify the span of tokens corresponding to the target
+object entity in the answer sequence, focusing evaluation on factual content rather than auxiliary
+tokens like articles or prepositions.
+3. Sequence-level rank: The sequence-level rank is the maximum rank across all object token
+positions:
+rankseq = max
+𝑡∈object positions
+rank𝑡
+This conservative approach ensures that a sequence is considered correct only ifallobject tokens
+are predicted with high confidence.
+We compute Hit@k for 𝑘∈ {1,3,5,10} to capture both strict accuracy (Hit@1) and more lenient
+retrieval performance (Hit@10). For the WebQSP dataset, as one question can have multiple correct
+answers, we consider a prediction correct if it matches any of the ground truth answers.
+4.4. Training Protocol
+We evaluate two model configuration checkpoints at different training stages:
+1. KoRe-basethe first model gets trained using only the synthetic sentences from Tri-REx dataset.
+This step is used as foundation for the GNN and adaptation layers to learn the mapping between
+knowledge graphs and the LLM token embedding space.
+2. KoRe-QAthen the model is used as base for finetuning, specializing the model on question
+answering using the SimpleQuestions dataset training split.
+Implementation DetailsThe models in the result section are trained using the following configu-
+ration: codebook size 128, 𝑄= 20 , EMA dead-code threshold 𝑁𝑑𝑒𝑎𝑑 = 4, for the RVQ loss 𝛽= 0.25 ,
+LoRA is applied to the query, key, value, and output projection matrices with rank𝑟= 4 and alpha 𝛼= 8
+with dropout of 0.2. As text encoder for nodes and edge features, we use the Qwen3-Embedding-8B
+model [22]. While as LLM backbone, we use Qwen3-8B [23]. For training our system, we utilize the
+AdamW optimizer with a batch size of 8 per GPU (32 total), gradient accumulation steps of 2, gradient
+clipping with a max norm of 1.0, and validation every 8196 batches for Tri-REx and the entire training
+set for SimpleQuestions. Given the heterogeneous nature of our model components, we apply distinct
+learning rates optimized for each parameter group:
+•LoRA parameters:1×10 −5 to ensure stable adaptation of the pretrained language model
+• Knowledge Graph Encoder parameters: 5×10 −4 to enable efficient learning of graph repre-
+sentations
+We also employ weight decay at1×10 −2, the reduce-LR-on-plateau scheduler, using a reduction factor
+of 0.5 and patience 1, monitoring the Hit@10 on the validation set, and early stopping patience on the
+same metric of2.
+Each experimental run utilizes:
+
+TriREx Test Results
+Hit@1 vs Hit@5 Performance Across Methods
+SimpleQuestions Test Results
+Hit@1 vs Hit@5 Performance Across Methods
+WebQSP Test Results
+Hit@1 vs Hit@5 Performance Across Methods
+Figure 3:Test Results for our baselines and models on the three datasets. Shaded and full bars indicate Hit1
+and Hit5, respectively.
+•GPU setup: 4 NVIDIA A100 GPUs with 64GB memory each
+•Training budget: 8 hours limit per experiment to ensure efficient resource usage.
+• Distributed framework: We make use of the Accelerate library [24] integrated with DeepSpeed
+[25] for coordinated multi-GPU training with ZeRO [ 26] stage 2, which shards the optimizer
+states across all four GPUs.
+• Memory Optimization: To reduce the memory footprint and accelerate training, we use the
+𝑏𝑓16precision option in DeepSpeed.
+The distributed training setup enables efficient parallelization of the training for both the language
+model and knowledge graph encoder components.
+5. Results and Discussion
+This section reports performance across the three knowledge graph question-answering benchmarks
+we described in 4.1: Tri-REx, SimpleQuestions, and WebQSP. WebQSP is a crucial benchmark, as none
+of our models were exposed to this dataset during training or validation. A summary of the results is
+shown in Figure 3.
+5.1. Tri-REx
+We first look at the performance on our main training dataset, Tri-REx. Table 1 presents the test set
+performance, comparing it with our selected baselines. Compared to the base model, our approach
+hugely improves the performance of the base model. The comparison withConceptFormerreveals
+competitive performance at Hit@1 (28.1% vs 16.8%) and Hit@10 results (63.5% vs 36.9%); from these
+initial results, it appears that injecting knowledge vectors scales with model size. In this dataset, the
+textualizationbaseline outperforms our approach (33.9% vs 28.1% Hit@1). However, our approach’s
+competitive performance demonstrates that quantized representations can effectively capture and utilize
+factual knowledge. Comparing our model toLoRA-onlyadaptation, we can clearly see how our model
+successfully generalizes to new knowledge. The tri-REx dataset, as discussed in 4.1, is designed to
+prevent any factual overlap between the training and test sets. Models that rely solely on memorizing
+the training data facts cannot achieve a good performance on the test set.
+5.2. SimpleQuestions
+The SimpleQuestions test set results demonstrate the power of our discrete knowledge representation
+approach. Table 2 presents the test set performance, comparing it with our selected baselines. The zero-
+shot transfer performance (24.5% Hit@1) substantially exceeds the original language model baseline
+
+Table 1
+Tri-REx test set results: Performance of best KoRe configurations.
+Configuration Hit@1 Hit@3 Hit@5 Hit@10 AvgTokens
+Baselines
+Original LLM 3.8 10.4 15.6 22.3 35.9
+Textualization33.9 61.3 68.9 75.9252.2
+Only LoRA (Tri-REx) 0.0 0.0 0.0 0.2 35.9
+ConceptFormer (20 CF variant) 16.8 – 31.2 36.9 –
+KoRe
+KoRe-base28.1 46.7 54.7 63.5 70.4
+KoRe-QA24.3 40.6 47.7 56.9 70.4
+(1.8% Hit@1), confirming that quantized knowledge graphs can effectively convey factual information
+without task-specific training. The QA fine-tuned model shows even more remarkable performance
+(51.5% Hit@1), substantially surpassing all the baselines. ConceptFormer is not present in this evaluation
+as it was not tested on this dataset in the original work.
+A notable pattern emerges in the textualization baseline: Hit@1 is only 6.2%, yet Hit@3 recovers
+sharply to 46.7% and Hit@10 reaches 82.5%. This wide gap is explainable by the exact-match evaluation
+we use: when presented with serialized triples, the LLM may produce a conversational preamble
+before stating the answer, penalizing it at rank 1 even though the correct entity is ranked highly. By
+contrast, KoRe’s LoRA fine-tuning on discrete token prefixes may implicitly encourage more direct
+answer generation, yielding higher Hit@1 scores from the same underlying factual content. We leave a
+controlled analysis of this generation-style effect to future work.
+Table 2
+SimpleQuestions test set results: Performance of best KoRe configurations.
+Configuration Hit@1 Hit@3 Hit@5 Hit@10 AvgTokens
+Baselines
+Original LLM 1.8 7.8 12.3 23.3 29.7
+Textualization 6.2 46.7 65.6 82.5248.2
+Only LoRA (Tri-REx) 0.8 0.9 1.0 1.4 29.7
+KoRe
+KoRe-base24.5 36.1 39.9 46.9 64.2
+KoRe-QA 51.5 67.1 72.177.8 64.2
+5.3. WebQSP
+The WebQSP evaluation provides valuable insights into the scalability and robustness of our quantized
+encoding scheme, as our models were never exposed to this dataset during any training stage. Table
+3 reports the test set results for the baselines and our model. Even without any exposure to WebQSP
+during training, the base model achieves a Hit@1 of 23.8%, outperforming all baselines, including a
+version of ConceptFormer specifically fine-tuned on this dataset. Remarkably, the fine-tuned variant
+of our model (KoRe-QA) reaches 51.4% Hit@1 and 86.0% Hit@10, more than doubling the accuracy of
+ConceptFormer and significantly surpassing the textualization baseline. Given that the textualization
+baseline consumes on average over10 × more tokensper query, these findings further validate the
+token-efficient design of our discrete knowledge integration pipeline.
+
+Table 3
+WebQSP test set results: Performance of best KoRe configurations.
+Configuration Hit@1 Hit@3 Hit@5 Hit@10 AvgTokens
+Baselines
+Original LLM 0.1 2.7 6.8 19.2 17.2
+Textualization 1.8 12.4 22.8 41.7 676.5
+Only LoRA (Tri-REx) 0.4 1.2 1.5 2.0 17.2
+ConceptFormer (QA fine-tuned on WebQSP) 7.6 – 28.3 – –
+KoRe
+KoRe-base23.8 40.7 49.1 58.5 62.9
+KoRe-QA 51.4 73.2 79.3 86.062.9
+6. Conclusion
+In this work, we presented KoRe, an architecture for grounding Large Language Models in external
+Knowledge Graphs without the token overhead of textualization-based approaches. By combining
+a GNN encoder over 1-hop star subgraphs with a Directional Residual Vector Quantization scheme
+and a lightweight LoRA adaptation of a frozen Qwen3-8B backbone, KoRe compresses structured
+factual knowledge into 20 discrete tokens per entity, reducing up to 10×the used tokens compared to
+serializing the same graph as natural language. We evaluated our models across three benchmarks and
+demonstrated that compact, discrete knowledge representations can effectively convey factual content
+to modern LLMs, achieving competitive or superior accuracy to textualization while dramatically
+reducing context bloating.
+7. Limitations
+Despite the promising results, the proposed approach has several limitations that point to directions for
+future work. First, the reasoning scope is strictly limited to single-hop: KoRe operates on 1-hop star
+subgraphs and cannot natively handle multi-hop reasoning, although zero-shot WebQSP results hint at
+possible extensions towards that. Further, since the datasets used in this work lack reasoning traces, our
+evaluation is performed with reasoning disabled – the LLM backbone (Qwen3-8B) adopted supports
+enabling/disabling reasoning (“thinking mode”). We leave the analysis of reasoning impact to future
+works. In terms of interpretability, tracing which triples influenced a generation is not straightforward:
+auxiliary decoders could be added to this end in future versions of the architecture. In terms of language
+coverage, the presented experiments are English-centric; multilingual extensions – which require
+significant data-collection efforts – are currently ongoing. Finally, our experimental setup currently
+leverages a single Wikidata KG, we plan to extend the evaluation to unseen knowledge graph schemas.
+Acknowledgments
+We acknowledge ISCRA for awarding this project access to the LEONARDO supercomputer, owned by
+the EuroHPC Joint Undertaking, hosted by CINECA (Italy) .
+The work described in this presentation has been conducted within the project TRUMAN. The
+research leading to these results has received funding from HORIZON-CL4-2024-HUMAN-03, under
+Grant Agreement no 101214000
+Thanks to the developers of ACM consolidated LaTeX styles https://github.com/borisveytsman/acmart
+and to the developers of Elsevier updated LATEX templates https://www.ctan.org/tex-archive/macros/
+latex/contrib/els-cas-templates.
+
+Declaration on Generative AI
+During the preparation of this work, the author(s) used Grammarly to: Grammar and spelling check.
+Additionally, the OpenWebUI interface with Qwen3.6 and Gemma4 models was used for content
+enhancement and improving writing style. After using these tool(s)/service(s), the author(s) reviewed
+and edited the content as needed and take(s) full responsibility for the publication’s content.
+References
+[1] E. J. Hu, Y. Shen, P. Wallis, Z. Allen-Zhu, Y. Li, S. Wang, L. Wang, W. Chen, LoRA: Low-rank adapta-
+tion of large language models, 2021. URL: https://arxiv.org/abs/2106.09685. arXiv:2106.09685.
+[2] J. Barmettler, A. Bernstein, L. Rossetto, Conceptformer: Towards efficient use of knowledge-
+graph embeddings in large language models, 2025. URL: https://arxiv.org/abs/2504.07624.
+arXiv:2504.07624.
+[3] P. Lewis, E. Perez, A. Piktus, F. Petroni, V. Karpukhin, N. Goyal, H. Küttler, M. Lewis, W. tau Yih,
+T. Rocktäschel, S. Riedel, D. Kiela, Retrieval-augmented generation for knowledge-intensive nlp
+tasks, 2021. URL: https://arxiv.org/abs/2005.11401.arXiv:2005.11401.
+[4] X. Zhu, Y. Xie, Y. Liu, Y. Li, W. Hu, Knowledge graph-guided retrieval augmented generation,
+in: L. Chiruzzo, A. Ritter, L. Wang (Eds.), Proceedings of the 2025 Conference of the Nations
+of the Americas Chapter of the Association for Computational Linguistics: Human Language
+Technologies (Volume 1: Long Papers), Association for Computational Linguistics, Albuquerque,
+New Mexico, 2025, pp. 8912–8924. URL: https://aclanthology.org/2025.naacl-long.449/. doi: 10.
+18653/v1/2025.naacl-long.449.
+[5] W. Liu, P. Zhou, Z. Zhao, Z. Wang, Q. Ju, H. Deng, P. Wang, K-BERT: Enabling language represen-
+tation with knowledge graph, 2019. URL: https://arxiv.org/abs/1909.07606.arXiv:1909.07606.
+[6] M. E. Peters, M. Neumann, R. L. L. IV, R. Schwartz, V. Joshi, S. Singh, N. A. Smith, Knowl-
+edge enhanced contextual word representations, 2019. URL: https://arxiv.org/abs/1909.04164.
+arXiv:1909.04164.
+[7] R. Wang, D. Tang, N. Duan, Z. Wei, X. Huang, J. ji, G. Cao, D. Jiang, M. Zhou, K-adapter: Infusing
+knowledge into pre-trained models with adapters, 2020. URL: https://arxiv.org/abs/2002.01808.
+arXiv:2002.01808.
+[8] X. Luo, Z. Sun, J. Zhao, Z. Zhao, W. Hu, KnowLA: Enhancing parameter-efficient finetuning with
+knowledgeable adaptation, 2024. URL: https://arxiv.org/abs/2403.14950.arXiv:2403.14950.
+[9] B. Perozzi, B. Fatemi, D. Zelle, A. Tsitsulin, M. Kazemi, R. Al-Rfou, J. Halcrow, Let your graph
+do the talking: Encoding structured data for llms, 2024. URL: https://arxiv.org/abs/2402.05862.
+arXiv:2402.05862.
+[10] D. Wang, Y. Zuo, F. Li, J. Wu, LLMs as zero-shot graph learners: Alignment of GNN representations
+with LLM token embeddings, 2024. URL: https://arxiv.org/abs/2408.14512.arXiv:2408.14512.
+[11] L. Wang, K. Hassani, S. Zhang, D. Fu, B. Yuan, W. Cong, Z. Hua, H. Wu, N. Yao, B. Long, Learning
+graph quantized tokenizers, 2025. URL: https://arxiv.org/abs/2410.13798.arXiv:2410.13798.
+[12] D. Vrandečić, M. Krötzsch, Wikidata: a free collaborative knowledgebase, Commun. ACM 57
+(2014) 78–85. URL: https://doi.org/10.1145/2629489. doi:10.1145/2629489.
+[13] J. Barmettler, A. Bernstein, L. Rossetto, T-rex star 1.0, 2025. URL: https://doi.org/10.5281/zenodo.
+15165974. doi:10.5281/zenodo.15165974.
+[14] Y. Shi, Z. Huang, S. Feng, H. Zhong, W. Wang, Y. Sun, Masked label prediction: Unified message
+passing model for semi-supervised classification, 2020.arXiv:2009.03509.
+[15] T. Cai, S. Luo, K. Xu, D. He, T.-Y. Liu, L. Wang, Graphnorm: A principled approach to accelerating
+graph neural network training, 2021. URL: https://arxiv.org/abs/2009.03294. arXiv:2009.03294.
+[16] J. Yu, X. Li, J. Y. Koh, H. Zhang, R. Pang, J. Qin, A. Ku, Y. Xu, J. Baldridge, Y. Wu, Vector-
+quantized image modeling with improved VQGAN, 2022. URL: https://arxiv.org/abs/2110.04627.
+arXiv:2110.04627.
+
+[17] J. Barmettler, A. Bernstein, L. Rossetto, Tri-REx 1.0, 2025. URL: https://doi.org/10.5281/zenodo.
+15166163. doi:10.5281/zenodo.15166163.
+[18] A. Bordes, N. Usunier, S. Chopra, J. Weston, Large-scale simple question answering with memory
+networks, 2015. URL: https://arxiv.org/abs/1506.02075.arXiv:1506.02075.
+[19] D. Diefenbach, T. P. Tanon, K. D. Singh, P. Maret, Question answering benchmarks for wikidata,
+in: Proceedings of the ISWC 2017 Posters & Demonstrations and Industry Tracks co-located with
+16th International Semantic Web Conference (ISWC 2017), Vienna, Austria, October 23rd - to -
+25th, 2017., 2017. URL: http://ceur-ws.org/Vol-1963/paper555.pdf.
+[20] W.-t. Yih, M. Richardson, C. Meek, M.-W. Chang, J. Suh, The value of semantic parse labeling for
+knowledge base question answering, in: K. Erk, N. A. Smith (Eds.), Proceedings of the 54th Annual
+Meeting of the Association for Computational Linguistics (Volume 2: Short Papers), Association
+for Computational Linguistics, Berlin, Germany, 2016, pp. 201–206. URL: https://aclanthology.org/
+P16-2033/. doi:10.18653/v1/P16-2033.
+[21] D. Sorokin, I. Gurevych, Modeling semantics with gated graph neural networks for knowledge
+base question answering, in: Proceedings of the 27th International Conference on Computational
+Linguistics, Association for Computational Linguistics, 2018, pp. 3306–3317. URL: http://aclweb.
+org/anthology/C18-1280.
+[22] Y. Zhang, M. Li, D. Long, X. Zhang, H. Lin, B. Yang, P. Xie, A. Yang, D. Liu, J. Lin, F. Huang, J. Zhou,
+Qwen3 embedding: Advancing text embedding and reranking through foundation models, 2025.
+arXiv:2506.05176.
+[23] A. Yang, A. Li, B. Yang, B. Zhang, B. Hui, B. Zheng, B. Yu, C. Gao, C. Huang, C. Lv, C. Zheng, D. Liu,
+F. Zhou, F. Huang, F. Hu, H. Ge, H. Wei, H. Lin, J. Tang, J. Yang, J. Tu, J. Zhang, J. Yang, J. Yang,
+J. Zhou, J. Zhou, J. Lin, K. Dang, K. Bao, K. Yang, L. Yu, L. Deng, M. Li, M. Xue, M. Li, P. Zhang,
+P. Wang, Q. Zhu, R. Men, R. Gao, S. Liu, S. Luo, T. Li, T. Tang, W. Yin, X. Ren, X. Wang, X. Zhang,
+X. Ren, Y. Fan, Y. Su, Y. Zhang, Y. Zhang, Y. Wan, Y. Liu, Z. Wang, Z. Cui, Z. Zhang, Z. Zhou, Z. Qiu,
+Qwen3 technical report, 2025.arXiv:2505.09388.
+[24] S. Gugger, L. Debut, T. Wolf, P. Schmid, Z. Mueller, S. Mangrulkar, M. Sun, B. Bossan, Acceler-
+ate: Training and inference at scale made simple, efficient and adaptable., https://github.com/
+huggingface/accelerate, 2022.
+[25] J. Rasley, S. Rajbhandari, O. Ruwase, Y. He, Deepspeed: System optimizations enable training
+deep learning models with over 100 billion parameters, in: Proceedings of the 26th ACM SIGKDD
+International Conference on Knowledge Discovery & Data Mining, KDD ’20, Association for
+Computing Machinery, New York, NY, USA, 2020, p. 3505–3506. URL: https://doi.org/10.1145/
+3394486.3406703. doi:10.1145/3394486.3406703.
+[26] S. Rajbhandari, J. Rasley, O. Ruwase, Y. He, ZeRO: Memory optimizations toward training trillion
+parameter models, 2020. URL: https://arxiv.org/abs/1910.02054.arXiv:1910.02054.

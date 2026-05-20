@@ -1,0 +1,23 @@
+{
+  "paper_id": "arxiv-2605.20167",
+  "title": "HaorFloodAlert: Deseasonalized ML Ensemble for 72-Hour Flood Prediction in Bangladesh Haor Wetlands",
+  "core_claim": "A deseasonalized machine-learning ensemble combining RF and XGBoost can forecast 72-hour flood probability for Bangladesh's Sunamganj haor wetlands, using Sentinel-1 SAR proxy signals and an operational alert pipeline.",
+  "triage_rationale": "This looks application-focused but potentially useful: it claims a concrete operational setting, a nontrivial lead time, and an attempt to address seasonal leakage rather than just optimize accuracy. The abstract is still dominated by single-dataset performance claims and implementation details, so it is better queued for review than advanced immediately.",
+  "topic_tags": [
+    "machine learning",
+    "flood prediction",
+    "remote sensing",
+    "time series forecasting",
+    "disaster response",
+    "ensemble methods"
+  ],
+  "likely_red_flags": [
+    "Very high performance claims on a small-looking event count (77 Sentinel-1 events)",
+    "Possible leakage/overfitting risk in a geographically and temporally narrow dataset",
+    "Abstract is metric-heavy but light on validation protocol details",
+    "Operational claims may not generalize beyond the Sunamganj haor context"
+  ],
+  "research_score_estimate": 6,
+  "podcast_score_estimate": 7,
+  "decision": "queue_for_review"
+}

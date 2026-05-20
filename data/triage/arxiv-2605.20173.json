@@ -1,0 +1,22 @@
+{
+  "paper_id": "arxiv-2605.20173",
+  "title": "A Methodology for Selecting and Composing Runtime Architecture Patterns for Production LLM Agents",
+  "core_claim": "Production LLM agent runtimes can be treated through a stochastic-deterministic boundary contract, and a small catalog of composable runtime patterns helps select architectures that improve reliability as model variance shrinks.",
+  "triage_rationale": "The paper is squarely about production LLM agent architecture and offers a concrete methodology, pattern catalog, and a runnable implementation, which makes it useful for both research and episode critique. It reads as more conceptual than empirically deep, but the runtime focus and failure-mode framing are strong enough to merit review.",
+  "topic_tags": [
+    "llm-agents",
+    "agent-runtimes",
+    "software-architecture",
+    "reliability",
+    "distributed-systems",
+    "production-systems"
+  ],
+  "likely_red_flags": [
+    "Single-author paper with no affiliations listed",
+    "Appears primarily conceptual; empirical validation depth is unclear from the abstract",
+    "Some terminology and framing may be author-invented rather than established"
+  ],
+  "research_score_estimate": 6.7,
+  "podcast_score_estimate": 8.3,
+  "decision": "advance_to_review"
+}

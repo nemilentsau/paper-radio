@@ -121,6 +121,39 @@ class EpisodeRunnerTest(unittest.TestCase):
             with self.assertRaisesRegex(ReviewReadinessError, "not production-ready"):
                 validate_reviews_ready(root, ["arxiv-2604.01694"])
 
+    def test_validate_reviews_ready_rejects_accidental_placeholder_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            review_dir = root / "data" / "reviews"
+            review_dir.mkdir(parents=True)
+            (review_dir / "arxiv-2604.01694.json").write_text(
+                json.dumps(
+                    {
+                        "paper_id": "arxiv-2604.01694",
+                        "one_line_claim": "The paper claims minor singular directions improve PEFT.",
+                        "what_they_tested": "It compares minor, major, and random singular-vector adaptations.",
+                        "strongest_point": "It directly ablates minor, major, and random directions.",
+                        "weakest_point": "The central empirical comparison is too thin for an optimizer paper.",
+                        "missing_baselines": ["Full fine-tuning under a matched compute budget."],
+                        "missing_ablations": ["Seed variance across all reported tasks."],
+                        "red_flags": [
+                            "I have not yet read the paper inputs; this placeholder was emitted accidentally."
+                        ],
+                        "positive_signals": ["The central ablation directly targets the mechanism."],
+                        "research_score": 4.5,
+                        "podcast_score": 8.0,
+                        "overclaim_score": 6.0,
+                        "replication_interest": 7.0,
+                        "verdict": "Flawed but interesting enough to discuss if the review foregrounds limits.",
+                        "citations": ["Table 2 compares minor, major, and random directions."],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ReviewReadinessError, "not production-ready"):
+                validate_reviews_ready(root, ["arxiv-2604.01694"])
+
     def test_validate_reviews_ready_accepts_substantive_review(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -135,6 +168,38 @@ class EpisodeRunnerTest(unittest.TestCase):
                         "strongest_point": "It directly ablates minor, major, and random directions.",
                         "weakest_point": "The evaluation is too narrow to support broad claims.",
                         "missing_baselines": ["Full fine-tuning under a matched compute budget."],
+                        "missing_ablations": ["Seed variance across all reported tasks."],
+                        "red_flags": ["The benchmark mix is too narrow for the headline claim."],
+                        "positive_signals": ["The central ablation directly targets the mechanism."],
+                        "research_score": 4.5,
+                        "podcast_score": 8.0,
+                        "overclaim_score": 6.0,
+                        "replication_interest": 7.0,
+                        "verdict": "Flawed but interesting enough to discuss if the review foregrounds limits.",
+                        "citations": ["Table 2 compares minor, major, and random directions."],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            validate_reviews_ready(root, ["arxiv-2604.01694"])
+
+    def test_validate_reviews_ready_accepts_substantive_placeholder_critique(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            review_dir = root / "data" / "reviews"
+            review_dir.mkdir(parents=True)
+            (review_dir / "arxiv-2604.01694.json").write_text(
+                json.dumps(
+                    {
+                        "paper_id": "arxiv-2604.01694",
+                        "one_line_claim": "The paper claims minor singular directions improve PEFT.",
+                        "what_they_tested": "It compares minor, major, and random singular-vector adaptations.",
+                        "strongest_point": "It directly ablates minor, major, and random directions.",
+                        "weakest_point": "The central empirical comparison is too thin for an optimizer paper.",
+                        "missing_baselines": [
+                            "A production placeholder replacement baseline that keeps token budget fixed."
+                        ],
                         "missing_ablations": ["Seed variance across all reported tasks."],
                         "red_flags": ["The benchmark mix is too narrow for the headline claim."],
                         "positive_signals": ["The central ablation directly targets the mechanism."],

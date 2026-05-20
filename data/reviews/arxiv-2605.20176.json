@@ -1,0 +1,62 @@
+{
+  "paper_id": "arxiv-2605.20176",
+  "one_line_claim": "ClinSeekAgent claims that clinical agents do better when they actively retrieve EHR, web, and imaging evidence instead of answering from pre-curated patient context, and that teacher trajectories can distill this behavior into an open model.",
+  "what_they_tested": "The paper builds ClinSeek-Bench by pairing curated-input versions of existing EHR and multimodal clinical tasks with an automated evidence-seeking setting over raw MIMIC-derived EHR/CXR data, then evaluates 12 models on 1,800 text-only examples and 989 multimodal examples. It also fine-tunes Qwen3.5-35B-A3B on 7,204 Claude Opus 4.6-generated ClinSeekAgent trajectories and evaluates the student on AgentEHR-Bench.",
+  "strongest_point": "The paired benchmark design is the paper's best idea: same labels and task definitions are evaluated under curated evidence versus raw-data tool use, making the core claim testable rather than just anecdotal. The authors also report task-family failures, confidence intervals, tool inventory, inference budgets, and a training-time transfer experiment, which gives the paper more substance than a pure agent demo.",
+  "weakest_point": "The main comparison is not cleanly controlled because Automated Evidence-Seeking often has access to a broader evidence surface than Curated Input, including full raw history before cutoff, external browser search, image classifiers/report generators, and benchmark vocabulary lookup. Some reported gains may measure added information, specialized tools, or label-space discovery rather than superior clinical reasoning or agentic planning.",
+  "missing_baselines": [
+    "A retrieval-only baseline using the same raw EHR/CXR access but deterministic or non-agentic retrieval, to separate evidence availability from agent planning.",
+    "A curated-input-plus-same-image-tools baseline for multimodal tasks, especially CXR finding and phenotype tasks where specialized CXR classifiers/report generators may dominate.",
+    "A raw-EHR SQL/template baseline with no LLM planning, particularly for risk-prediction tasks where longitudinal structured signals may be extractable by simple rules.",
+    "A no-browser condition for phenotype and medical-knowledge tasks, since browser lookup of the exact benchmark taxonomy can convert an open reasoning problem into label-vocabulary recovery.",
+    "Cost-, latency-, and tool-call-normalized baselines; the agent setting allows up to 200 rounds and 100,000-character tool results, while curated input is a single packed context setting.",
+    "Human clinician or clinically tuned retrieval baseline for a small adjudicated subset, to calibrate whether improved F1 corresponds to clinically sensible evidence seeking."
+  ],
+  "missing_ablations": [
+    "Remove each tool family separately: EHR tools only, image tools only, browser only, and combinations thereof.",
+    "Limit Automated Evidence-Seeking to the same 24-hour/event window used by Curated Input, to test whether gains come from longer history rather than agency.",
+    "Disable specialized CXR classifier/report-generator tools and require native multimodal model image use only.",
+    "Vary maximum agent rounds and tool-result length to quantify sensitivity to long context and search budget.",
+    "Teacher trajectory filtering/compression versus raw Claude trajectories for the SFT experiment, since the authors note redundancy and low-value tool calls.",
+    "Evaluate multiple random seeds or repeated agent runs; Appendix D says all models are evaluated with one run per question despite stochastic temperature 1.0.",
+    "Ablate SQL access versus fixed EHR retrieval tools, since the student analysis highlights a large increase in SQL use after SFT.",
+    "Check whether preserving linked CXR identifiers and patient metadata leaks task-relevant selection information in the automated setting."
+  ],
+  "red_flags": [
+    "Several references and evaluated models are dated 2026 and the paper itself is a fresh preprint; many external claims are not independently validated in the provided text.",
+    "The text-only overall gains are modest and model-dependent: Claude Opus 4.6 improves only 60.0 to 63.2 F1, Qwen3.5 is essentially flat at +0.1, and several models get worse, including Kimi K2.5 -11.3 and Qwen3-VL -9.8.",
+    "Decision-making tasks degrade broadly under ClinSeekAgent: even Claude Opus drops 45.9 to 44.8, Claude Sonnet drops 42.6 to 35.9, GLM-4.7 drops 38.6 to 23.1, and Qwen3.5 drops 29.0 to 22.0.",
+    "The multimodal mortality tasks show large negative deltas for some agents, e.g. Claude Sonnet 24-hour mortality 90.4 to 64.0 and Kimi inpatient mortality 87.2 to 62.4, which is worrying for a clinical-decision framing.",
+    "The benchmark is assembled by reformulating existing datasets, but the paper gives limited evidence of label auditing, patient-level leakage checks, or clinical adjudication of generated evidence trajectories.",
+    "The case studies expose benchmark-specific behavior: browser recovery of the Harutyunyan-2019 phenotype taxonomy is described as a decisive move, which may be useful for scoring but is not the same as clinical evidence acquisition.",
+    "The SFT result approaches Claude Opus on AgentEHR-Bench, but the teacher is also used to generate trajectories and the evaluation is another EHR-agent benchmark, so transfer beyond this environment remains uncertain.",
+    "The authors promise full release of model, data, and code, but the review text only provides a future-tense release statement, so reproducibility cannot be assessed from the paper alone."
+  ],
+  "positive_signals": [
+    "The paper explicitly reports a major failure mode: ClinSeekAgent can collect excessive irrelevant information and miss key signals on decision-making tasks.",
+    "Uncertainty estimates are included for main tables, with sample sizes and 95% Student-t confidence intervals over per-sample F1.",
+    "The evaluation covers both closed-source and open-source models, and does not hide negative results for weaker agents.",
+    "The tool space is concretely specified with 11 EHR tools, 3 browser tools, and 6 image tools.",
+    "Temporal cutoffs are stated: EHR queries are restricted to records before the reference timestamp and post-cutoff information is hidden.",
+    "The SFT experiment reports useful training details, including 7,204/147 train/validation examples, 52K max sequence length, 18.3% length filtering, 3 epochs, and 8 H200 GPUs.",
+    "The student tool-use analysis goes beyond final F1 and shows a behavioral change, especially SQL tool use increasing from 649 to 3,932 calls.",
+    "The authors distinguish research quality from task-family suitability: risk prediction improves more consistently than decision making."
+  ],
+  "research_score": 6.8,
+  "podcast_score": 8.1,
+  "overclaim_score": 6.7,
+  "replication_interest": 7.4,
+  "verdict": "Worth covering, but frame it as an ambitious benchmark-and-systems preprint with a real comparison idea and serious confounds. The strongest story is not 'clinical agents are solved'; it is that raw evidence access plus tool-using frontier models can outperform curated-context baselines in some clinical prediction settings, especially risk prediction and CXR-heavy tasks, while hurting decision-making and creating new failure modes. For Paper Radio, this is high-value because it exposes the gap between benchmark F1, evidence access, tool design, and actual clinical trustworthiness.",
+  "citations": [
+    "Abstract: Claude Opus 4.6 improves on text-only EHR tasks from 60.0 to 63.2 overall F1, MiniMax M2.5 from 43.1 to 47.3, and multimodal Claude Opus 4.6 from 47.5 to 62.6.",
+    "Section 3.1: ClinSeek-Bench contains 1,800 text-only examples from 45 EHR-Bench subtasks and 989 multimodal examples across six EHRXQA/MedMod task groups.",
+    "Section 3.1: Automated Evidence-Seeking removes curated context but gives patient identifier, prediction-time cutoff, optional linked CXR identifiers, and access to ClinSeekAgent tools; for EHR-Bench it uses the last event timestamp and allows full raw EHR history before that time.",
+    "Table 1: Decision-making performance drops under ClinSeekAgent for most models, including Claude Sonnet 42.6 to 35.9, GLM-4.7 38.6 to 23.1, Qwen3.5 29.0 to 22.0, and Gemma 27.8 to 17.3.",
+    "Table 2: Multimodal overall improves for five of six models, but several safety-relevant mortality cells degrade, including Claude Sonnet 24-hour mortality 90.4 to 64.0 and Kimi inpatient mortality 87.2 to 62.4.",
+    "Section 3.5: The authors state that ClinSeekAgent's main weakness is decision-making, where it sometimes collects excessive irrelevant information and overlooks critical signals.",
+    "Table 3: ClinSeek-35B-A3B improves Qwen3.5-35B-A3B from 22.1 to 34.0 average F1 on AgentEHR-Bench, but Transfers drops from 18.1 to 16.7.",
+    "Section 4.3: The distilled model makes a similar number of tool calls to the base model, but SQL calls rise from 649 to 3,932, increasing from 2.0% to 12.5% of tool use.",
+    "Appendix A: The authors acknowledge multimodal tasks are still relatively simple and that Claude Opus 4.6 teacher trajectories can include redundant or low-value tool calls.",
+    "Appendix D: All models are evaluated with one run per question, temperature 1.0, maximum 200 agent rounds, maximum output 8192 tokens, and maximum tool-result length 100,000 characters."
+  ]
+}

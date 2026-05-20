@@ -1,0 +1,35 @@
+{
+  "paper_id": "arxiv-2605.20172",
+  "source": "arxiv",
+  "source_id": "2605.20172",
+  "title": "Long-term Power Grid Planning via Answer Set Programming",
+  "authors": [
+    "Antonio Ielo",
+    "Francesco Doria",
+    "Sandra Castellanos-Paez",
+    "Marco Maratea",
+    "Francesco Percassi",
+    "Mauro Vallati"
+  ],
+  "author_affiliations": [],
+  "abstract": "The Power grid is a critical infrastructure underpinning all aspects of modern society and its services. Maintaining its effectiveness requires continuous adaptations. In particular, addressing sustainability targets, demand patterns, and urbanisation trends requires implementing changes to the network. Actual developments can potentially span over a decade, with supply continuity and service quality that must be preserved throughout by ensuring conformance to several topological and combinatorial invariants. Long-term power grid planning deals with the above process, and although planning languages could be a natural choice, the kind of properties and invariants needed are cumbersome to express in such languages; on the contrary, they can be elegantly and succinctly encoded in Answer Set Programming (ASP). In this paper, we propose the first approach to automate and optimise the long-term power grid planning process using ASP. Experimental evaluations conducted on synthetic and real-world grid data confirm the expressive power of the proposed ASP-based approach and demonstrate its effectiveness.",
+  "published_at": "2026-05-19T17:54:15Z",
+  "updated_at": "2026-05-19T17:54:15Z",
+  "categories": [
+    "cs.LO",
+    "cs.AI"
+  ],
+  "pdf_url": "https://arxiv.org/pdf/2605.20172",
+  "abs_url": "https://arxiv.org/abs/2605.20172",
+  "source_types": [
+    "arxiv_recent"
+  ],
+  "status": "triaged",
+  "trusted_orgs": [],
+  "triage_decision": "queue_for_review",
+  "triage_rationale": "This looks like a technically credible application paper with a concrete optimization problem, clear formalism, and an evaluation claim, so it is worth a deeper review. It is niche rather than broadly general ML, but the combination of infrastructure planning and symbolic AI makes it potentially useful for comparison and discussion.",
+  "research_score_estimate": 6.6,
+  "podcast_score_estimate": 5.8,
+  "local_pdf_path": "data/papers/pdfs/arxiv-2605.20172.pdf",
+  "full_text_path": "data/papers/fulltext/arxiv-2605.20172.txt"
+}

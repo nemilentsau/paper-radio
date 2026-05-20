@@ -1,0 +1,695 @@
+HaorFloodAlert: Deseasonalized ML Ensemble for
+72-Hour Flood Prediction in Bangladesh Haor
+Wetlands
+Salma Hoque Talukdar Koli 1∗, Fahima Haque Talukder Jely 2, Md. Samiul Alim 1, Md. Zakir Hossen 3
+1Department of Computer Science and Engineering, RTM Al-Kabir Technical University, Sylhet-3100, Bangladesh
+2Department of Computer Science and Engineering, North East University Bangladesh, Sylhet, Bangladesh
+3Department of Computer Science and Engineering, Dhaka University of Engineering & Technology, Gazipur, Bangladesh
+*Corresponding author: (info.salmahoquetalukdarkoli@gmail.com)
+Abstract—Flash floods in Bangladesh’s haor wetlands show
+up with almost no warning. They wreck the annualbororice
+harvest. Current setups, built for riverine floods, miss backwater
+dynamics entirely. These basins are flat. Water doesn’t behave
+like it does on the Brahmaputra.
+We built HaorFloodAlert, a deseasonalized machine learn-
+ing ensemble that forecasts 72-hour flood probability for the
+Sunamganj Haor (∼8,000 km 2). Temperature was acting as a
+seasonal cheat code—it inflated accuracy by 6.9 pp just because
+floods happen in warm months. We caught that. We also built
+an upstream Barak River Sentinel-1 SAR proxy from Silchar,
+Assam, giving about 36 hours of lead time. Otsu-thresholded
+SAR change detection validates at 84–91% spatial match.
+The operational ensemble (RF 0.5625 + XGBoost 0.4375) hits
+89.6% LOOCV accuracy, 87.5% recall, and 0.943 AUC-ROC
+on 77 real Sentinel-1 events. A three-tier alert pipeline and a
+BRRI-calibratedbororice damage estimator are included.
+Index Terms—flood prediction, haor, Bangladesh, Sentinel-1
+SAR, seasonal deconfounding, Random Forest, XGBoost, up-
+stream proxy, early warning, crop damage estimation.
+I. INTRODUCTION
+Haor basins in northeast Bangladesh are basically giant
+shallow bowls. Around 8,000 km 2 of them. They fill fast
+from pre-monsoon rains and water coming down from Assam.
+Unlike normal river floods, the water here spreads sideways
+across flat land. Warning time? Often just hours.
+Thebororice crop matures in March–April. A flash flood
+before harvest destroys the entire annual yield. For 3–4 million
+people, a 36–72 hour warning isn’t just helpful. It is survival.
+The first author grew up in Sylhet. She watched flash
+floods displace haor communities with almost no warning at
+all. Government systems designed for the Brahmaputra and
+Meghna? They stayed silent. No haor-specific alerts. Nothing.
+That silence is what started this project.
+This paper makes six contributions. We spotted a temper-
+ature seasonal confound that inflates accuracy by 6.9 pp—
+raw temperature is basically a calendar proxy, not a causal
+driver. Otsu-threshold SAR flood mapping validates at 84–
+91% spatial correspondence. An upstream Barak SAR proxy
+at Silchar gives roughly 36-hour lead time. The deseason-
+alized ML ensemble is the first built specifically for haor
+backwater dynamics. We also built a deployable three-tier
+SMS/email/WhatsApp alert system with season-aware Bengali
+messaging. And a BRRI-calibratedbororice crop damage
+estimator plugs straight into the flood output.
+The Flood Forecasting and Warning Centre (FFWC) moni-
+tors river levels. But haor-specific forecasts? They don’t exist.
+Prior ML studies in Bangladesh focus on riverine contexts
+using station data [1], [2]. Here’s the problem: raw air tem-
+perature gets thrown in as a feature because floods occur
+in warm months. Temperature becomes a stand-in for “it’s
+monsoon season.” It isn’t driving the flood. We show this
+inflates accuracy by up to 6.9 pp (Section IV-E) and fix it
+with monthly climatological anomaly deconfounding. Recent
+reviews identify 42 unique flood-driving factors in Bangladesh,
+yet SAR backscatter and upstream transboundary proxies
+remain underexplored in ML frameworks [3]. We haven’t
+found prior work that combines Sentinel-1 SAR, upstream
+transboundary monitoring, and deseasonalized features for
+haor backwater dynamics.
+Section II situates this work. The study area and dataset
+follow in Section III. Methodology, results, discussion, limi-
+tations, and conclusions occupy Sections IV–VIII.
+II. RELATEDWORK
+A. Gauge-Based Flood F orecasting in Bangladesh
+Traditional flood prediction in Bangladesh leans on hydro-
+logical station data from the Bangladesh Water Development
+Board (BWDB). Hossain et al. [1] ran Random Forest and
+XGBoost on gauge data. Moderate accuracy for riverine
+floods. But spatial coverage for ungauged haor basins? Missing
+entirely. Rajab et al. [4] reported AUC 0.81–0.89 using multi-
+station ensembles. Yet their approach is stuck where historical
+streamflow records exist. In transboundary haor wetlands, up-
+stream gauges sit in India. That’s a structural mismatch. These
+methods also fail on backwater dynamics. Haor inundation
+arrives as diffuse regional flooding. Not channelized river rise.
+Gauge-centric models are built for the wrong physics.
+B. SAR-Based Flood Mapping
+SAR remote sensing sidesteps the gauge dependency. Satel-
+lite remote sensing, particularly Sentinel-1 SAR, has trans-
+arXiv:2605.20167v1  [cs.AI]  19 May 2026
+
+formed operational flood monitoring through all-weather, day-
+night capability. Uddin et al. [5] achieved 89% accuracy in
+SAR flood mapping via Otsu thresholding. But here’s the
+catch: their work is retrospective. It maps floods after they
+happen. It doesn’t predict them. Bhuiyan et al. [6] estab-
+lished SAR backscatter thresholds for coastal cyclone flooding.
+Singha et al. [7] identified flood-affected paddy fields using
+Google Earth Engine workflows. These studies validate SAR’s
+discriminative power for water detection. Yet none integrate
+SAR backscatter as a predictive feature in ML forecasting
+models. The gap betweenmapping(post-event) andprediction
+(pre-event) remains unbridged in Bangladesh haor contexts.
+C. Machine Learning Ensembles and Deep Learning
+The ML literature has grown fast. The haor-specific gap
+within it hasn’t.
+Recent work has shifted toward ensemble ML and deep
+learning for flood susceptibility mapping. Chowdhury et al. [8]
+combined ANN and CatBoost for flash flood prediction in
+northeast haors. They hit 88% accuracy. But they relied
+solely on gauge and reanalysis data. No SAR. Siam et
+al. [9] used RF-SVM-XGB ensembles for hilly southeast
+Bangladesh, incorporating DEM and rainfall. Features less
+relevant to flat haor terrain. Deep learning approaches, par-
+ticularly LSTM networks, have shown promise in rainfall-
+runoff modeling [10]. But they require 30+ years of streamflow
+calibration. In haors, Sentinel-1 data begins only in 2014.
+Discharge records are sparse. The training set is far too small
+for reliable LSTM generalization. This aligns with broader
+findings that deep time-series models fail in data-scarce hy-
+drological basins.
+D. Research Gap and Positioning
+No prior work combines Sentinel-1 SAR backscatter with
+upstream transboundary monitoring for haor backwater pre-
+diction. The Surma-Kushiyara system receives Assam dis-
+charge with about 36-hour lead time [11]. This proxy re-
+mains unexploited in ML frameworks. Seasonal confounding
+is equally ignored. Raw temperature correlates with flood
+labels (r=0.570) purely because floods occur in warm months.
+It inflates accuracy by up to 6.9 pp in our experiments.
+Deseasonalization has been used in hydrology [12] but not
+previously in Bangladesh haor flood ML. Existing systems
+also lack operational deployment. No prior work integrates
+prediction with SMS/email alerts or crop damage estimation
+for haor farmers.
+Three gaps. None of them subtle. No prior work joins
+Sentinel-1 SAR to upstream transboundary monitoring for
+haor backwater. The 36-hour Barak travel time is docu-
+mented [11] but unused in any ML framework. The tem-
+perature seasonal confound goes uncorrected across the
+Bangladesh flood ML literature. It silently inflates reported
+accuracy in ways few studies acknowledge. The chain from
+ML prediction to operational alert to crop damage estimate
+has never been closed for haor farmers. HaorFloodAlert is
+built around all three.
+TABLE I
+DATASETSUMMARY
+Period Events Flood Dry
+Real-SAR (2014–2024) 77 32 45
+Proxy (pre-2014) † 54 28 26
+Total 131 60 71
+†Proxy construction: see §IV-B.
+Fig. 1. Study area: Sunamganj Haor boundary (white), Tanguar Haor (shaded),
+upstream Barak region in Assam (red), and major rivers. Sentinel-2 RGB
+background, March 2022.
+III. STUDYAREA ANDDATASET
+The Sunamganj Haor (24.87 ◦N, 91.45 ◦E) covers roughly
+8,000 km 2 of extremely low relief (<3 m) with TWI 14–20.
+It is uniquely susceptible to backwater inundation. The up-
+stream Barak monitoring region near Silchar, Assam (24.80◦N,
+92.95◦E) lies 120 km northeast. Travel time is about 36 hours.
+Fig. 1 shows the Sunamganj Haor boundary (white outline),
+Tanguar Haor buffer zone (shaded), and the upstream Barak
+monitoring region in Assam (red), with major rivers and a
+Sentinel-2 RGB background from March 2022.
+Training data comprises131 events(60 flood, 71 dry)
+spanning 2009–2024: 77 real-SAR events (post-2014, genuine
+Sentinel-1 via Google Earth Engine) and 54 proxy events
+(pre-2014, physics-calibrated SAR proxies). Event labels are
+sourced from FFWC Annual Reports, Islam et al. [13] histor-
+ical records, and World Bank GRADE flood assessments.All
+primary metrics are computed exclusively on the 77 real-
+SAR events. The extended set supplements training. Proxy
+construction methodology is detailed in Section IV-B.
+IV. METHODOLOGY
+A. Feature Engineering
+Table II lists the 11 active ML inputs and 2 dashboard
+indicators. Slope and TWI were dropped. Near-zero variance
+across flat haor terrain (1.91 ◦ and 17.185 respectively). For
+each event, pixel-levelVV/VHbackscatter is spatially averaged
+across the haor bounding box to produce a single feature
+vector. Binary flood labels are assigned when Otsu-derived
+inundated area exceeds 50 km 2 and FFWC reports confirm
+inundation.
+Collinearity note.Feature 3 (VV/VHratio) is algebraically
+derived from Features 1 and 2. The pairwise Pearsonr
+between VV , VH, and the ratio exceeds 0.85. Both RF and
+
+TABLE II
+FEATURESET(11 ACTIVE+ 2 DASHBOARD)
+# Feature Source Type Notes
+1VVbackscatter Sentinel-1 GRD Real/proxy 30 m, 6-day revisit
+2VHbackscatter Sentinel-1 GRD Real/proxy Cross-polarisation
+3VV/VHratio Sentinel-1 GRD Derived Flood discriminant
+4 7-day rainfall CHIRPS Daily Real Cumulative mm
+5 Soil moisture ERA5-Land Real V olumetric, 11 km
+6temp_anomalyERA5-Land + clim.Derived Deconfounded—see §IV-E
+7 Wind speed ERA5-Land Real 10 m max, km/h
+8 NDWI Sentinel-2 SR Real Cloud-limited; 69% default (zero-fill)
+9 12h forecast rain Open-Meteo Real Hourly precipitation
+10 TWI HydroSHEDS + SRTMDroppedZero variance (flat terrain); used as terrain
+descriptor in §III only, not as ML feature
+11 UpstreamVVSentinel-1 (Silchar) Real/proxy Barak proxy
+12 72h forecast rain Open-Meteo Real 3-day cumulative
+[13] Surma discharge (GloFAS), Dashboard indicator,r=0.79 (multicollinear)
+[14] Barak discharge (GloFAS), Dashboard indicator, correlated with Feature 11
+XGBoost manage this via random subspace sampling and
+greedy regularization, respectively. We retain all three because
+the ratio captures flood-specific polarization behavior that raw
+backscatter does not. An ablation dropping the ratio drops
+accuracy by 2.1 pp. The redundancy is tolerated.
+NDWI missingness.NDWI is unavailable during 69% of
+events due to monsoon cloud cover. We zero-fill missing
+values. Zero is not neutral for NDWI—it corresponds to the
+water/land boundary. This introduces systematic signal into
+a missing-data problem. We tested dropping NDWI entirely:
+accuracy falls from 88.0% to 84.0% on real-SAR LOOCV .
+Despite the imputation risk, NDWI contributes +4.0 pp. We
+retain it as an active feature but flag the caveat.
+B. Proxy Event Construction
+Fifty-four events predate Sentinel-1 deployment (before
+2014). Discarding them leaves 77 training examples. Work-
+able, but thin for ensemble stability across 11 features. We
+construct physics-calibrated SAR proxies by matching his-
+torical flood dates from FFWC Annual Reports and Islam
+et al. [13] against ERA5-Land cumulative rainfall signatures.
+Then we assign syntheticVV/VHbackscatter drawn from the
+observed post-2014 haor flood distribution: flooded pixels−18
+to−24dB, unflooded−9to−14dB.
+The circularity risk is real. A proxy built from post-2014
+SAR statistics and used alongside real-SAR events in training
+could partly encode the construction heuristic rather than
+physical flood dynamics. We mitigate this directly.(i)All
+primary performance metrics are computed exclusively on the
+77 real Sentinel-1 events.(ii)Feature importance rankings are
+stable whether training uses real-SAR only or the full 131-
+event set.(iii)Real-SAR-only LOOCV yields 86.7% accuracy
+on 75 clean events—2.9 pp below the full-set headline, not
+a collapse. The proxies extend training stability. They don’t
+determine the headline results.
+One caveat we must state plainly: the 86.7% real-SAR-only
+test used a model architecture tuned on the full 131-event set.
+A truly clean ablation would tune hyperparameters exclusively
+on the 77 real events. We have not done that. The 86.7% figure
+is therefore a lower-bound estimate, not a definitive circularity
+proof.
+C. Otsu SAR Flood Mapping
+Flood detection uses Sentinel-1VVchange detection follow-
+ing Uddin et al. [5]. A pre-flood reference (January–February)
+is differenced against the at-flood image and thresholded via
+Otsu’s method [14]. Flooded pixels sit at lowVV(−18to
+−24dB). Unflooded at highVV(−9to−14dB). Resolution
+is 30 m on Google Earth Engine. Three events (2017, 2019,
+2022) were validated against FFWC maps with 84–91% spatial
+correspondence.
+Pixel-level Cohen’sκis planned for v2 validation. Current
+correspondence is reported as percentage spatial overlap only.
+Fig. 2. Otsu SAR validation across three events: 2017 major, 2022 moderate,
+2024 minor. Inundated area (bars) and Otsu threshold (line, right axis) show
+decreasing flood magnitude.
+D. Data Augmentation
+Gaussian noise (µ=0,σ=0.05, 8×ratio) is applied to the
+training portion of each LOOCV fold. Exclusively within each
+fold’s training split. No augmented instances enter any test
+
+TABLE III
+MONTHLYCLIMATOLOGICALBASELINE(ERA5-LAND, 2009–2024)
+Month Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec
+◦C 17.0 19.4 22.0 24.8 25.4 27.1 27.3 27.5 28.3 27.0 25.4 20.1
+Fig. 3. Temperature confound before and after correction. (a) Raw tempera-
+ture vs. flood label,r= 0.570. (b) temp_anomaly,r=−0.031. Bottom: RF
+importance (a) before—temperature 1st (0.180); (b) after—forecast_rain_72h
+1st (0.188), temp_anomaly 11th (0.021).
+fold. The augmentation addresses the modest class imbalance
+in the real-SAR set (32 flood, 45 dry) without introducing
+leakage.
+One number worth stating plainly. A 5-fold synthetic CV—
+augmentation applied globally before fold splitting—reaches
+99.7% accuracy. That figure is overfit. We don’t cite it as a
+result.
+We also ran a no-augmentation baseline on 75 real-SAR
+events. Accuracy was 85.3%. With 8×augmentation it rises
+to 86.7%. The gain is modest (+1.4 pp) but consistent across
+seeds.σ=0.05 was chosen to preserve physical backscatter
+ranges; larger noise distorts the SAR signal.
+E. Temperature Seasonal Deconfounding
+Raw 2 m temperature correlates with flood labels atr=
+0.570. But this is entirely seasonal. Pearsonrbetween tem-
+perature and calendar month is 0.510. Temperature encodes “it
+is monsoon season.” Not a physical flood driver. We replace
+it with a monthly climatological anomaly:
+temp_anomaly=T obs −T clim[month](1)
+whereT clim is the ERA5-Land 2009–2024 monthly mean
+(Table III). The anomaly correlation drops tor=−0.031
+(p= 0.79). The confound is gone.
+On 77 real-SAR events, raw temperature yielded 88.3%
+LOOCV accuracy with RF importance 0.180 (rank 1). Af-
+ter deconfounding, accuracy improved to 89.6%. Importance
+dropped to 0.021 (rank 11). The model now learns genuine
+signal. Not calendar proxies.
+The effect is not uniform across models. Logistic regres-
+sion with raw temperature achieves 84.0% LOOCV; with
+temp_anomaly it rises to 86.7% (+2.7 pp). XGBoost with
+raw temperature hits 89.3%, but with temp_anomaly it drops
+slightly to 88.0% (−1.3 pp). RF gains the most (+1.3 pp). The
+ensemble benefits from RF’s improvement and XGBoost’s sta-
+bility. Deconfounding is model-dependent. It is not a universal
+accuracy booster.
+F . Ensemble Architecture
+Layer 1 — ML ensemble.RF (500 trees,w=0.45) and
+XGBoost (500 estimators,w=0.35) form the base. LSTM (2-
+layer,w=0.20) is excluded. Walk-forward validation onn=101
+produces 100% accuracy and AUC=1.000. Memorization. Not
+generalization. At this sample size, that’s expected. LSTM cal-
+ibration requires 30+ years of streamflow data [10]. Haors have
+a decade of SAR coverage. The weights renormalize without
+LSTM: RF = 0.45/0.80 = 0.5625, XGB = 0.35/0.80 = 0.4375.
+Layer 2 — Discharge adjustment.Barak GloFAS dis-
+charge at Silchar adds+10–15 pp top base when discharge
+exceeds empirically derived thresholds. The HIGH threshold
+(6,000 m3/s) was identified by correlating CWPRS operational
+Barak flood records with BWDB-documented haor inundation
+events over 2009–2023. The exact count of event pairs entering
+this correlation is not reported here; the threshold should be
+treated as provisional. A sensitivity of±500 m 3/s changes op-
+erational behavior significantly. Characterizing this uncertainty
+is planned for v2.
+The DANGER threshold (7,500 m 3/s) adds a further 5 pp
+increment. It corresponds to events associated with major haor
+inundation (>200 km 2).
+Layer 3 — Trend adjustment.OLS regression on 3-
+day-smoothed 14-day Barak discharge adds+5–15 pp for
+confirmed rising trends. Trigger conditions:R 2 ≥0.60(fit
+quality) and|slope| ≥100m 3/s/day (rate of rise). The 14-
+day window captures slow-building upstream discharge events
+that the instantaneous threshold in Layer 2 may not yet trigger.
+Combined adjustments are capped at 30 pp with a 95% ceiling.
+Three-Layer Inference Pseudocode
+1.p base ←0.5625RF+ 0.4375XGB
+2.∆p discharge ←+0.10–0.15if Barak>6,000m 3/s
+3.∆p trend ←+0.05–0.15if rising trend (R 2 ≥0.60)
+4.p final ←p base + ∆pdischarge + ∆ptrend
+5.Cap:∆p total ≤0.30,p final ≤0.95
+The classification threshold of 0.40 aligns with FFWC
+MEDIUM risk categorization. It wasn’t derived by optimizing
+F1 across training folds. It maps directly to operational risk
+levels. Table IV gives the full mapping.
+G. Community Alert System
+HaorFloodAlert deploys a three-tier alert pipeline de-
+signed for rural Sunamganj connectivity constraints. (1)SMS:
+BulkSMSBD API delivers 160-character Bengali messages to
+farmers on basic mobile phones. (2)Email:Gmail SMTP
+
+TABLE IV
+OPERATIONALRISKLEVELMAPPING
+Levelp final FFWC Equivalent Alert action
+LOW<0.40 Normal monitoring No outbound message
+MEDIUM 0.40–0.65 Advisory SMS to farmers
+HIGH 0.65–0.85 Warning All three tiers
+EXTREME>0.85 Danger All tiers + DDMC escalation
+TABLE V
+HYPERPARAMETERCONFIGURATION
+Parameter Random Forest XGBoost
+Estimators 500 500
+Max depth 12 8
+Learning rate — 0.05
+Min samples split 5 —
+Subsample — 0.8
+Colsample — 0.8
+sends PDF reports to District Disaster Management Commit-
+tee officials within 15 minutes. (3)WhatsApp:Quick-share
+templates for community leaders enable last-mile relay.
+All three tiers activate atp final ≥0.75(HIGH or EXTREME;
+Table IV). Below that, the dashboard displays the current
+risk level with a contributing-factor breakdown. Discharge
+state. 72-hour rainfall forecast. Soil moisture. But no outbound
+message is sent. Season-aware Bengali templates distinguish
+pre-harvest alerts (March–April), which referencebororice
+damage risk and crop growth stage explicitly, from off-season
+flood warnings where the agricultural framing is less urgent.
+H. Boro Rice Crop Damage Estimation
+A BRRI-calibrated damage model [16] translates predicted
+flood depth and duration into yield loss. Stage-sensitive loss
+fractions follow BRRI tables [16]. Seedling (<30 days)→
+10–30%. Tillering→30–60%. Panicle initiation→60–85%.
+Grain-filling→85–100%.
+Upazila-level economic loss is estimated by intersecting the
+Otsu-derived flood extent polygon with BRRI acreage maps in
+Google Earth Engine. Flooded area per upazila is extracted.
+Flood onset date is matched to the district transplanting calen-
+dar to assign crop growth stage. Economic loss in BDT is the
+product of flooded area, upazila yield estimate (tonnes/km 2),
+the stage-appropriate loss fraction, and current paddy market
+price.
+The uncertainty here is real and compounding. SAR-derived
+flooded area maps to inferred depth. Depth maps to BRRI
+stage-loss fractions. The chain carries roughly a±25–40%
+uncertainty at each step. Field validation against actual yield
+losses is outstanding. Estimates are therefore planning figures,
+not insurance-grade losses.
+V. RESULTS
+A. V alidation Protocol and Performance
+Primary evaluation is LOOCV on 77 real-SAR events.
+Augmentation applied within folds only (see §IV-D). Each
+TABLE VI
+LOOCV PERFORMANCE—77 REAL-SAR EVENTS
+Metric Value Notes
+Accuracy 89.6% 69/77 correct
+Recall 87.5% 28/32 floods detected
+Precision 84.8% 28/33 positive correct
+F1-Score 86.2% Harmonic mean
+AUC-ROC 0.943 / 0.910 77 real-SAR / 101 full
+Specificity 91.1% 41/45 dry correct
+Fig. 4. Normalized confusion matrix, 77-event real-SAR LOOCV . TN=41,
+FP=4, FN=4, TP=28. Threshold = 0.40 (FFWC MEDIUM risk boundary).
+Note: row order is Actual Dry (top), Actual Flood (bottom).
+Fig. 5. ROC curves: 77-event real-SAR LOOCV (AUC=0.943), 101-event
+full LOOCV (AUC=0.910), and 45-event stratified holdout (AUC=0.910).
+event is predicted by a model trained on the remaining 76
+events.
+Table VI gives primary metrics. The confusion matrix
+(Fig. 4) at threshold 0.40 yields TN=41, FP=4, FN=4, TP=28.
+
+Fig. 6. 5-fold CV stability (n=101 full dataset). Mean 90.8%±5.8% SD;
+range 80.8–96.3%. LOOCV was used for primary metrics; 5-fold shown for
+fold-level visualization.This is a supplementary stability check only.
+Uncertainty estimate.The 5-fold CV standard deviation
+of 5.8% (Fig. 6) provides an empirical uncertainty bound. For
+operational deployment, we flag predictions where ensemble
+fold variance exceeds 8% as “uncertain,” triggering manual
+DDMC review.
+Extended results: 131-event LOOCV accuracy 87.8% (AUC
+0.941). 5-seed stratified holdout yields mean 86.7% accuracy
+(range 80.0–91.1%, AUC mean 0.910).
+Statistical significance.McNemar’s test on matched folds
+(n=101) givesχ 2(1) = 0.125,p= 0.724. The ensemble
+didn’t show statistically significant improvement over logistic
+regression at this sample size. This is expected. With 77
+real-SAR events, the study is underpowered for detecting
+modest accuracy gains. The ensemble’s practical value lies in
+robustness, uncertainty quantification, and the integration of
+SAR backscatter with upstream proxies. Not in a statistically
+provable accuracy margin over simpler baselines.
+Hard-case analysis.On 4 events where ML base prob-
+ability was<40% but BarakVV<−16 dB or discharge
+>6,000 m 3/s, the 3-layer system correctly classified all 4
+after discharge adjustment. ML-only classified 3/4. The 4
+false negatives occurred when upstream discharge was below
+the HIGH threshold but 72-hour rainfall exceeded 150 mm.
+A rainfall-dominated flood mechanism. The upstream proxy
+alone can’t capture it. That’s a genuine limitation. Not a
+Fig. 7. Baseline comparison on 77-event real-SAR LOOCV . The RF+XGB
+ensemble achieves the highest F1 (0.862) and AUC (0.943).
+framing choice.
+Clean real-SAR-only validation.To test proxy circularity
+directly, we retrained the ensemble on 75 real-SAR events
+with zero proxies in the training set. LOOCV yielded 86.7%
+accuracy, 90.6% recall, 0.934 AUC, and 0.853 F1. This is
+2.9 pp below the headline 89.6%. The gap confirms proxies
+inflate performance modestly. It also confirms the system
+remains viable without them. The 75-event count (not 77)
+reflects two events with incomplete Sentinel-1 coverage that
+were excluded from this clean run.
+B. Feature Importance
+After deconfounding, dominant features are
+forecast_rain_72h (0.188), soil_moisture (0.135),VV/VHratio
+(0.121), and 7-day rainfall (0.106). The low temp_anomaly
+importance (0.021, rank 11) confirms the confound is
+removed. Fig. 8 shows the full ensemble ranking.
+C. Ablation Study
+The ablation uses the 101-event full dataset (real-SAR +
+proxies, 8×augmentation within folds). Not the 77-event
+primary set. This is deliberate. Each feature group needs
+sufficient contrast across folds. 77 events alone make fold-
+level ablation unreliable. Primary metrics in Table VI remain
+on 77 real-SAR events exclusively.
+Baseline accuracy is 86.1%. Removing SAR features drops
+3.0 pp to 83.2%. Removing rain forecasts drops 4.0 pp to
+82.2%. SAR-only performance collapses to 64.4% (−21.8 pp).
+The ensemble isn’t a dressed-up SAR detector. It depends on
+multi-source fusion. Weather-only (no SAR) achieves 85.1%.
+That’s the practical ceiling for purely meteorological predic-
+tion in this domain.
+D. Comparison with Prior Studies
+Cross-study comparison is genuinely limited by differing
+regions, flood mechanisms, and validation protocols. Table VII
+in Section VI places HaorFloodAlert in this context. Caveats
+are made explicit.
+
+Fig. 8. RF + XGBoost ensemble feature importance (131-event decon-
+founded model, RF 0.5625 + XGB 0.4375). Top five: forecast_rain_72h
+0.188, soil_moisture 0.135,VV/VH0.121, 7-day rainfall 0.106,VV0.091.
+Temp_anomaly 0.021 (rank 11). Slope and TWI excluded due to near-zero
+variance.
+Fig. 9. Ablation study (101-event LOOCV , RF+XGB, 8×augmentation
+within folds): baseline 86.1%. Removing SAR features:−3.0 pp (83.2%).
+Removing rain forecasts:−4.0 pp (82.2%). SAR-only collapses to 64.4%
+(−21.8 pp). Weather-only (no SAR): 85.1%. Hatched bars show AUC-ROC.
+VI. DISCUSSION
+Context among prior work.Table VII summarizes recent
+Bangladesh flood ML studies. Direct numerical comparison
+is constrained. Studies differ in region, flood type, validation
+protocol, and training set size. The table is included for
+orientation. Not as a claim that 89.6% beats 88.0% in any
+reproducible sense.
+Why deseasonalization matters.Any ML flood system
+trained on historical events absorbs seasonal proxies. Tem-
+perature (r=0.570) or month-of-year encodings can produce
+models that fail on out-of-distribution dates. Think December
+dam releases. We recommend point-biserial confound testing
+before reporting accuracy.
+Haor-specific dynamics.Backwater inundation differs fun-
+damentally from riverine floods. Water accumulates from
+regional runoff over a flat closed depression. No single control
+point. This is why forecast rainfall and soil moisture dominate
+feature importance. Not river stage.
+McNemar’s result and ensemble justification.Thep=
+0.724McNemar test is not a failure. It is a reality check. At
+n=101, the study lacks power to detect a 2–3 pp accuracy
+difference against logistic regression. The ensemble is still
+preferable for three reasons. First, it quantifies uncertainty
+via fold variance—logistic regression gives a point estimate.
+Second, it integrates SAR backscatter and upstream prox-
+ies that no single baseline combines. Third, it is robust to
+feature corruption: dropping SAR or rain forecasts degrades
+performance but does not collapse it (Section V-C). Statistical
+superiority is not the only criterion for operational value.
+Robustness and uncertainty quantification matter more in a
+deployment setting.
+Operational deployment.The system is prediction-based.
+Not yet deployed as a live operational alert system. All 77
+LOOCV predictions are accounted for: TN=41, FP=4, FN=4,
+TP=28. Future deployment would require FFWC partnership
+for real-time gauge integration.
+VII. LIMITATIONS
+Withn=75–77 real-SAR events, no result in this paper
+should be considered operationally validated. These are pilot-
+scale findings with promising evidence. Not production-ready
+performance claims. Breiman’s guidance suggests roughly 200
+events for stable Random Forest [21]. Our 32 flood events are
+below that. One bad flood year in the test set could swing
+accuracy by 3–4 pp. Treat the 89.6% headline as preliminary.
+Fundamental constraints on validity.
+•Small real training set. Only 75–77 real-SAR events.
+Results are promising but should be treated as preliminary
+pending dataset expansion.
+•Pre-2014 proxy circularity. Proxies are built from post-
+2014 SAR statistics. The model may partially learn the
+construction heuristic. Real-SAR-only validation (86.7%,
+−2.9 pp) mitigates this. It doesn’t eliminate it. The
+clean retrain used a hyperparameter architecture tuned on
+the full contaminated set. A fully clean ablation would
+require tuning on real-SAR only.
+•LSTM excluded entirely. Walk-forward accuracy of 100%
+onn=101 is memorization. No deep learning result is
+cited as a finding.
+•Layers 2–3 use GloFAS reanalysis, not observed gauges.
+Reanalysis discharge is smoother than reality. Threshold
+behavior at 6,000 and 7,500 m 3/s may not transfer
+cleanly to real-time data. The event-pair count behind the
+6,000 m 3/s threshold is not reported here. Sensitivity to
+±500 m 3/s is uncharacterized.
+Operational deployment constraints.
+•GEE data lag (2–9 days) partially offsets the 36-hour
+upstream lead time.
+•Barak proxy is indirect. Direct CWC gauge partnership
+would improve reliability.
+•NDWI unavailable during 69% of events due to monsoon
+cloud cover. Zero-fill is interpretable (water/land bound-
+ary) and contributes +4.0 pp, but it is still systematic
+imputation into a missing-data problem.
+
+TABLE VII
+COMPARISON WITHRECENTBANGLADESHFLOODML STUDIES
+Study Year Method Area Flood Type Acc. AUC Notes
+Hasan et al. [17] 2023 RF+XGB+KNN Coastal Riverine 86.7% — Susceptibility
+mapping‡
+Chowdhury et
+al. [8]
+2024 ANN+CatBoost NE Haor Flash 88.0% 0.91 Gauge+satellite
+hybrid‡
+Islam et al. [18] 2023 ANN National Riverine 82.5% 0.87 Station data only ‡
+Bhuiyan et al. [6] 2021 SAR thresh-
+old
+Coastal Cyclone 80.0% — Post-event mapping ‡
+Siam et al. [9] 2024 RF+SVM+XGB SE Hilly Flash 84.0% 0.89 DEM+rainfall ‡
+This study 2026 RF+XGB Sunamganj
+Haor
+Backwater 89.6% 0.943 SAR+upstream
+proxy‡
+‡Different region, flood type, and validation protocol. Direct numerical comparison is not valid.
+•Crop damage estimates calibrated from BRRI tables [16]
+but not field-validated against actual yield losses. Com-
+pounded uncertainty is roughly±25–40%.
+VIII. CONCLUSION
+This paper presented HaorFloodAlert. A practical deseason-
+alized machine learning system for haor flood prediction. Key
+contributions include temperature deconfounding, integration
+of upstream Barak SAR proxy for about 36-hour lead time, and
+an operational three-tier alert system tailored for rural Sunam-
+ganj. The framework achieves strong performance (89.6%
+LOOCV accuracy, AUC 0.943) while staying transparent about
+its limitations and uncertainties.
+The system has direct potential to help 3–4 million haor
+residents protect theirbororice harvest and livelihoods.
+Future work.CMIP6 projections indicate 15–30%
+increases in March–April precipitation over northeast
+Bangladesh by 2050 [3]. The current model assumes
+stationary climate. Rolling 5-year retraining windows are
+planned for v2. Alongside real-SAR dataset expansion. Real-
+time gauge integration through transboundary collaboration
+with CWC. And physics-informed augmentation to reduce
+dependence on proxy events.
+DATA ANDCODEAVAILABILITY
+All code, Jupyter notebooks, and sample data are available
+at https://github.com/shkoli/HaorFloodAlert. The repository
+includes: (i) notebooks reproducing temperature deconfound-
+ing analysis and LOOCV protocol; (ii) pinned Python 3.10
+environment withrequirements.txt; (iii) preprocessed
+feature matrices for 131 events; (iv) inference pipeline for real-
+time deployment.
+ACKNOWLEDGMENTS
+The authors thank FFWC Bangladesh, ESA Copernicus,
+Google Earth Engine, Open-Meteo, GloFAS, and BRRI for
+data access. The haor communities of Sunamganj are the
+intended beneficiaries.
+REFERENCES
+[1] M. A. Hossain et al., “Flood prediction in Bangladesh using ML and
+hydrological station data,”J. Hydrol.: Reg. Stud., vol. 38, p. 100934,
+2021.
+[2] S. Masood and P. Takeuchi, “Assessment of flood hazard in mid-eastern
+Dhaka,”Nat. Hazards, vol. 61, pp. 757–770, 2012.
+[3] A. R. M. T. Islam et al., “Predicting flood risks using advanced machine
+learning algorithms with a focus on Bangladesh: Influencing factors,
+gaps and future challenges,”Earth Sci. Inform., vol. 18, no. 3, p. 300,
+2025. DOI: 10.1007/s12145-025-01816-x.
+[4] J. A. Rajab et al., “Machine learning in flood forecasting in Bangladesh,”
+Water, vol. 15, no. 22, p. 3970, 2023.
+[5] K. Uddin et al., “Operational flood mapping using multi-temporal
+Sentinel-1 SAR,”Remote Sens., vol. 11, no. 13, p. 1581, 2019.
+[6] M. R. Bhuiyan et al., “SAR-based flood threshold detection using
+Sentinel-1,”Remote Sens. Lett., vol. 12, no. 9, pp. 881–891, 2021.
+[7] M. Singha et al., “Identifying floods and flood-affected paddy rice fields
+in Bangladesh based on Sentinel-1 imagery and Google Earth Engine,”
+ISPRS J. Photogramm. Remote Sens., vol. 166, pp. 278–293, 2020.
+[8] S. Chowdhury et al., “ANN-CatBoost hybrid model for flash flood
+prediction in NE haor,”Nat. Hazards, vol. 120, no. 4, pp. 3451–3472,
+2024.
+[9] A. M. Siam et al., “Multi-classifier ensemble flood susceptibility map-
+ping,”Geocarto Int., vol. 39, no. 1, p. 2305847, 2024.
+[10] F. Kratzert et al., “Rainfall-runoff modelling using LSTM networks,”
+Hydrol. Earth Syst. Sci., vol. 22, pp. 6005–6022, 2018.
+[11] A. M. Dewan et al., “Barak-Surma-Meghna river system: Flood hazard
+assessment using geospatial techniques,”Geomatics, Nat. Hazards Risk,
+vol. 6, no. sup1, pp. 1–15, 2015. DOI: 10.1080/19475705.2013.862344.
+[12] A. Montanari, “Deseasonalisation of hydrological time series through
+the normal quantile transform,”J. Hydrol., vol. 313, no. 3–4, pp. 274–
+282, 2005. DOI: 10.1016/j.jhydrol.2005.03.002.
+[13] A. S. M. Islam et al., “Flood inundation map of Bangladesh using
+MODIS,”J. Flood Risk Manag., vol. 3, no. 3, pp. 210–222, 2010.
+[14] N. Otsu, “A threshold selection method from gray-level histograms,”
+IEEE Trans. Syst., Man, Cybern., vol. 9, no. 1, pp. 62–66, 1979.
+[15] D. Perera et al., “Identifying societal challenges in flood early warning
+systems,”Int. J. Disaster Risk Reduct., vol. 51, p. 101794, 2020.
+[16] BRRI, “Boro rice yield statistics and growth stage calendars for haor
+regions,” Bangladesh Rice Research Institute, Gazipur, Bangladesh,
+Tech. Bull., 2024. https://brri.gov.bd [Accessed: May 2025].
+[17] M. Hasan et al., “Ensemble ML for flood susceptibility mapping in
+coastal Bangladesh,”Int. J. Disaster Risk Reduct., vol. 94, p. 103812,
+2023.
+[18] M. S. Islam et al., “ANN-based flood prediction model for Bangladesh,”
+J. Hydrol.: Reg. Stud., vol. 48, p. 101442, 2023.
+[19] K. Uddin et al., “Rapid flood inundation mapping for effective man-
+agement: A machine learning and pixel-based classification approach
+in Feni District, Bangladesh,”J. Flood Risk Manag., vol. 18, no. 2,
+p. e70087, 2025.
+[20] M. N. Shad et al., “Sedimentation-induced flood risks and food secu-
+rity in Bangladesh’s Haor basin: A geospatial multi-index approach,”
+Geomatics, Nat. Hazards Risk, vol. 16, no. 1, p. 2588258, 2025.
+[21] L. Breiman, “Random Forests,”Mach. Learn., vol. 45, no. 1, pp. 5–32,
+2001.
+[22] S. M. Toufique et al., “Implementing machine learning techniques to
+forecast floods in Bangladesh,” in2024 Int. Conf. Elect. Comput. Energy
+Technol. (ICECET), 2024, pp. 1–6.
+
+[23] M. M. Rahman et al., “Flood susceptibility mapping in Bangladesh
+using machine learning ensemble models,”Geosci. Front., vol. 12, no. 3,
+p. 101104, 2021.
+[24] M. N. Haque et al., “Geo-spatial analysis for flash flood susceptibility
+mapping in the North-East Haor (wetland) region in Bangladesh,”Earth
+Syst. Environ., vol. 5, no. 2, pp. 365–384, 2021.
+[25] S. Talukdar et al., “Land-use land-cover classification by ML classifiers,”
+Remote Sens., vol. 12, no. 7, p. 1135, 2020.
+[26] P. Chakma and A. Akter, “Flood mapping in the coastal region of
+Bangladesh using Sentinel-1 SAR images: A case study of super cyclone
+Amphan,”J. Civ. Eng. F orum, vol. 7, pp. 267–278, 2021.

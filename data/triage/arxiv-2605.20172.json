@@ -1,0 +1,22 @@
+{
+  "paper_id": "arxiv-2605.20172",
+  "title": "Long-term Power Grid Planning via Answer Set Programming",
+  "core_claim": "The paper proposes an ASP-based method to automate and optimize long-term power grid planning, claiming it can encode planning constraints succinctly and perform effectively on synthetic and real grid data.",
+  "triage_rationale": "This looks like a technically credible application paper with a concrete optimization problem, clear formalism, and an evaluation claim, so it is worth a deeper review. It is niche rather than broadly general ML, but the combination of infrastructure planning and symbolic AI makes it potentially useful for comparison and discussion.",
+  "topic_tags": [
+    "symbolic-ai",
+    "answer-set-programming",
+    "optimization",
+    "power-systems",
+    "planning",
+    "operations-research"
+  ],
+  "likely_red_flags": [
+    "Claims of being the 'first approach' are unverified in the abstract.",
+    "The abstract gives no quantitative results, so the strength of the evaluation is unclear.",
+    "The work appears specialized and may have limited broader ML impact."
+  ],
+  "research_score_estimate": 6.6,
+  "podcast_score_estimate": 5.8,
+  "decision": "queue_for_review"
+}

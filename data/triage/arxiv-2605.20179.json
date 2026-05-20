@@ -1,0 +1,20 @@
+{
+  "paper_id": "arxiv-2605.20179",
+  "title": "TIDE: Efficient and Lossless MoE Diffusion LLM Inference with I/O-aware Expert Offload",
+  "core_claim": "The paper proposes a lossless inference system for MoE diffusion LLMs that uses interval-based expert refresh and I/O-aware offloading to reduce traffic and CPU computation, improving throughput without retraining.",
+  "triage_rationale": "This looks like a focused systems paper with a concrete efficiency contribution and measurable throughput gains on current diffusion LLM models, which makes it useful for review. The abstract is technical and specific enough to suggest real methodological content rather than hype, and the I/O-aware offload angle could be interesting for both research and episode discussion.",
+  "topic_tags": [
+    "llm-inference",
+    "mixture-of-experts",
+    "diffusion-models",
+    "systems",
+    "optimization"
+  ],
+  "likely_red_flags": [
+    "Claims are based on a small set of benchmarks in a single GPU-CPU setting.",
+    "The abstract emphasizes 'lossless' and 'free lunch' acceleration, which should be verified carefully in a full review."
+  ],
+  "research_score_estimate": 7.2,
+  "podcast_score_estimate": 7.8,
+  "decision": "advance_to_review"
+}

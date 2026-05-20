@@ -1,4 +1,5 @@
 import json
+import re
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -49,11 +50,25 @@ SOURCE_DOSSIER_FIELDS = {
     "citations",
     "missing_inputs",
 }
-PLACEHOLDER_MARKERS = (
-    "review incomplete",
-    "research incomplete",
+PLACEHOLDER_EXACT_VALUES = {
     "placeholder",
     "todo",
+    "tbd",
+    "n/a",
+    "not final",
+    "invalid placeholder",
+}
+PLACEHOLDER_PHRASES = (
+    "review incomplete",
+    "research incomplete",
+    "placeholder was emitted",
+    "this placeholder was emitted",
+    "tool-call formatting issue",
+    "i have not yet read",
+    "i have not read",
+    "not yet read the paper",
+    "to be completed",
+    "fill this in",
 )
 MIN_REVIEW_TEXT_CHARS = 24
 MIN_REVIEW_LIST_ITEM_CHARS = 20
@@ -73,8 +88,8 @@ def _relative(path: Path, root: Path) -> str:
 
 
 def _is_placeholder(value: str) -> bool:
-    folded = value.casefold()
-    return any(marker in folded for marker in PLACEHOLDER_MARKERS)
+    folded = re.sub(r"\s+", " ", value.strip().casefold())
+    return folded in PLACEHOLDER_EXACT_VALUES or any(marker in folded for marker in PLACEHOLDER_PHRASES)
 
 
 def _read_json(path: Path) -> dict[str, Any]:

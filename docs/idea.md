@@ -27,8 +27,12 @@ The current local pipeline already proves the core shape:
 4. Generate compact review records with separate research and podcast scores.
 5. Build an episode-level factual dossier.
 6. Hand NotebookLM a dossier plus selected anchor sources.
+7. Write per-episode memory notes.
+8. Retrieve and update durable memory cards when a reusable pattern recurs.
 
 The 2026-05-19 run showed the key lesson: the dossier is the product. NotebookLM should remain the final audio renderer, while Paper Radio owns the judgment, memory, source selection, and critique.
+
+The 2026-05-20 run showed that the memory layer can actually compound: the active-evidence-acquisition card created from the prior episode was retrieved for ClinSeekAgent, used as framing in the new dossier, then updated with clinical evidence-seeking, staged VLM perception, and structured-knowledge examples.
 
 ## The Main Design Tension
 
@@ -130,6 +134,8 @@ Do not let lab blogs dominate. They are often important, but they are not neutra
 
 This is the most interesting expansion, and it should be handled as a separate "applied frontier" lane rather than mixed blindly into the ML feed.
 
+This should be the next expansion before Hugging Face trends, lab blogs, or multi-source portfolio selection. The first version can stay arXiv-only and reuse the existing pipeline: pull domain-category candidates, filter for LLM/foundation-model use, triage cheaply, then review only the selected episode set.
+
 Target domains:
 
 - biology and medicine
@@ -166,7 +172,7 @@ Potential intake sources:
 - SSRN or working-paper feeds for finance/econ/legal applications
 - Semantic Scholar or OpenAlex as cross-domain discovery indexes
 
-The first version should not try to cover all domains daily. Use rotating domain days:
+The first version should not try to cover all domains daily. Start with explicit applied-domain runs, then later use rotating domain days:
 
 - Monday: core ML systems/evals
 - Tuesday: bio/medicine
@@ -494,19 +500,21 @@ Do not upload raw review JSON unless debugging. The dossier should synthesize th
 
 ### Next Small Step
 
-Add a memory layer without changing the daily flow too much.
+Memory-aware daily runs are now in place. The next small step is an applied-domain LLM lane that still uses the current production flow after candidate selection.
 
-1. After `scripts/run_episode`, create `memory_notes/<paper_id>.md` and `memory_notes/<episode_id>.md`.
-2. Add tags to review records or a companion `data/memory/index.json`.
-3. During source-dossier generation, include relevant prior notes in the prompt.
+1. Define an `applied_domain_llm_roundup` episode type.
+2. Add domain-category arXiv query presets.
+3. Add LLM/foundation-model keyword filtering or scoring.
+4. Add domain-use-case criteria to triage/review prompts.
+5. Run one explicit applied-domain episode before adding more source systems.
 
-This gives compounding value quickly.
+This gives broader coverage while keeping the deep-review budget fixed.
 
 ### Then Add Source Expansion
 
 1. Add HF papers as a candidate source.
 2. Add lab blog records as a candidate source.
-3. Add a rotating domain-query mode.
+3. Add broader non-arXiv domain indexes when arXiv applied runs show the shape of the demand.
 4. Add source quotas to daily selection.
 
 ### Then Add Better Planning
@@ -522,17 +530,33 @@ This gives compounding value quickly.
 
 Goal: today's dossier can cite yesterday's conclusions.
 
+Status: complete for the lightweight version.
+
+Implemented:
+
+- per-episode `memory_note.md`
+- durable cards under `data/memory/cards/`
+- `data/memory/vocab.json`
+- promote-memory job after dossier generation
+- tag/alias card retrieval plus recent working-memory context
+- validation for memory updates and handoffs
+
+### Milestone 2: Applied Domain Lane
+
+Goal: find practical LLM/foundation-model applications outside core ML without adding a whole multi-source platform yet.
+
 Work:
 
-- define `memory-note` schema
-- write memory notes after each review and episode
-- retrieve notes by tags/string overlap
-- inject retrieved notes into source-dossier job
-- add tests for memory retrieval and handoff inclusion
+- define domain presets and tags
+- implement arXiv domain category queries
+- add LLM/foundation-model keyword filtering
+- add applied-domain triage criteria
+- test one domain run, probably bio/medicine or robotics first
+- keep review count around 10 papers
 
-### Milestone 2: Wider Candidate Funnel
+### Milestone 3: Wider Candidate Funnel
 
-Goal: stop relying on ten recent arXiv papers.
+Goal: stop relying only on recent arXiv pulls.
 
 Work:
 
@@ -542,7 +566,7 @@ Work:
 - merge/dedupe candidate batches
 - add source-signal-aware triage prompt
 
-### Milestone 3: Portfolio Selection
+### Milestone 4: Portfolio Selection
 
 Goal: reduce sampling bias while staying cheap.
 
@@ -552,17 +576,6 @@ Work:
 - add rotating domain lane
 - add wildcard sampling
 - select full-review shortlist from the portfolio
-
-### Milestone 4: Applied Domain Lane
-
-Goal: find practical LLM/foundation-model applications outside core ML.
-
-Work:
-
-- define domain tags and domain-specific review criteria
-- implement arXiv domain category queries
-- test one domain day, probably bio/medicine or robotics first
-- later add PubMed/Europe PMC or OpenAlex
 
 ### Milestone 5: Weekly Memory Products
 
@@ -599,13 +612,13 @@ NotebookLM is good at producing listenable conversation from sources. Paper Radi
 
 ## Near-Term Decision
 
-The next product decision is whether to build memory first or source expansion first.
+The memory-first decision is now resolved. The next product decision is which expansion lane comes first.
 
-My recommendation: **memory first, then source expansion.**
+Current recommendation: **applied-domain arXiv lane first, then HF/lab/multi-source expansion.**
 
-Reason: widening the funnel before memory will produce more novelty but not more compounding intelligence. A small memory layer immediately improves every future source dossier, even if the daily source remains arXiv-only for another week.
+Reason: applied-domain arXiv lets us test the new editorial direction while reusing the current machinery. HF and lab blogs add useful salience, but also add popularity and prestige bias. Domain-use-case papers force us to build better selection and review criteria without yet building a broad source-ingestion platform.
 
-After memory exists, add HF and lab blogs. Then add domain lanes with quotas.
+After applied-domain runs work, add HF and lab blogs. Then add broader domain indexes and portfolio quotas.
 
 ## Success Criteria
 

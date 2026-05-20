@@ -1,0 +1,51 @@
+{
+  "paper_id": "arxiv-2605.20182",
+  "one_line_claim": "A k-means EEG microstate tokenizer trained on six-channel sleep EEG can act as a universal discrete representation that beats raw and STFT features on sleep staging, SEED emotion recognition, and motor imagery classification.",
+  "what_they_tested": "They fit a 1000-cluster streaming k-means tokenizer on GFP peaks from HSP sleep PSG channels F3/F4/C3/C4/O1/O2, then fed token sequences through task-specific deep models on HSP sleep staging, SEED emotion recognition, and PhysioNet motor movement/imagery, comparing against raw EEG and STFT band-power representations using accuracy and Cohen's kappa.",
+  "strongest_point": "The paper asks a concrete representation question and runs the same tokenizer across three fairly different EEG tasks, with reported gains over raw/STFT baselines in all main tables: sleep staging reaches 0.801-0.810 accuracy versus 0.710-0.794 for baselines, SEED reaches 0.862 versus 0.846/0.797, and motor imagery reaches 0.437 versus 0.362/0.323.",
+  "weakest_point": "The universality claim is much stronger than the evidence: the tokenizer is trained and evaluated on HSP for sleep staging, downstream splits appear to be generic 7:1:2 rather than clearly subject-held-out, and the baselines omit modern EEG foundation/self-supervised models and strong task-specific architectures.",
+  "missing_baselines": [
+    "Modern EEG representation/foundation models cited in the related work, especially EEGPT-style pretraining or other self-supervised EEG encoders, not just raw EEG and STFT band power.",
+    "Standard task-specific baselines for each dataset under accepted protocols, such as competitive sleep staging models, EEGNet/ShallowConvNet/DeepConvNet-style BCI baselines, and SEED emotion-recognition baselines.",
+    "Classical microstate baselines using the usual small number of canonical microstate classes or per-dataset/per-subject microstate fitting, to separate the contribution of 'microstates' from the particular 1000-way tokenizer.",
+    "Full-channel baselines for all downstream tasks, not only SEED; motor imagery and sleep comparisons are constrained to the six channels required by the tokenizer."
+  ],
+  "missing_ablations": [
+    "Tokenizer training source: HSP-trained tokenizer versus tokenizer trained on SEED, motor imagery, mixed datasets, or held-out HSP subsets.",
+    "Split protocol ablation: subject-independent splits versus random window/trial splits, especially for SEED and motor imagery where subject leakage can dominate results.",
+    "Effect of GFP-peak-only clustering versus clustering all time points, and effect of preprocessing choices such as 1-40 Hz filtering, resampling, and channel normalization.",
+    "Vocabulary size and embedding capacity are only lightly explored; the paper should report train/test curves and compute cost for k values, not just say validation performance rises with more clusters.",
+    "A control that discretizes EEG with a non-microstate quantizer or random/vector-quantized codebook to show that the gain is not simply from tokenization plus embedding layers."
+  ],
+  "red_flags": [
+    "Sleep staging evaluates on the same HSP corpus used to fit the tokenizer, so the strongest result does not cleanly test out-of-corpus generalization.",
+    "The paper repeatedly frames the tokenizer as 'universal,' but all tokenization is limited to six channels selected because they are common in HSP; this is a pragmatic constraint, not evidence of universal scalp coverage.",
+    "The train/validation/test split is reported as 7:1:2 in training tables, but the paper does not clearly state whether splits are subject-independent. For EEG, random windows from the same subject can inflate performance.",
+    "Model changes are not representation-neutral: microstate versions add embedding layers and sometimes extra CNNs or remove feature extractors, so the comparison is not just representation versus representation.",
+    "The motor imagery result is numerically weak in absolute terms, with 0.437 accuracy and 0.250 kappa for a four-class setting, yet it is used as evidence for broad task generality.",
+    "The interpretability section mostly shows frequency/rank patterns for sleep stages and maps them to plausible amplitude stories; it does not demonstrate causal interpretability or clinically validated microstate meanings."
+  ],
+  "positive_signals": [
+    "The method is simple and reproducible in principle: preprocessing, six channels, GFP peaks, k=1000, and streaming k-means are described concretely.",
+    "They test more than one downstream domain rather than only optimizing a single sleep-staging benchmark.",
+    "They report both accuracy and Cohen's kappa, which is useful for imbalanced EEG classification.",
+    "They include parameter counts for the representation-specific models, making at least some capacity comparison possible.",
+    "They acknowledge important limitations, including the small number of tasks/datasets and the fact that tokenizer training was only performed on sleep data."
+  ],
+  "research_score": 5.4,
+  "podcast_score": 6.1,
+  "overclaim_score": 7.8,
+  "replication_interest": 6.4,
+  "verdict": "Worth covering as a provocative EEG-tokenization idea, but frame it as an early empirical probe rather than a demonstrated universal EEG representation. The episode angle is good: a biologically motivated tokenizer trained on abundant sleep data appears to transfer, but the evidence is vulnerable to split protocol ambiguity, limited baselines, architecture confounds, and overbroad interpretability claims.",
+  "citations": [
+    "Abstract claims a universal tokenizer from a large medical EEG dataset and says it is adopted across sleep staging, emotion recognition, and motor imagery, outperforming time/frequency features: data/papers/fulltext/arxiv-2605.20182.txt:35-53.",
+    "Tokenizer fitting uses HSP PSG data from over 20K subjects, selects only F3/F4/C3/C4/O1/O2, filters 1-40 Hz, resamples to 100 Hz, extracts GFP peaks, and fits k=1000 clusters: data/papers/fulltext/arxiv-2605.20182.txt:324-365 and data/papers/fulltext/arxiv-2605.20182.txt:995-1022.",
+    "Sleep staging uses HSP again, the same dataset family used to fit the tokenizer, with five sleep-stage labels and 300 s windows: data/papers/fulltext/arxiv-2605.20182.txt:387-401.",
+    "Main performance tables report microstate gains: SEED 0.862/0.793 versus raw 0.846/0.769 and STFT 0.797/0.694; motor imagery 0.437/0.250 versus raw 0.362/0.149 and STFT 0.323/0.097; sleep table reports microstate around 0.801-0.810 accuracy: data/papers/fulltext/arxiv-2605.20182.txt:417-424 and data/papers/fulltext/arxiv-2605.20182.txt:457-464.",
+    "The authors note representation-specific model changes, including adding embeddings, adding CNNs, and removing the Sleep Net Zero feature extraction unit for microstates: data/papers/fulltext/arxiv-2605.20182.txt:402-427.",
+    "SEED has 15 subjects and 62 channels, but the microstate pipeline extracts the same six target channels; the full-channel comparison is reported only for SEED: data/papers/fulltext/arxiv-2605.20182.txt:442-450 and data/papers/fulltext/arxiv-2605.20182.txt:509-565.",
+    "Motor imagery uses 109 subjects, 14 trials, 64 channels, then again extracts six channels and uses roughly 4 s samples: data/papers/fulltext/arxiv-2605.20182.txt:469-486 and data/papers/fulltext/arxiv-2605.20182.txt:1144-1172.",
+    "Training tables show a 7:1:2 train/validation/test split but do not clarify subject-held-out splitting in the cited rows: data/papers/fulltext/arxiv-2605.20182.txt:1388-1391, data/papers/fulltext/arxiv-2605.20182.txt:1443-1446, data/papers/fulltext/arxiv-2605.20182.txt:1594-1597, and data/papers/fulltext/arxiv-2605.20182.txt:1654-1657.",
+    "The paper's own limitations say experiments cover limited tasks/datasets and tokenizer training was only performed on sleep data: data/papers/fulltext/arxiv-2605.20182.txt:653-662."
+  ]
+}

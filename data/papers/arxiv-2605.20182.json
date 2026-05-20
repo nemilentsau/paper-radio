@@ -1,0 +1,35 @@
+{
+  "paper_id": "arxiv-2605.20182",
+  "source": "arxiv",
+  "source_id": "2605.20182",
+  "title": "Atoms of Thought: Universal EEG Representation Learning with Microstates",
+  "authors": [
+    "Xinyang Tian",
+    "Ruitao Liu",
+    "Ziyi Ye",
+    "Siyang Xue",
+    "Xin Wang",
+    "Xuesong Chen"
+  ],
+  "author_affiliations": [],
+  "abstract": "Learning universal representations from electroencephalogram (EEG) signals is a cutting-edge approach in the field of neuroinformatics and brain-computer interfaces (BCIs). Conventionally, EEG is treated as a multivariate temporal signal, where time- or frequency-domain features are extracted for representation learning. This paper investigates a simple yet effective EEG representation, i.e., microstates. Microstates represent the building blocks of brain activity patterns at a microscopic time scale. We build a universal microstate tokenizer from a large medical EEG dataset by clustering continuous EEG signals into sequences of discrete microstates. The microstate tokenizer is then adopted universally across a series of downstream tasks, including sleep staging, emotion recognition, and motor imagery classification. Experimental results show that EEG representation learning with microstates outperforms traditional time-domain and frequency-domain features under different models and across different tasks. Further analysis shows that microstates offer greater interpretability and scalability, thereby opening up applications in both cognitive neuroscience and clinical research.",
+  "published_at": "2026-05-19T17:59:31Z",
+  "updated_at": "2026-05-19T17:59:31Z",
+  "categories": [
+    "cs.LG",
+    "cs.AI"
+  ],
+  "pdf_url": "https://arxiv.org/pdf/2605.20182",
+  "abs_url": "https://arxiv.org/abs/2605.20182",
+  "source_types": [
+    "arxiv_recent"
+  ],
+  "status": "triaged",
+  "trusted_orgs": [],
+  "triage_decision": "queue_for_review",
+  "triage_rationale": "The paper has a concrete methodological idea with cross-task evaluation and a plausible interpretability angle, so it is worth a closer look. It is still a relatively specialized EEG representation paper with claims that need full-review scrutiny for dataset breadth, baseline strength, and generalization.",
+  "research_score_estimate": 6.4,
+  "podcast_score_estimate": 5.8,
+  "local_pdf_path": "data/papers/pdfs/arxiv-2605.20182.pdf",
+  "full_text_path": "data/papers/fulltext/arxiv-2605.20182.txt"
+}
