@@ -1,0 +1,141 @@
+[
+  {
+    "paper_id": "arxiv-2605.20176",
+    "source": "arxiv",
+    "source_id": "2605.20176",
+    "title": "ClinSeekAgent: Automating Multimodal Evidence Seeking for Agentic Clinical Reasoning",
+    "authors": [
+      "Juncheng Wu",
+      "Letian Zhang",
+      "Yuhan Wang",
+      "Haoqin Tu",
+      "Hardy Chen",
+      "Zijun Wang",
+      "Cihang Xie",
+      "Yuyin Zhou"
+    ],
+    "author_affiliations": [],
+    "abstract": "Large language models (LLMs) and agentic systems have shown promise for clinical decision support, but existing works largely assume that evidence has already been curated and handed to the model. Real-world clinical workflows instead require agents to actively seek, iteratively plan, and synthesize multimodal evidence from heterogeneous sources. In this paper, we introduce ClinSeekAgent, an automated agentic framework for dynamic multimodal evidence seeking that shifts the paradigm from passive evidence consumption to active evidence acquisition. Given only a clinical query and access to raw data sources, ClinSeekAgent gathers evidence by querying medical knowledge bases, navigating raw EHRs, and invoking medical imaging tools; refines its hypotheses as new information emerges; and integrates the collected evidence into grounded clinical decisions. ClinSeekAgent serves both as an inference-time agent for frontier LLMs and as a training-time pipeline for distilling high-quality agent trajectories into compact open-source models. To validate its inference-time effectiveness, we construct ClinSeek-Bench, which pairs Curated Input reasoning from fixed pre-selected evidence with Automated Evidence-Seeking over raw clinical data. On text-only EHR tasks, ClinSeekAgent improves Claude Opus 4.6 from 60.0 to 63.2 overall F1 and MiniMax M2.5 from 43.1 to 47.3, with positive risk-prediction gains in 7 out of 9 evaluated host models. On multimodal tasks, ClinSeekAgent improves Claude Opus 4.6 from 47.5 to 62.6 (+15.1); all evaluated models improve across the three CXR-related task groups. We further validate ClinSeekAgent as a training pipeline by distilling agentic evidence-seeking trajectories into ClinSeek-35B-A3B, which achieves 34.0 average F1 on existing AgentEHR-Bench, improving over its Qwen3.5-35B-A3B baseline by +11.9 points and approaching Claude Opus 4.6.",
+    "published_at": "2026-05-19T17:58:37Z",
+    "updated_at": "2026-05-19T17:58:37Z",
+    "categories": [
+      "cs.CL"
+    ],
+    "pdf_url": "https://arxiv.org/pdf/2605.20176",
+    "abs_url": "https://arxiv.org/abs/2605.20176",
+    "source_types": [
+      "arxiv_applied_domain",
+      "applied_domain:bio_medicine"
+    ],
+    "status": "candidate",
+    "trusted_orgs": [],
+    "triage_decision": null,
+    "triage_rationale": null,
+    "research_score_estimate": null,
+    "podcast_score_estimate": null,
+    "local_pdf_path": null,
+    "full_text_path": null,
+    "candidate_score": null,
+    "decision": "untriaged",
+    "applied_domain": "bio_medicine",
+    "applied_domain_label": "Bio, medicine, and clinical workflows",
+    "applied_domain_score": 10,
+    "matched_applied_keywords": [
+      "llm",
+      "clinical",
+      "ehr",
+      "medical",
+      "multimodal"
+    ],
+    "matched_workflow_terms": [
+      "decision support",
+      "evidence",
+      "workflow"
+    ],
+    "matched_required_terms": [
+      "clinical",
+      "ehr",
+      "medical"
+    ],
+    "matched_model_terms": [
+      "llm",
+      "agent"
+    ],
+    "application_signal": "workflow_terms_present",
+    "source_query_categories": [
+      "q-bio.QM",
+      "q-bio.GN",
+      "q-bio.NC",
+      "cs.CL",
+      "cs.AI",
+      "cs.CV",
+      "stat.ML"
+    ]
+  },
+  {
+    "paper_id": "arxiv-2605.20158",
+    "source": "arxiv",
+    "source_id": "2605.20158",
+    "title": "Rethinking Visual Attribution for Chest X-ray Reasoning in Large Vision Language Models",
+    "authors": [
+      "Guangzhi Xiong",
+      "Qiao Jin",
+      "Sanchit Sinha",
+      "Zhiyong Lu",
+      "Aidong Zhang"
+    ],
+    "author_affiliations": [],
+    "abstract": "Large Vision Language Models (LVLMs) show promise in medical applications, but their inability to faithfully ground responses in visual evidence raises serious concerns about clinical trustworthiness. While visual attribution methods are widely used to explain LVLM predictions, whether these explanations actually reflect the visual evidence underlying the model's decision is largely unverified, since ground-truth annotations for internal model reasoning are typically unavailable. We address this question for chest X-ray (CXR) reasoning by developing a causal evaluation framework that retains only CXR-VQA samples for which the expert-annotated region is verified, via counterfactual editing, to be causally responsible for the model's prediction. Using this framework across 11 attribution methods, six open-source LVLMs, and two output modes (direct answer and step-by-step reasoning), we find that existing attribution methods often fail to identify the evidence used by LVLMs. To address this failure, we propose MedFocus, a concept-based attribution method that localizes clinically meaningful anatomical regions via unbalanced optimal transport and measures their causal effect on model outputs through targeted interventions. MedFocus produces spatial, concept-level, and token-level attributions and substantially outperforms prior methods, taking a step toward more trustworthy attribution for medical LVLMs. Our data and code are available at https://github.com/gzxiong/medfocus/.",
+    "published_at": "2026-05-19T17:46:40Z",
+    "updated_at": "2026-05-19T17:46:40Z",
+    "categories": [
+      "cs.CV",
+      "cs.AI",
+      "cs.CL"
+    ],
+    "pdf_url": "https://arxiv.org/pdf/2605.20158",
+    "abs_url": "https://arxiv.org/abs/2605.20158",
+    "source_types": [
+      "arxiv_applied_domain",
+      "applied_domain:bio_medicine"
+    ],
+    "status": "candidate",
+    "trusted_orgs": [],
+    "triage_decision": null,
+    "triage_rationale": null,
+    "research_score_estimate": null,
+    "podcast_score_estimate": null,
+    "local_pdf_path": null,
+    "full_text_path": null,
+    "candidate_score": null,
+    "decision": "untriaged",
+    "applied_domain": "bio_medicine",
+    "applied_domain_label": "Bio, medicine, and clinical workflows",
+    "applied_domain_score": 6,
+    "matched_applied_keywords": [
+      "clinical",
+      "medical"
+    ],
+    "matched_workflow_terms": [
+      "evidence",
+      "expert"
+    ],
+    "matched_required_terms": [
+      "clinical",
+      "medical"
+    ],
+    "matched_model_terms": [
+      "lvlm"
+    ],
+    "application_signal": "workflow_terms_present",
+    "source_query_categories": [
+      "q-bio.QM",
+      "q-bio.GN",
+      "q-bio.NC",
+      "cs.CL",
+      "cs.AI",
+      "cs.CV",
+      "stat.ML"
+    ]
+  }
+]

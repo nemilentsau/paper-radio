@@ -71,17 +71,27 @@ class AppliedDomainsTest(unittest.TestCase):
         self.assertGreaterEqual(metadata["applied_domain_score"], 6)
         self.assertIn("clinical", metadata["matched_applied_keywords"])
         self.assertIn("evidence", metadata["matched_workflow_terms"])
+        self.assertIn("clinical", metadata["matched_required_terms"])
+        self.assertIn("large language model", metadata["matched_model_terms"])
         self.assertEqual(metadata["application_signal"], "workflow_terms_present")
 
-    def test_rank_applied_domain_candidates_filters_weak_domain_vocab(self):
+    def test_rank_applied_domain_candidates_filters_weak_and_generic_domain_vocab(self):
         preset = APPLIED_DOMAIN_PRESETS["bio_medicine"]
         strong = make_paper(
             "Clinical RAG Agents for Radiology Evidence Workflows",
             "A large language model retrieval workflow extracts medical evidence for expert review.",
         )
         weak = make_paper("A Generic Benchmark", "A baseline model is tested on unrelated tasks.")
+        generic_rag = make_paper(
+            "BalanceRAG for Calibrated Retrieval",
+            "Large language models can enhance factuality through RAG and retrieval.",
+        )
+        non_llm_medical = make_paper(
+            "Cardiac Fat Segmentation With Classical Imaging",
+            "A clinical medical segmentation model estimates cardiac risk from computed tomography.",
+        )
 
-        ranked = rank_applied_domain_candidates([weak, strong], preset, min_score=2)
+        ranked = rank_applied_domain_candidates([weak, generic_rag, non_llm_medical, strong], preset, min_score=2)
 
         self.assertEqual([paper.paper_id for paper, _metadata in ranked], ["arxiv-2605.11111"])
 

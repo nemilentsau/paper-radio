@@ -1,0 +1,22 @@
+{
+  "paper_id": "arxiv-2605.20158",
+  "title": "Rethinking Visual Attribution for Chest X-ray Reasoning in Large Vision Language Models",
+  "core_claim": "The paper argues that common visual attribution methods do not reliably identify the evidence used by medical LVLMs on chest X-ray reasoning tasks, and proposes MedFocus, a concept-based attribution method evaluated with causal interventions across multiple models and attribution baselines.",
+  "triage_rationale": "This is a concrete applied-methods paper with a clear clinical workflow angle, a causal evaluation framework, and comparisons across many attribution methods and models. The combination of medical grounding, intervention-based validation, and a new attribution method makes it strong enough to move to review.",
+  "topic_tags": [
+    "medical-ai",
+    "vision-language-models",
+    "attribution",
+    "causal-evaluation",
+    "chest-x-ray",
+    "clinical-workflows"
+  ],
+  "likely_red_flags": [
+    "Claims are centered on attribution quality rather than direct clinical utility",
+    "Abstract does not mention external prospective validation or reader study",
+    "Potential for benchmark-heavy evaluation despite a strong methodological framing"
+  ],
+  "research_score_estimate": 7.8,
+  "podcast_score_estimate": 7.1,
+  "decision": "advance_to_review"
+}

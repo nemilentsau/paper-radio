@@ -1,0 +1,21 @@
+{
+  "paper_id": "arxiv-2605.19674",
+  "title": "Beyond Rational Illusion: Behaviorally Realistic Strategic Classification",
+  "core_claim": "The paper reframes strategic classification to account for behaviorally realistic, prospect-theory-inspired agent responses instead of fully rational manipulation, and proposes Pro-SF to model and learn under that setting.",
+  "triage_rationale": "This is a substantive ML theory paper with a concrete decision-and-response setup, and the behavioral-economics angle gives it more analytical value than a generic benchmark-only submission. It is not clearly tied to a real deployment workflow or finance-specific task, so it is better queued than advanced immediately.",
+  "topic_tags": [
+    "strategic classification",
+    "behavioral economics",
+    "prospect theory",
+    "decision models",
+    "theory"
+  ],
+  "likely_red_flags": [
+    "Applied-domain signal appears weak relative to the abstract; the finance modeling tag is not substantiated by the title/abstract.",
+    "Claims of real-world reliability are broad for an abstract that only mentions synthetic and real-world datasets.",
+    "No clear evidence of expert baselines, leakage analysis, or deployment validation in the provided metadata."
+  ],
+  "research_score_estimate": 6.5,
+  "podcast_score_estimate": 7.0,
+  "decision": "queue_for_review"
+}

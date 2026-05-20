@@ -34,6 +34,8 @@ def _render_candidate_markdown(source: str, run_date: str, candidates: list[dict
         applied_score = candidate.get("applied_domain_score")
         matched_keywords = ", ".join(candidate.get("matched_applied_keywords", []))
         matched_workflow_terms = ", ".join(candidate.get("matched_workflow_terms", []))
+        matched_required_terms = ", ".join(candidate.get("matched_required_terms", []))
+        matched_model_terms = ", ".join(candidate.get("matched_model_terms", []))
         lines.extend(
             [
                 f"## {candidate['paper_id']}: {candidate['title']}",
@@ -46,6 +48,8 @@ def _render_candidate_markdown(source: str, run_date: str, candidates: list[dict
                     [
                         f"- Applied domain: {applied_domain}",
                         f"- Applied-domain score: {applied_score}",
+                        f"- Matched required domain terms: {matched_required_terms or 'none'}",
+                        f"- Matched model terms: {matched_model_terms or 'none'}",
                         f"- Matched LLM/domain keywords: {matched_keywords or 'none'}",
                         f"- Matched workflow terms: {matched_workflow_terms or 'none'}",
                     ]

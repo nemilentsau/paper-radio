@@ -1,0 +1,21 @@
+{
+  "paper_id": "arxiv-2605.19747",
+  "title": "Direct Simulation of LiNi0.8Mn0.1Co0.1O2 Transport Properties Using an Efficient and Accurate Machine Learning Potential",
+  "core_claim": "A fine-tuned MACE foundation model plus active learning can build a reliable machine-learning potential for NMC811 that reproduces DFT accuracy and enables direct molecular-dynamics simulation of lithium self-diffusion and diffusion coefficients at larger scales.",
+  "triage_rationale": "This is a concrete materials workflow paper, not just a benchmark: it uses a foundation model, active learning, and direct MD simulation to answer a physically meaningful transport question in NMC811. The topic is narrow but methodologically substantive, with clear applied relevance and enough technical content to merit review.",
+  "topic_tags": [
+    "materials-science",
+    "molecular-dynamics",
+    "machine-learning-potential",
+    "active-learning",
+    "foundation-model",
+    "lithium-ion-batteries"
+  ],
+  "likely_red_flags": [
+    "Abstract does not report quantitative diffusion results or validation details, so the strength of the claimed accuracy is unclear from triage alone.",
+    "The foundation model signal is applied in a specialized materials pipeline, but the novelty may be incremental if the main contribution is a tuned surrogate for existing DFT workflows."
+  ],
+  "research_score_estimate": 7.2,
+  "podcast_score_estimate": 5.8,
+  "decision": "advance_to_review"
+}
