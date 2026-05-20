@@ -1,0 +1,22 @@
+# TIDE: Efficient and Lossless MoE Diffusion LLM Inference with I/O-aware Expert Offload
+
+## Metadata
+- Paper ID: arxiv-2605.20179
+- Source: arxiv
+- Source ID: 2605.20179
+- Authors: Zhiben Chen, Youpeng Zhao, Yang Sui, Jun Wang, Yuzhang Shang
+- Published: 2026-05-19T17:59:08Z
+- Updated: 2026-05-19T17:59:08Z
+- Categories: cs.CL
+- Source signals: arxiv_recent
+- Triage decision: advance_to_review
+- Triage rationale: This looks like a focused systems paper with a concrete efficiency contribution and measurable throughput gains on current diffusion LLM models, which makes it useful for review. The abstract is technical and specific enough to suggest real methodological content rather than hype, and the I/O-aware offload angle could be interesting for both research and episode discussion.
+- Research score estimate: 7.2
+- Podcast score estimate: 7.8
+- Local PDF path: data/papers/pdfs/arxiv-2605.20179.pdf
+- Full text path: data/papers/fulltext/arxiv-2605.20179.txt
+- Abstract URL: https://arxiv.org/abs/2605.20179
+- PDF URL: https://arxiv.org/pdf/2605.20179
+
+## Abstract
+Diffusion Large Language Models (dLLMs) have emerged as a competitive alternative to autoregressive (AR) models, offering better hardware utilization and bidirectional context through parallel block-level decoding. However, as dLLMs continue to scale up with mixture-of-experts (MoE) architectures, their deployment on resource-constrained devices remains an open challenge. Existing AR-based methods often incur either prohibitive I/O overhead or significant compute bottlenecks. In this work, we propose TIDE, a novel resource-efficient inference system that leverages the temporal stability of expert activations during the diffusion process within the block. Specifically, we leverage the temporal stability of expert activations during the diffusion process within the block and introduce an interval-based expert refresh strategy that updates the expert placement in an I/O-aware fashion. To ensure optimal performance, we formulate the inference scheduling as a mathematical programming problem, solving for the optimal interval that minimizes I/O traffic and CPU computation. Most importantly, TIDE is a lossless optimization that requires no model training, providing a "free lunch" acceleration for dLLM inference. In a single GPU-CPU system, we demonstrate that TIDE achieves up to 1.4$\times$ and 1.5$\times$ throughput improvements over prior baselines on LLaDA2.0-mini and LLaDA2.0-flash models, respectively.

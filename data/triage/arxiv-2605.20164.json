@@ -1,0 +1,22 @@
+{
+  "paper_id": "arxiv-2605.20164",
+  "title": "Not Every Rubric Teaches Equally: Policy-Aware Rubric Rewards for RLVR",
+  "core_claim": "POW3R is a policy-aware rubric reward framework for RLVR that preserves the human rubric objective while adapting criterion-level weights during training to emphasize criteria that currently distinguish rollouts, improving rubric reward and strict completion over vanilla GRPO in the authors' experiments.",
+  "triage_rationale": "This looks like a solid methods paper with a clear training-side contribution and measurable claims across multiple policies and datasets, but the abstract suggests an incremental optimization improvement rather than a fundamentally new problem setting. It is worth review because rubric-based reward design and policy-aware weighting could be practically useful and easy to discuss, even if the evidence is still limited to the authors' benchmark setup.",
+  "topic_tags": [
+    "reinforcement_learning",
+    "rlvr",
+    "reward_design",
+    "rubric_rewards",
+    "post-training",
+    "optimization"
+  ],
+  "likely_red_flags": [
+    "Single-paper abstract claims only; no independent validation visible in triage",
+    "Benchmark-specific gains may not generalize beyond the reported GRPO/rubric setting",
+    "Method sounds like a training heuristic, so novelty may be modest"
+  ],
+  "research_score_estimate": 6.8,
+  "podcast_score_estimate": 6.5,
+  "decision": "queue_for_review"
+}

@@ -1,0 +1,60 @@
+{
+  "paper_id": "arxiv-2605.20179",
+  "one_line_claim": "TIDE claims that MoE diffusion LLM inference can be accelerated losslessly by exploiting stable expert routing across nearby denoising steps and refreshing GPU-resident experts only at optimized intervals.",
+  "what_they_tested": "The paper evaluates TIDE, an interval-based GPU/CPU expert placement strategy for MoE diffusion LLM inference, on LLaDA2.0-mini and LLaDA2.0-flash using sanitized MBPP and compares throughput against Fiddler-style CPU execution and Mixtral-Offload-style per-step expert swapping under several GPU expert budgets, block sizes, output lengths, and confidence thresholds.",
+  "strongest_point": "The strongest contribution is the systems-specific observation that MoE-dLLM routing is temporally stable across nearby denoising steps, which creates a plausible and measurable opportunity to amortize expert migration rather than copying experts every step.",
+  "weakest_point": "The evaluation is narrow: one benchmark, two LLaDA2.0 variants, two GPU classes, and throughput-only reporting, so the paper establishes a promising scheduling heuristic more than a broadly validated inference system.",
+  "missing_baselines": [
+    "MoE-Infinity or another activation-aware expert offloading system adapted as carefully as possible to the dLLM setting, since the related work cites it but the main experiments only use Fiddler and Mixtral-Offload.",
+    "A GPU-only upper bound at smaller expert budgets or reduced model settings where all experts fit, to show how close TIDE gets to ideal no-offload execution.",
+    "A simple no-optimization fixed interval baseline such as tau=2/4/8 chosen by grid search on a held-out prompt set, not just random tau and tau=1.",
+    "A static top-B expert cache baseline computed from a calibration set, to separate temporal refresh value from popularity-based expert residency.",
+    "A prefetch/lookahead baseline using the next-step routing information available after router execution, to test whether the interval model is actually the right design point.",
+    "Latency and energy/cost baselines, not only decoded tokens per second, because resource-constrained deployment is a central motivation."
+  ],
+  "missing_ablations": [
+    "Ablate the global hit-counter expert selection rule against alternatives such as previous-step top-B, exponentially decayed counts, layer-wise policies, or oracle top-B per step.",
+    "Ablate asynchronous CPU/GPU execution separately from interval refresh; Algorithm 1 overlaps CPU misses with GPU hits, so the gain is not solely from fewer migrations.",
+    "Report sensitivity to the profiled constants and whether the optimized tau transfers across prompts, output lengths, datasets, and hardware without re-profiling.",
+    "Measure actual GPU expert hit rate, CPU miss traffic, PCIe/NVLink bytes, CPU utilization, and synchronization stalls to validate the latency model rather than only final throughput.",
+    "Check multiple random seeds or prompt samples and provide variance/error bars for throughput, especially because the absolute token/s numbers are very small.",
+    "Evaluate different top-k routing values, numbers of experts, quantization levels, and batch sizes to see whether routing stability and tau choices survive realistic serving variation.",
+    "Ablate within-block-only refresh versus possible cross-block reuse, which the appendix itself identifies as unexplored."
+  ],
+  "red_flags": [
+    "The reported absolute throughput is tiny for modern serving: Table 1 ranges roughly from 0.89 to 2.44 tokens/s, so the practical deployment story needs more context about implementation maturity and bottlenecks.",
+    "The paper calls the method 'lossless' and a 'free lunch', but in systems terms it still trades GPU expert hits against CPU expert execution and synchronization; it preserves model outputs only if CPU/GPU numerical execution and routing are exactly equivalent.",
+    "All task evaluation is sanitized MBPP, a code-generation dataset; that is weak coverage for a general MoE-dLLM inference system and says little about routing behavior on chat, reasoning, multilingual, or long-context workloads.",
+    "The main claim rests on LLaDA2.0-mini and LLaDA2.0-flash, but the paper gives no broader model family evidence; generalization to other MoE diffusion LLMs is asserted rather than shown.",
+    "The optimization formulation is fairly coarse: f(tau) is only described as monotonic, constants are profiled offline, and the final solution is greedy search, so the 'mathematical programming' framing may overstate the analytical rigor.",
+    "The full text contains apparent formatting/citation oddities and future-dated dependencies such as LLaDA2.0 and lm-evaluation-harness references, making independent verification hard from the provided paper alone.",
+    "No code or reproducibility artifact is inspectable from the provided text beyond a 'Project Code' marker, despite implementation claims on Transformers, dInfer, PyTorch 2.9, and CUDA 12.8."
+  ],
+  "positive_signals": [
+    "The paper identifies a concrete dLLM-specific systems property: mean within-block routing cosine similarity of 0.985 and similarity above 0.95 across five denoising steps.",
+    "The method is output-preserving at the algorithmic level because it changes expert placement but not router decisions, weights, or decoding policy.",
+    "The experiments compare against two relevant AR-MoE offload styles: CPU-side expert computation via Fiddler and per-step expert swapping via Mixtral-Offload.",
+    "The authors test both 16B/1B-active and 100B/6B-active LLaDA2.0 settings with different GPU expert budgets and memory constraints.",
+    "Table 2 directly tests tau choices and shows optimized tau beating tau=1 and random tau across the reported mini/flash, block-size, and budget settings.",
+    "The appendix states limitations clearly: only within-block expert patterns, limited hardware platforms, and single GPU-CPU settings."
+  ],
+  "research_score": 6.7,
+  "podcast_score": 7.4,
+  "overclaim_score": 6.8,
+  "replication_interest": 7.6,
+  "verdict": "Worth reviewing for Paper Radio as a focused systems paper with a good hook: diffusion MoE routing is stable enough that you can stop shuffling experts every denoising step. The evidence is directionally convincing for the tested setup, but narrow. I would frame TIDE as a plausible scheduling optimization for a very specific emerging model class, not as a settled 'free lunch' for resource-constrained dLLM serving.",
+  "citations": [
+    "Abstract: TIDE claims interval-based expert refresh for MoE diffusion LLMs and reports up to 1.4x throughput on LLaDA2.0-mini and 1.5x on LLaDA2.0-flash in a single GPU-CPU system.",
+    "Figure 1 and Section 3.2: expert routing remains highly similar across nearby denoising steps; the text reports mean within-block cosine similarity of 0.985 and similarity above 0.95 for step pairs separated by five denoising iterations.",
+    "Section 3.1: the paper argues MoE-dLLMs activate experts for all tokens within a block at each denoising step, creating a wider and more fragmented expert footprint than single-token AR decoding.",
+    "Section 3.3 and Algorithm 1: TIDE refreshes GPU-resident experts every tau steps using highest token-hit counts, skips migration between refreshes, and routes misses to CPU experts asynchronously.",
+    "Equation 7: the refresh interval tau is chosen by minimizing a modeled sum of expected migration latency and CPU computation cost using hardware profiling and greedy search.",
+    "Section 4.1: experiments use LLaDA2.0-mini (16B A1B) and LLaDA2.0-flash (100B A6B), both with 256 FFN experts and top_k=8, on sanitized MBPP.",
+    "Section 4.1: LLaDA2.0-mini is run on an NVIDIA A100 40 GB GPU and LLaDA2.0-flash on an NVIDIA H100 80 GB GPU with a 48-core Intel CPU and 1024 GB DDR4 host memory.",
+    "Table 1: on LLaDA2.0-mini with generation length 1024 and GPU expert budget 128, TIDE reaches 2.44 token/s versus 1.80 for Fiddler and 1.91 for Mixtral-Offload.",
+    "Table 1: on LLaDA2.0-flash with generation length 256 and GPU expert budget 64, TIDE reaches 1.73 token/s versus 1.14 for Fiddler and 1.35 for Mixtral-Offload.",
+    "Table 2: optimized tau beats tau=1 and random tau in every reported configuration, e.g. LLaDA2.0-flash block size 32 budget 32 improves from 1.01 and 0.85 token/s to 1.24 token/s.",
+    "Figure 5: sensitivity studies on LLaDA2.0-mini report TIDE outperforming baselines across block sizes 32-128, GPU expert budgets 32-128, and confidence thresholds 0.7-0.95.",
+    "Appendix A: the authors acknowledge limitations including only within-block expert activation analysis, limited hardware platforms, and restriction to single GPU-CPU resource-constrained settings."
+  ]
+}

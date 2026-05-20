@@ -1,0 +1,20 @@
+{
+  "paper_id": "arxiv-2605.20170",
+  "title": "KoRe: Compact Knowledge Representations for Large Language Models",
+  "core_claim": "The paper proposes KoRe, a method that encodes 1-hop subgraphs into compact discrete knowledge tokens and injects them into an LLM backbone, claiming competitive performance on three benchmarks with up to 10x lower token usage.",
+  "triage_rationale": "This looks like a plausible and relevant LLM knowledge-injection paper with a concrete method and measurable efficiency claim, so it is worth review. The abstract is specific enough to suggest technical substance rather than pure hype, and the token-efficiency angle could make it useful for both research and discussion.",
+  "topic_tags": [
+    "llm",
+    "knowledge-graphs",
+    "retrieval-augmentation",
+    "representation-learning",
+    "efficiency"
+  ],
+  "likely_red_flags": [
+    "Claims competitive performance and large token savings without any details on benchmark difficulty or baseline strength in the abstract.",
+    "The method sounds architecture- and setup-sensitive, so results may not generalize beyond the tested 1-hop subgraph setting."
+  ],
+  "research_score_estimate": 7.2,
+  "podcast_score_estimate": 6.8,
+  "decision": "advance_to_review"
+}

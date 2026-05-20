@@ -1,0 +1,1918 @@
+Atoms of Thought: Universal EEG Representation Learning with
+Microstates
+Xinyang Tian∗
+Institute for Interdisciplinary
+Information Sciences, Tsinghua
+University
+Beijing, China
+xinyangtian368@gmail.com
+Ruitao Liu∗
+Institute for Interdisciplinary
+Information Sciences, Tsinghua
+University
+Beijing, China
+liurt23@mails.tsinghua.edu.cn
+Ziyi Ye†
+Institute of Trustworthy Embodied AI,
+Fudan University
+Shanghai, China
+zyye@fudan.edu.cn
+Siyang Xue
+School of Clinical Medicine, Tsinghua
+University
+Beijing, China
+xuesy22@mails.tsinghua.edu.cn
+Xin Wang
+Beijing Five Seasons Medical
+Technology Co., Ltd.
+Beijing, China
+wwwwangshin15@gmail.com
+Xuesong Chen‡
+Beijing Five Seasons Medical
+Technology Co., Ltd.
+Beijing, China
+chenxuesong1128@163.com
+Abstract
+Learning universal representations from electroencephalogram
+(EEG) signals is a cutting-edge approach in the field of neuroin-
+formatics and brain-computer interfaces (BCIs). Conventionally,
+EEG is treated as a multivariate temporal signal, where time- or
+frequency-domain features are extracted for representation learn-
+ing. This paper investigates a simple yet effective EEG represen-
+tation, i.e., microstates. Microstates represent the building blocks
+of brain activity patterns at a microscopic time scale. We build a
+universal microstate tokenizer from a large medical EEG dataset
+by clustering continuous EEG signals into sequences of discrete
+microstates. The microstate tokenizer is then adopted universally
+across a series of downstream tasks, including sleep staging, emo-
+tion recognition, and motor imagery classification. Experimental
+results show that EEG representation learning with microstates out-
+performs traditional time-domain and frequency-domain features
+under different models and across different tasks. Further analysis
+shows that microstates offer greater interpretability and scalability,
+thereby opening up applications in both cognitive neuroscience
+and clinical research.
+Keywords
+EEG Analysis, Microstates, Sleep Staging, Emotion Recognition,
+Motor Imagery Classification
+Accepted by the 3rd International Workshop on Multimodal and
+Responsible Affective Computing (MRAC 2025). Version of Record DOI:
+10.1145/3746270.3760230.
+1 Introduction
+Electroencephalogram (EEG) signals provide valuable insights into
+brain activity, making them indispensable in fields such as clin-
+ical medicine, neuroscience, and cognitive psychology [ 80]. For
+example, EEG has been widely used in clinical settings to detect
+certain diseases and anomalies [ 9, 38, 59], to investigate neural
+∗Both authors contributed equally to this research.
+† Research was conducted as a Ph.D. student at Tsinghua University.
+‡ Corresponding author. Email: chenxuesong1128@163.com
+mechanisms underlying cognitive processes [ 40, 56], and to de-
+sign brain-computer interfaces [26]. Recently, with the maturity
+of deep learning techniques, integrating AI technology with EEG
+analysis has become the new paradigm, significantly improving
+classification performance in downstream tasks [1, 3].
+Despite these merits, EEG signals are highly non-linear and
+non-stationary [62], which pose challenges to extracting effective
+representations from EEG signals. Conventionally, EEG is treated
+as multivariate time series data with features extracted in the time
+and frequency domain for further analysis [62]. Such features come
+with two major drawbacks. On the one hand, theyare susceptible
+to artifacts and are prone to be confined within a task-specific
+and subject-specific representation space. Conventional time
+and frequency domain EEG representations will inevitably incor-
+porate artifacts [58] related to eye blinks, myoelectricity, and the
+environment. Additionally, time and frequency domain EEG repre-
+sentations vary significantly across subjects and tasks, making it
+challenging to generalize. This results in suboptimal performance
+on a single task and degraded generalizability across different tasks
+[29], and requires huge amounts of task-specific data, which are usu-
+ally unavailable. On the other hand, time- and frequency-domain
+features areunable to uncover transient and dynamic infor-
+mation. Conventional methods often struggle to capture high-
+resolution EEG features. Time-domain information, which directly
+utilizes raw EEG signals, is often considered inefficient due to its
+low signal-to-noise ratio (SNR) [67]. Frequency-domain informa-
+tion uses a fixed window length, which consequently obscures
+temporal resolution and results in a certain degree of information
+loss [14, 62].
+To address these challenges, we introduce a novel approach
+that integrates deep learning with a biologically grounded concept
+in EEG analysis: EEG microstates [35]. EEG microstates are quasi-
+stable discrete patterns of scalp electrical potential that last for brief
+periods, typically60-120milliseconds [ 43]. While conventional fea-
+tures tend to ignore the physiological and clinical context of EEG
+signals, EEG microstates are believed to correspond to fundamental
+and stable cognitive states [20, 43, 76]. Previous researchers have
+revealed a series of underlying mechanisms of thought and cog-
+nition [10, 36, 44, 56]. Building on such results, we leverage EEG
+arXiv:2605.20182v1  [cs.LG]  19 May 2026
+
+Figure 1: Visualization of Different Representations and Downstream Tasks. Conventional representations mainly reside in
+the time domain and frequency domain. We propose the microstate representation, which is a universal representation that
+outperforms other representations under different model structures and across different tasks [8, 15, 34].
+microstates as a discrete and intrinsic representation of brain activ-
+ity that is more aligned with the underlying neural mechanisms,
+improving both interpretability and robustness. We validate the
+effectiveness of EEG microstates across three critical tasks—sleep
+staging, emotion recognition, and motor imagery [6, 80] and with
+different models, showing superior performance compared to con-
+ventional representations. Moreover, we test the accuracy of EEG
+representation learning with increasing data size, observing that
+EEG microstates show greater performance gain than conventional
+features. Furthermore, we investigate the distribution of EEG mi-
+crostates across various cognitive functions and present a potential
+relationship to interpret cognitive functions with EEG microstates.
+The main contributions of this work are as follows:
+• We introduce EEG microstates as a universal representation
+of brain activity, bridging the gap between deep learning
+techniques and neural activity patterns.
+•We demonstrate the effectiveness of this microstate-based
+approach in three critical tasks—sleep staging, emotion
+recognition, and motor imagery classification, and with
+different model structures. Experimental results indicate
+that the microstate tokenizer initialized in one task can be
+generalized to a series of downstream tasks, showcasing its
+universal applicability and alleviating the impact of data
+scarcity.
+• We conduct in-depth analysis showing that EEG microstate
+is more scalable than time-domain and frequency-domain
+methods and can serve as an explainable feature linking to
+various cognitive functions.
+2 Related Work
+EEG analysis has long been a critical tool in both clinical diagnosis
+and research, with various representation learning methods to
+enhance the accuracy of diagnosis. This section elaborates on a
+variety of techniques developed to extract meaningful information
+from the brain’s electrical activity, particularly in the medical and
+deep learning fields.
+2.1 EEG Microstates in Cognitive Neuroscience
+EEG microstate analysis was first introduced by Lehmann et al .
+[35], and has gained significant attention as a promising tool for
+representing brief, stable patterns of brain activity. Microstates
+are thought to reflect fundamental cognitive states that the brain
+switches between, providing valuable insights into the temporal
+organization of brain function [43]. Studies have shown that various
+diseases, such as epilepsy, sleep disorder and Alzheimer’s disease,
+can alter EEG microstates [11, 23, 33, 39, 52, 63]. Recent research
+has applied microstate analysis to a wide range of cognitive tasks,
+including emotion, attention, and social abilities [22, 24, 51, 54, 55],
+demonstrating the effectiveness of microstates in understanding
+cognitive and pathological states.
+The most common approach to producing microstates originates
+from Pascual-Marqui et al. [47]. They used the k-means clustering
+method to conduct the EEG microstate analysis, which further
+become the most popular technique for microstate classification.
+Other studies have introduced alternative methods for microstate
+analysis, which are based on a series of clustering algorithms [28,
+41, 42, 45, 50].
+However, most existing research has focused on interpreting
+microstates based on the physical conditions of subjects, while
+efforts to learn EEG representations for downstream classification
+and detection tasks remain limited. Moreover, the interpretability
+of microstates and their connection to fundamental cognitive states
+make them a promising candidate for representing EEG signals in
+contemporary deep-learning models, yet no current studies have
+tested this potential.
+2.2 Representation Learning for EEG Analysis
+Machine learning, especially deep learning techniques have been
+increasingly integrated into EEG analysis to improve the accuracy
+and efficiency of EEG-based classification tasks. Typically, machine
+learning models require EEG representations extracted from the
+raw signals as input, which can be broadly categorized into time-
+and frequency-domain features. On the one hand, raw EEG itself
+2
+
+can serve as the most straightforward time-domain representation.
+Al-Hussaini et al. [5] used fixed-length windows of30s segmented
+from raw EEG signals during prototype learning for sleep staging,
+which treated the signals as multivariate time series data. Perslev
+et al. [48] also used raw EEG signals as their CNN-based model
+representation for sleep staging.
+On the other hand, information in the frequency domain is also
+commonly extracted as EEG representations. V. and Bhattacharyya
+[64] used multivariate variational mode decomposition (MVMD)
+to extract spectral information for emotion recognition. Zheng
+et al. [78] used the Hilbert-Huang transform to analyze scalp EEG
+signals. It has been shown in [71, 81] that using frequency-domain
+information improves performance in emotion recognition.
+Despite the above achievements brought about by deep learning,
+conventional representations often contain person- or task-specific
+artifacts [60, 70, 72]. Due to the models’ susceptibility to noise and
+artifacts, training such models either undermines their performance
+and generalizability, or requires a huge amount of person- or task-
+specific data.
+To address these challenges, Afzal et al . [1] proposed a novel
+graphical representation of raw EEG data, which improves seizure
+detection but is still task-specific. Based on the development of time-
+domain representations and suitable model structures [17, 46, 74]
+and inspired by the development in natural language processing
+(NLP), Gui et al. [27] proposed a vector quantization pre-training
+method to obtain representations for downstream tasks. Wang
+et al. [69] also utilized a pre-training paradigm to extract relevant
+representations by spatio-temporal representation alignment in
+order to depict the brain. They observed that such representations
+can be better generalized across downstream tasks, but consume a
+large amount of computational power and time. Moreover, the input
+EEG signal of the pre-trained model is still treated as multivariate
+time series data.
+3 EEG Representations
+This section lists conventional EEG representations in the time-
+domain and frequency-domain, and our microstate representation.
+It also elaborate on detailed methods and procedures to construct
+different representations.
+3.1 Problem formulation
+The objective of EEG signal analysis and physical state prediction
+can be defined as follows: We are given the input raw EEG signal
+𝑠∈R 𝐶×𝑓 𝑠𝑇 where 𝐶 denotes the number of channels, 𝑓𝑠 is the
+sampling frequency and𝑇is the sample duration. The EEG signal
+analysis aims to predict the physical state of the sampled subject,
+which can be represented by a sequence of discrete labels 𝑙=𝐿 𝑓𝑙𝑇
+where 𝐿={𝑎 1, 𝑎2, . . . , 𝑎𝑚 } is the set of labels and 𝑓𝑙 is the state
+frequency.
+3.2 Time-Domain Features Extraction
+The most straightforward approach for EEG analysis is to directly
+utilize the time-domain information features, i.e., the raw EEG
+signals [62]. In this setting, the raw EEG signal is sliced into fixed-
+length windows with duration 𝑇𝑤 , and the feature 𝑠𝑡𝑖𝑚𝑒,𝑤 will be
+of the shape ofR 𝐶×𝑓 𝑠𝑇𝑤 , with the corresponding labels𝑙 𝑤 ∈𝐿 𝑓𝑙𝑇𝑤 .
+3.3 Frequency-Domain Features Extraction
+Raw EEG signals often obscure frequency information, and thus,
+sometimes directly using it does not produce desirable results.
+Therefore, a common approach to handling such time-domain sig-
+nals is to use their corresponding frequency-domain signals as
+features [65].
+Frequency Bands.The frequency-domain representations are ex-
+tracted based on the frequency power distribution among frequency
+bands[75]. The frequency domain are divided into several frequency
+bands, including the 𝛿-band (0.5 ∼ 4Hz), 𝜃-band (4 ∼ 8Hz), 𝛼-band
+(8 ∼ 12Hz), 𝜎-band (12 ∼ 16Hz), 𝛽-band (16 ∼ 30Hz) and 𝛾-band
+(30∼40Hz).
+Short-Time Fourier Transform (STFT).Time-frequency transfor-
+mation can be carried out via numerous methods, namely short-time
+Fourier transform (STFT), discrete/continuous wavelet transform
+(DWT/CWT), and empirical mode decomposition (EMD) [ 4, 32].
+Short-time Fourier transform, owing to its straightforwardness
+and thorough theoretical analysis, is applied in many EEG-related
+tasks [12, 18, 30, 68]. Consequently, we choose this method as our
+frequency-domain baseline.
+Given the raw EEG signal of a single measurement channel
+𝑠𝑠𝑖𝑛 ∈R 𝑓𝑠𝑇 , we perform short-time Fourier transform with fixed
+window size 𝑡𝑤 and overlap ratio𝑟𝑜. The length after the short-time
+Fourier transform will be
+𝑙𝑓 𝑟𝑒𝑞 =
+ 𝑓𝑠𝑇−𝑓 𝑠𝑡𝑤
+(1−𝑟 𝑜 )𝑓𝑠𝑡𝑤
+
++1
+and if we leave out the margin then the resulting length will be
+𝑙𝑓 𝑟𝑒𝑞 = 𝑓𝑠𝑇
+(1−𝑟 𝑜 )𝑓𝑠𝑡𝑤
+=𝑓 𝑓 𝑟𝑒𝑞𝑇
+𝑓𝑓 𝑟𝑒𝑞 = 1
+(1−𝑟 𝑜 )𝑡𝑤
+Using STFT, we obtain a frequency axis 𝐹𝑎 and time axis 𝑇𝑎 and
+the amplitude of the signal at each frequency 𝑓∈𝐹 𝑎 and time
+point 𝑡∈𝑇 𝑎. Note that |𝑇𝑎 |=𝑙 ′ and hence the output shape is
+𝑠𝑓 ,𝑡,𝑠𝑖𝑛 ∈R |𝐹𝑎 | ×𝑙′
+.
+Band Power Integration.Now that we have obtained the single
+channel data 𝑠𝑓 𝑟𝑒𝑞,𝑠𝑖𝑛 ∈R 𝐹×𝑙 𝑓 𝑟𝑒𝑞 𝑇 where 𝐹 is the frequency resolu-
+tion, we integrate the rows that correspond to each frequency band
+to obtain the total power within that band. In this case, the integra-
+tion result will have shape R𝐵×𝑙 𝑓 𝑟𝑒𝑞 𝑇 . By flattening and stacking all
+channels, the final result has shape𝑠 𝑓 𝑟𝑒𝑞 ∈R 𝑁×𝐵 𝑓 𝑓 𝑟𝑒𝑞 𝑇 .
+3.4 Unsupervised Microstate Tokenizer
+Our clustering method is based on k-means [47]. But to guarantee
+that the clustering model has a sufficient level of generalizability,
+unlike previous works, we have to fit the clustering model on a
+huge amount of data. To allow the model to take all data points
+into consideration without consuming too much memory, we use
+incremental learning by dividing data into small batches of size𝑛.
+3.4.1 Stream Clustering [ 2].The original k-means algorithm clus-
+ters the data points by initially selecting 𝑘 centers, grouping data
+points according to their distance to the centers, and computing
+3
+
+Figure 2: Pipeline of our Work. Our work can be broken into two parts. The first involves fitting a tokenizer to extract microstates
+from six EEG channels F3, F4, C3, C4, O1, O2. The second consists of training different models on the microstate signals and
+performing downstream tasks. The tokenizer of the first stage is independent of the models of the second stage. For each task,
+the model always includes an embedding layer to convert the discrete microstates into high-dimensional embeddings [8].
+the centroid of each cluster as the new centers. The algorithm ter-
+minates when reaching the maximum iterations or the positions of
+the centers have converged.
+Streaming k-means follows a fashion similar to classical k-means,
+but each time it uses only a small batch of data to update the cluster
+centers. Therefore, we do not need to store the entire dataset in
+memory, while only need to store a batch. This renders better
+performance than using only a small portion of data, and reduces
+memory consumption compared to clustering on all data points.
+The procedure is shown in Algorithm 1.
+Algorithm 1Streaming K-Means
+Initialize cluster centers𝑐 1, 𝑐2, . . . , 𝑐𝑘 ∈R 𝐶
+𝑖𝑡𝑒𝑟←0
+while𝑖𝑡𝑒𝑟<𝑚𝑎𝑥_𝑖𝑡𝑒𝑟and centers have not convergeddo
+Get a new batch𝑑 1, 𝑑2, . . . , 𝑑𝑛 ∈R 𝐶
+𝑆𝑖 ← {𝑑 𝑗 |arg min 𝑡 ∥𝑑 𝑗 −𝑐 𝑡 ∥2 =𝑖}
+𝑐𝑖 ← 1
+|𝑆𝑖 |
+Í|𝑆𝑖 |
+𝑟=1 𝑆𝑖 𝑟
+end while
+3.4.2 Fitting the Clustering Model.We adopt the following experi-
+mental setup.
+Dataset.We select theHuman Sleep Project (HSP)dataset to
+fit the clustering model [73]. The dataset includes polysomnography
+(PSG) data from over20K subjects and is still growing in size. The
+reasons why we use EEG data recorded during sleep are as follows:
+• It is usually difficult and costly to record EEG signals during
+wakefulness, and these datasets are usually limited in size
+• Currently the community has abundant sleep data. They
+can also reflect the cognitive level and consciousness, de-
+spite the fact that their being less organized, noisy and has
+a limited number of channels (usually6channels)
+• We want to test whether we can model brain activity during
+sleep data, which can be generalized to downstream tasks
+during wakefulness
+Extracting target channels.Since PSG signal involves numerous
+components like EEG, EOG, and ECG, the number of channels
+comes with varying sizes due to loss of data or shortage of equip-
+ment. Consequently, we filter out all channels except 𝑁 of them
+that are present in all samples. The generic method will be clus-
+tering the data by treating them as 𝑁 dimensional points. In the
+HSP dataset, only the channels F3, F4, C3, C4, O1, O2are present
+across a relatively large amount of subjects, whereas other channels
+only appears sporadically among very limited number of subjects.
+Consequently these6leads are selected for clustering, since we
+have to extract a generalizable representation across subjects in
+order to obtain a truly universal representation. After extracting
+the necessary channels from the original data𝑠∈R 𝐶×𝑓 𝑠𝑇 we obtain
+the filtered data𝑠 𝑒𝑥𝑡 ∈R 𝑁×𝑓 𝑠𝑇 where𝑁=6.
+Filtering.A bandpass filter with low pass1Hz and high pass40Hz
+is applied to retain the most relevant frequency bands (e.g., delta,
+theta, alpha, beta). The array shape remains unchanged during this
+operation.
+Resampling.The HSP dataset comes with different sample fre-
+quencies, including256Hz and512Hz. We resample the signals to
+100Hz for better clustering results. Now the data shape becomes
+𝑠𝑟𝑒𝑠 ∈R 𝑁×𝑓 𝑟𝑒𝑠 𝑇 with𝑓 𝑟𝑒𝑠 =100Hz.
+Global field power (GFP) peaks extraction.Global field power is
+computed as the standard deviation of all sensors. The peaks are
+defined as their local maxima, which have the highest signal-to-
+noise ratio [43]. Therefore, we extract GFP peaks on the six channels.
+This produces the final input for the clustering model, which has
+size 𝑠𝑔𝑓 𝑝 ∈R 𝑁×𝑡 where 𝑡 denotes the number of GFP peaks in the
+sequenceR 𝑁×𝑓 𝑟𝑒𝑠 𝑇 .
+4
+
+Table 1: Classification accuracies and model parameters for sleep staging under different representations and different model
+architectures on the Human Sleep Project (HSP) dataset. The highest performance among all representations under a certain
+model is highlighted in boldface.
+Representation CNN+LSTM Sleep Transformer Sleep Net Zero
+Acc Kappa params Acc Kappa params Acc Kappa params
+Raw EEG (Time Domain)0.710 0.597 707K0.786 0.702 3.2M0.793 0.713 10.9M 1
+STFT (Freqency Domain)0.778 0.690 692K0.790 0.710 3.2M0.794 0.711 3.2M
+Microstates (Ours)0.801 0.722687K0.810 0.7363.4M0.810 0.7363.2M
+Fitting the clustering model.After obtaining the data of shape
+𝑠𝑔𝑓 𝑝 ∈R 𝑁×𝑡 , we set the number of clusters 𝑘= 1000and 𝑛= 50for
+batch size and fit the GFP peaks.
+3.4.3 Constructing the Microstates.Having fitted clustering model,
+we can apply it to raw EEG signals of shape 𝑠∈R 𝑁×𝑓 𝑠𝑇 to obtain
+the microstate sequence 𝑐∈𝑆 𝑓𝑠𝑇 , 𝑆∈ {𝑏 1, 𝑏2, . . . , 𝑏𝑘 } with 𝑘= 1000.
+𝑆is the set of microstates.
+4 Downstream Tasks
+In this section, we introduce the experimental setup for testing the
+performance of our microstate representation and conventional rep-
+resentations. The microstate sequence is produced by the tokenizer
+trained in the previous section (the fitted KMeans in Figure 2).
+4.1 Sleep Staging
+During different sleep stages, brain activity varies accordingly. This
+lies the foundation for predicting sleep stages using EEG signals.
+Dataset.For sleep staging, we use the HSP dataset [ 73] men-
+tioned infitting the clustering modelto test the performance of our
+representation.
+Sleep stages.For sleep staging, 𝐿 consists of the five sleep stages:
+{W,N1,N2,N3,R}. W corresponds to wake stage, N1, N2and N3cor-
+respond to different non-rapid eye movement (NREM) stages, and
+R corresponds to rapid eye movement (REM) stage.
+Preprocessing.The EEG signal is filtered and resampled to 𝑓𝑟𝑒𝑠 =
+100Hz. For extracting frequency-domain information, we choose
+𝑡𝑤 = 1s and 𝑟𝑜 = 0. Finally, the EEG signal is slices into𝑇𝑤 = 300s
+windows.
+Model Architecture.To test the universality of our microstate
+representation, we adopt the following model structures:
+CNN+LSTM.[57] This model architecture consists of3CNNs and
+2GRUs for extracting spatial and temporal information, and fully
+connected layers for classification. An embedding layer is added
+for our microstate representation.
+Sleep Transformer.[49] Sleep Transformer uses2Roformer [ 61]
+layers to extract the local and global features before inputting into
+the final linear layer. An embedding layer and2CNNs are added
+for our microstate representation.
+Sleep Net Zero.[ 37] The model consists of a feature extraction
+unit composed of several residual blocks, a Roformer layer and a
+linear layer. To adapt to our microstate representation, we add an
+embedding layer and4CNNs, and remove the feature extraction
+unit.
+Table 2: Classification accuracies and model parameters for
+emotion recognition (CNN-based model, SEED dataset) under
+different representations. The highest performance among
+all representations is highlighted in boldface.
+Representation Accuracy Kappa Params
+Raw EEG (Time Domain)0.846 0.769 19.1M
+STFT (Freqency Domain)0.797 0.694 19.1M
+Microstates (Ours)0.862 0.79320.1M
+For time- and frequency-domain signals, we change the embed-
+ding layer into a convolution layer which functions similarly as the
+embedding.
+Loss Function.The loss function is set as cross-entropy loss. Sup-
+pose that the output of the fully connected layer is(ℎ1, ℎ2, ℎ3, ℎ4, ℎ5),
+which are the scores of the five classes. We perform a softmax on
+the scores and the cross entropy loss is defined as follows:
+loss=−
+5∑︁
+𝑖=1
+𝑝(𝑖)logSoftmax(ℎ 𝑖 )
+which is minimized when the correct label 𝑗 has score ℎ 𝑗 signifi-
+cantly larger than the other labels.
+4.2 Emotion Recognition
+Emotions are a key part of our physical state, and have a strong
+connection with brain activity. Consequently, our work involves
+training a microstate-based model for emotion classification.
+Dataset.We use theSEEDdataset [ 19, 79] for emotion recogni-
+tion. The SEED dataset consists of15subjects watching video clips
+that express different emotions. The overall tone is categorized as
+positive, negative, and neutral. The EEG signal is recorded with62
+channels and at a frequency200Hz.
+Emotion Labels.We utilize the overall tone of each movie clip as
+our labels, and thus𝐿consists of positive, negative, and neutral.
+Preprocessing.We directly use the sample frequency 𝑓𝑠 = 200Hz.
+We pad all samples to𝑇𝑤 = 265s. Other configurations are the same
+as in sleep staging.
+Model Architecture.The model used here is a CNN-based classi-
+fier [31] with similar modifications and cross-entropy loss. It has5
+CNNs and4linear layers.
+5
+
+Table 3: Classification accuracies, model parameters for mo-
+tor imagery classification (ResNet, Motor Movement/Imagery
+dataset) under different representations. The highest perfor-
+mance among all representations is highlighted in boldface.
+Representation Accuracy Kappa Params
+Raw EEG (Time Domain)0.362 0.149 20.3M
+STFT (Freqency Domain)0.323 0.097 21.5M
+Microstates (Ours)0.437 0.25021.4M
+4.3 Motor Imagery Classification
+Physical movement or imagination is another important factor of
+human physical status. Therefore our work involves predicting the
+movement or imagination activity via microstate sequences.
+Dataset.We use theMotor Movement/Imagery Dataset[ 25,
+53] for the task of motor imagery classification. The dataset consists
+of EEG signals sampled from109subjects. Each subject underwent
+14trials involving four tasks and two baseline rest sessions. The
+tasks are as follows:
+•Task1: Open and close the left or right fist.
+•Task2: Imagine opening and closing the left or right fist.
+•Task3: Open and close both fists or both feet.
+•Task4: Imagine opening and closing both fists or feet.
+Movement/Imagery Labels.In this setting, we focus on the onset
+of movement/imagery and the labels 𝐿 consists of left hand, right
+hand, both hands and both feet.
+Preprocessing.In this dataset, each label corresponds to roughly
+4s of EEG signals, and hence we choose 𝑇𝑤 = 4s. Other configura-
+tions are the same as the above experiments.
+Model Architecture.The model architecture is based on [ 13],
+which consists of a CNN and3residual blocks followed by4linear
+layers. We use configurations similar to the above.
+5 Results and Analysis
+We compared our proposed representation with conventional time-
+and frequency-domain representations across different tasks and
+under different model configurations.
+5.1 Evaluation Metrics
+We evaluated our representation with different model structures and
+across different tasks. The evaluation metrics are the classification
+accuracy and Cohen’s Kappa.
+5.2 Microstates as a Universal Representation
+We compared the accuracy and Cohen’s Kappa on the test set
+under3different models and across three key tasks with different
+representations. Results on sleep staging are shown in Table 1, and
+results on emotion recognition and motor imagery classification
+are shown in Table 2 and Table 3, respectively.
+1For Sleep Net Zero, more parameters are used since the input size of raw EEG signals
+is (6, 30000) which is six times that of microstates (30000, 6) and17times that of
+frequency-domain signals(6,1800).
+(a) Accuracy
+ (b) Cohen’s Kappa
+Figure 3: Accuracy (left) and Cohen’s Kappa (right) with dif-
+ferent representations under Sleep Transformer and differ-
+ent number of samples.
+Table 4: Classification accuracies and model parameters for
+emotion recognition (CNN-based model, SEED dataset) in-
+cluding full channels (62in total). The highest performance
+among all representations is highlighted in boldface.
+Representation Accuracy Kappa Params
+Raw EEG (6channels)0.846 0.769 19.1M
+Raw EEG (62channels)0.854 0.778 19.2M
+STFT (6channels)0.797 0.694 19.1M
+STFT (62channels)0.854 0.778 19.1M
+Microstates (Ours)0.862 0.79320.1M
+From Table 1, we observe that EEG representation with mi-
+crostates outperforms time domain and frequency features in three
+different backbone models, including CNN+LSTM, Sleep Trans-
+former, and Sleep Net Zero. Among the results, microstates achieve
+the highest accuracy of0 .81using a sleep transformer or sleep
+net zero. This indicates that EEG microstates have the potential to
+serve as a universal representation and outperform temporal- and
+frequency-domain features across tasks and model structures. Simi-
+lar observations are obtained in the emotion recognition task based
+on a CNN-based model and on the motor imagery classification
+task based on a ResNet model.
+We also record the standard deviation of the performance of mi-
+crostate representation on Sleep-Net-Zero, which gives an accuracy
+of0.808(±1.897·10 −3)and Kappa0.733(±2.482·10 −3).
+We further compare the performance of time- and frequency-
+domain features with microstates. We see that frequency-domain
+representation performs well on sleep staging, while producing
+suboptimal results on other tasks. We suspect that this is because
+sleep staging is highly frequency-associated, while on other tasks,
+frequency-domain features may be weak due to information loss
+[14, 62] in raw EEG signals. On the other hand, raw EEG signals
+are often subject to noise [67] and does not produce optimal results.
+Compared to time- and frequency-domain features, microstates
+present a robust performance across datasets and classification
+models. This demonstrates that the microstate representation ob-
+tained from sleep EEG data can be generalized to various critical
+tasks and different models, serving as a universal representation.
+6
+
+Figure 4: Accuracy and Cohen’s Kappa under Sleep Net Zero
+with different number of microstates.
+5.3 Results using Full Channel Data
+Due to data constraint, the microstate tokenizer is trained on data
+from only6channels. To allow for a comprehensive comparison,
+we test the performance of the CNN classifier on the SEED dataset
+using full channels (62channels in total). The results are shown in
+Table 4.
+From the results we see that using EEG signals from the6chan-
+nels can achieve similar results to that of using full data, as is seen
+from the raw EEG signals that increasing the number of channels
+does not significantly boost performance. Notice that the perfor-
+mance of frequency-domain representation increases significantly,
+which we conjecture that it is because the additional channels
+compensate for the information loss during the time-frequency
+transformation. Results show that using only6channels does not
+significantly degrade performance, which justifies our clustering
+on these channels.
+5.4 Microstates as a Scalable Representation
+We further test the performance of EEG representation learning
+with microstates across different scales of training data in the sleep
+staging task under Sleep Transformer on the HSP dataset. We also
+find that microstates offer a more scalable representation. As shown
+in Figure 3, microstates do not exhibit strengthened performance
+when the size of the training data is smaller than 2,000. However,
+when the number of samples increases, the performance of the
+microstate representation shows a more pronounced performance
+gain in comparison to other features. Our experiment demonstrates
+that the microstate representation is also capable of scaling across
+the size of the training data. This reveals the potential of EEG
+representation with microstates, especially using deep learning
+methods and increased data size.
+On the other side, we tested the performance of our tokenizer
+under different number of clusters by selecting different parame-
+ters 𝑘 for clustering. We evaluated the model performance on the
+validation set with different number of microstates. The results are
+shown in Table 4. From the results we see that the performance
+increases while the number of microstates increases. Results show
+that the performance of the microstate representation also scales
+with increasing number of microstates.
+5.5 Interpreting Microstates
+In this section, we give an analysis of the interpretability of the
+microstate representation, which in turn leads to its better perfor-
+mance over other representations.
+As mentioned in [58], one challenge in analyzing EEG signals is
+that they are highly subject-dependent and vary significantly across
+different people. Consequently, it is hard to extract effective inter-
+subject representations using conventional time- or frequency-
+domain information. Microstates solve this issue by providing a
+coarse-grained discrete representation that groups similar EEG
+states together. Its clustering-based nature guarantees its capability
+to extract universal features while retaining the differences.
+We analyze the proportion of the most20frequently-occurring
+microstates among groups of30subjects under W, N3, and R stage.
+Results in Figure 5 show that under the same sleep stages, the most
+frequent microstates are common across all subject groups. For ex-
+ample, the microstates419 , 421, 385, 333occur with high frequency
+among all subject groups during W and R stage, whereas the mi-
+crostates487 , 378, 452, 651occur with high frequency among all
+groups under N3stage. This suggests that the microstate represen-
+tation captures the similarity between subjects, albeit their having
+different EEG voltages. Hence this in turn prevents the model from
+being distracted towards personal specific nuances.
+Furthermore, the most frequent microstates under W and R
+stages both contain419and161. The state419has all its channels
+below2 .2𝜇V, denoting a state with a weak EEG signal, while the
+state161has its voltage within the interval4 ∼ 11𝜇V, which is
+also relatively low. This is consistent with the fact that during
+W stage, the EEG signal is dominated by 𝛼 waves, which have a
+low amplitude and high frequency. Also, during R stage, the brain
+activity is similar to W stage since this is when dreams take place
+[21]. Consequently, it does not come as a surprise that W and R
+stages share many microstates in common, indicating a similar brain
+activity pattern. However, the microstate378denotes signals within
+the interval10 ∼ 24𝜇V, and452has signals within −5 ∼ − 21𝜇V.
+Both of them are relatively strong brain activity. This is again
+consistent with the fact that during N3the EEG signal has a larger
+portion of 𝛿 waves with a larger amplitude [77]. This suggests that
+microstates are capable of extracting the similarities between sleep
+stages, while also retaining their differences.
+6 Discussions and Conclusion
+In this work, we introduce EEG microstates as a clinically grounded
+approach for integrating deep learning and EEG signal analysis.
+Our approach improves the representation of brain activity by
+aligning more closely with the underlying neural mechanisms and
+cognitive activities, enhancing both clinical and research applica-
+tions. Experimental results demonstrate the effectiveness of EEG
+microstates in three critical tasks—sleep staging, emotion recog-
+nition, and motor imagery classification and across different mod-
+els, where it outperforms traditional time-domain and frequency-
+domain methods.
+Furthermore, we show that EEG microstates present more per-
+formance gain than time- and frequency-domain features when
+scaling the data size, indicating that EEG microstates can alleviate
+7
+
+Figure 5: Visualizing Microstates Distribution. Visualization of the distribution of different microstates among different subjects
+undergoing different sleep stages. We can see that the microstate representation simutaneously retain the similarity between
+subjects and between W and R stage, while also preserves the difference between W stage N3stage.
+the burden of data scarcity and pave the way to more scalable set-
+tings. We also show that EEG microstates can provide interpretable
+insights for EEG analysis and deep learning, offering a promising
+direction for future research and clinical practice. The adoption
+of EEG microstates holds significant potential for advancing both
+cognitive neuroscience and the field of clinical diagnostics.
+Several limitations guide future work, such as:
+• We only experimented with limited tasks and limited num-
+ber of datasets. Particularly, the training of the tokenizer
+was only performed on sleep data. This is reasonable be-
+cause the HSP dataset is the largest, but more research can
+be conducted across tasks in the future.
+• We only focused on the representation side. Based on the
+microstate representation, we hypothesize that it is possible
+to develop a pre-trained model that can generalize to several
+EEG-related downstream tasks.
+Above all, we believe that combining deep learning techniques
+with biologically grounded EEG microstates opens up a portal to
+future research on improving the accuracy of EEG analysis across
+different tasks and on uncovering more correlations between mi-
+crostates and brain activity. Future work might involve reconstruct-
+ing brain signals with more channels to alleviate the lack of channel
+data.
+8
+
+References
+[1] Arshia Afzal, Grigorios Chrysos, Volkan Cevher, and Mahsa Shoaran. 2024. Rest:
+Efficient and accelerated eeg seizure analysis through residual state updates.
+arXiv preprint arXiv:2406.16906(2024).
+[2] Charu C. Aggarwal, Philip S. Yu, Jiawei Han, and Jianyong Wang. 2003. - A Frame-
+work for Clustering Evolving Data Streams. InProceedings 2003 VLDB Conference,
+Johann-Christoph Freytag, Peter Lockemann, Serge Abiteboul, Michael Carey,
+Patricia Selinger, and Andreas Heuer (Eds.). Morgan Kaufmann, San Francisco,
+81–92. doi:10.1016/B978-012722442-8/50016-1
+[3] David Ahmedt-Aristizabal, Tharindu Fernando, Simon Denman, Lars Petersson,
+Matthew J. Aburn, and Clinton Fookes. 2019. Neural Memory Networks for
+Seizure Type Classification.2020 42nd Annual International Conference of the
+IEEE Engineering in Medicine & Biology Society (EMBC)(2019), 569–575. https:
+//api.semanticscholar.org/CorpusID:210966442
+[4] Aydin Akan and Ozlem Karabiber Cura. 2021. Time–frequency signal processing:
+Today and future.Digital Signal Processing119 (2021), 103216. doi:10.1016/j.dsp.
+2021.103216
+[5] Irfan Al-Hussaini, Cao Xiao, M. Brandon Westover, and Jimeng Sun. 2019.
+SLEEPER: interpretable Sleep staging via Prototypes from Expert Rules.
+arXiv:1910.06100 [cs.LG] https://arxiv.org/abs/1910.06100
+[6] Ghita Amrani, Amina Adadi, Mohammed Berrada, Zouhayr Souirti, and Saïd
+Boujraf. 2021. EEG signal analysis using deep learning: A systematic literature
+review. In2021 Fifth International Conference On Intelligent Computing in Data
+Sciences (ICDS). 1–8. doi:10.1109/ICDS53782.2021.9626707
+[7] Kleanthis Avramidis. 2021. Affective Analysis and Interpretation of Brain Re-
+sponses to Music Stimuli.
+[8] Anahit Babayan, Miray Erbey, Deniz Kumral, Janis Reinelt, Andrea Reiter, Josefin
+Röbbig, H. Schaare, Marie Uhlig, Alfred Anwander, Pierre-Louis Bazin, Annette
+Horstmann, Leonie Lampe, Vadim Nikulin, Hadas Okon-Singer, Sven Preusser,
+André Pampel, Christiane Rohr, Julia Sacher, Angelika Thoene-Otto, and Arno
+Villringer. 2019. A mind-brain-body dataset of MRI, EEG, cognition, emotion,
+and peripheral physiology in young and old adults.Scientific Data6 (02 2019),
+180308. doi:10.1038/sdata.2018.308
+[9] Dongmei Bai, Tianshuang Qiu, and Xiaobing Li. 2007. [The sample entropy and
+its application in EEG based epilepsy detection].Sheng wu yi xue gong cheng
+xue za zhi = Journal of biomedical engineering = Shengwu yixue gongchengxue
+zazhi24 1 (2007), 200–5. https://api.semanticscholar.org/CorpusID:21621951
+[10] Juliane Britz, Dimitri Van De Ville, and Christoph M. Michel. 2010. BOLD
+correlates of EEG topography reveal rapid resting-state network dynamics.Neu-
+roImage52, 4 (2010), 1162–1170. doi:10.1016/j.neuroimage.2010.02.052
+[11] Verena Brodbeck, Alena Kuhn, Frederic von Wegner, Astrid Morzelewski, Enzo
+Tagliazucchi, Sergey Borisov, Christoph M. Michel, and Helmut Laufs. 2012. EEG
+microstates of wakefulness and NREM sleep.NeuroImage62, 3 (2012), 2129–2139.
+doi:10.1016/j.neuroimage.2012.05.060
+[12] Zheng Chen, Ziwei Yang, Lingwei Zhu, Wei Chen, Toshiyo Tamura, Naoaki
+Ono, Md Altaf-Ul-Amin, Shigehiko Kanaya, and Ming Huang. 2023. Automated
+Sleep Staging via Parallel Frequency-Cut Attention.IEEE Transactions on Neural
+Systems and Rehabilitation Engineering31 (2023), 1974–1985. doi:10.1109/TNSRE.
+2023.3243589
+[13] Joseph Y. Cheng, Hanlin Goh, Kaan Dogrusoz, Oncel Tuzel, and Erdrin Azemi.
+2020. Subject-Aware Contrastive Learning for Biosignals.ArXivabs/2007.04871
+(2020). https://api.semanticscholar.org/CorpusID:220425132
+[14] Zhuoling Cheng, Xuekui Bu, Qingnan Wang, Tao Yang, and Jihui Tu. 2024.
+EEG-based emotion recognition using multi-scale dynamic CNN and gated trans-
+former.Scientific Reports14 (2024). https://api.semanticscholar.org/CorpusID:
+275117639
+[15] Ming Chu and Jingfeng Bi. 2023. Six classes of motor imagery EEG signals in
+the upper limb. doi:10.21227/8qw6-f578
+[16] Junyoung Chung, Caglar Gulcehre, KyungHyun Cho, and Yoshua Bengio. 2014.
+Empirical Evaluation of Gated Recurrent Neural Networks on Sequence Modeling.
+arXiv:1412.3555 [cs.NE] https://arxiv.org/abs/1412.3555
+[17] Jiaxiang Dong, Haixu Wu, Haoran Zhang, Li Zhang, Jianmin Wang, and Ming-
+sheng Long. 2023. SimMTM: A Simple Pre-Training Framework for Masked Time-
+Series Modeling. InAdvances in Neural Information Processing Systems, A. Oh,
+T. Naumann, A. Globerson, K. Saenko, M. Hardt, and S. Levine (Eds.), Vol. 36.
+Curran Associates, Inc., 29996–30025. https://proceedings.neurips.cc/paper_
+files/paper/2023/file/5f9bfdfe3685e4ccdbc0e7fb29cccf2a-Paper-Conference.pdf
+[18] Xiaobing Du, Cuixia Ma, Guanhua Zhang, Jinyao Li, Yu-Kun Lai, Guozhen
+Zhao, Xiaoming Deng, Yong-Jin Liu, and Hongan Wang. 2022. An Efficient
+LSTM Network for Emotion Recognition From Multichannel EEG Signals.IEEE
+Transactions on Affective Computing13, 3 (2022), 1528–1540. doi:10.1109/TAFFC.
+2020.3013711
+[19] Ruo-Nan Duan, Jia-Yi Zhu, and Bao-Liang Lu. 2013. Differential entropy feature
+for EEG-based emotion classification. In6th International IEEE/EMBS Conference
+on Neural Engineering (NER). IEEE, 81–84.
+[20] Robert Efron. 1970. The minimum duration of a perception.Neuropsychologia8,
+1 (1970), 57–63. doi:10.1016/0028-3932(70)90025-4
+[21] Abdeljalil El Hadiri, Lhoussain Bahatti, Abdelmounime El Magri, and Rachid
+Lajouad. 2024. Sleep stages detection based on analysis and optimisation of
+non-linear brain signal parameters.Results in Engineering23 (2024), 102664.
+doi:10.1016/j.rineng.2024.102664
+[22] MohammadReza EskandariNasab, Zahra Raeisi, Reza Ahmadi Lashaki, and
+Hamidreza Najafi. 2024. A GRU–CNN model for auditory attention detection
+using microstate and recurrence quantification analysis.Scientific Reports14
+(2024). https://api.semanticscholar.org/CorpusID:269211640
+[23] Shenzhi Fang, Chaofeng Zhu, Jinying Zhang, Luyan Wu, Yuying Zhang, Huapin
+Huang, and Wanhui Lin. 2024. EEG microstates in epilepsy with and without
+cognitive dysfunction: Alteration in intrinsic brain activity.Epilepsy & Behavior
+154 (2024), 109729. doi:10.1016/j.yebeh.2024.109729
+[24] Linda Fiorini, Francesco Bossi, and Francesco Di Gruttola. 2024. EEG-based
+emotional valence and emotion regulation classification: a data-centric and
+explainable approach.Scientific reports14, 1 (October 2024), 24046. doi:10.1038/
+s41598-024-75263-x
+[25] A. Goldberger, L. Amaral, L. Glass, J. Hausdorff, P. C. Ivanov, R. Mark, J. E. Mietus,
+G. B. Moody, Peng C. K., and H. E. Stanley. 2000. PhysioBank, PhysioToolkit,
+and PhysioNet: Components of a new research resource for complex physiologic
+signals.Circulation101, 23 (2000), e215–e220. Online.
+[26] Xiaotong Gu, Zehong Cao, Alireza Jolfaei, Peng Xu, Dongrui Wu, Tzyy-Ping
+Jung, and Chin-Teng Lin. 2021. EEG-Based Brain-Computer Interfaces (BCIs): A
+Survey of Recent Studies on Signal Sensing Technologies and Computational
+Intelligence Approaches and Their Applications.IEEE/ACM Transactions on
+Computational Biology and Bioinformatics18, 5 (2021), 1645–1666. doi:10.1109/
+TCBB.2021.3052811
+[27] Haokun Gui, Xiucheng Li, and Xinyang Chen. 2024. Vector Quantization Pre-
+training for EEG Time Series with Random Projection and Phase Alignment. In
+Proceedings of the 41st International Conference on Machine Learning (Proceedings
+of Machine Learning Research, Vol. 235), Ruslan Salakhutdinov, Zico Kolter, Kather-
+ine Heller, Adrian Weller, Nuria Oliver, Jonathan Scarlett, and Felix Berkenkamp
+(Eds.). PMLR, 16731–16750. https://proceedings.mlr.press/v235/gui24a.html
+[28] Abir Hadriche, Laurent Pezard, Jean-Louis Nandrino, Hamadi Ghariani, Abden-
+naceur Kachouri, and Viktor K. Jirsa. 2013. Mapping the dynamic repertoire of
+the resting brain.NeuroImage78 (2013), 448–462. doi:10.1016/j.neuroimage.2013.
+04.041
+[29] Jingzhao Hu, Chen Wang, Qiaomei Jia, Qirong Bu, Richard Sutcliffe, and Jun Feng.
+2021. ScalingNet: Extracting features from raw EEG data for emotion recognition.
+Neurocomputing463 (2021), 177–184. doi:10.1016/j.neucom.2021.08.018
+[30] Sunhee Hwang, Kibeom Hong, Guiyoung Son, and Hyeran Byun. 2020. Learning
+CNN features from DE features for EEG-based emotion recognition.Pattern
+Analysis and Applications23, 3 (2020), 1323 – 1335. doi:10.1007/s10044-019-
+00860-w Cited by: 104.
+[31] Abhishek Iyer, Srimit Sritik Das, Reva Teotia, Shishir Maheshwari, and Rishi
+Sharma. 2022. CNN and LSTM based Ensemble Learning for Human Emotion
+Recognition using EEG Recordings.Multimedia Tools and Applications(04 2022).
+doi:10.1007/s11042-022-12310-7
+[32] Smith K. Khare, Victoria Blanes-Vidal, Esmaeil S. Nadimi, and U. Rajendra
+Acharya. 2024. Emotion recognition and artificial intelligence: A systematic
+review (2014–2023) and research recommendations.Information Fusion102
+(2024), 102019. doi:10.1016/j.inffus.2023.102019
+[33] Domant˙e Kučikien˙e, Ravichandran Rajkumar, Katharina Timpte, Jan Heckel-
+mann, Irene Neuner, Yvonne Weber, and Stefan Wolking. 2024. EEG microstates
+show different features in focal epilepsy and psychogenic nonepileptic seizures.
+Epilepsia65 (01 2024). doi:10.1111/epi.17897
+[34] Byeong-Hoo Lee, Ji-Hoon Jeong, Kyung-Hwan Shim, and Dong-Joo Kim. 2020.
+Motor Imagery Classification of Single-Arm Tasks Using Convolutional Neural
+Network based on Feature Refining. arXiv:2002.01122 [cs.HC] https://arxiv.org/
+abs/2002.01122
+[35] D. Lehmann, H. Ozaki, and I. Pal. 1987. EEG alpha map series: brain micro-states
+by space-oriented adaptive segmentation.Electroencephalography and Clinical
+Neurophysiology67, 3 (1987), 271–288. doi:10.1016/0013-4694(87)90025-3
+[36] D Lehmann, W.K Strik, B Henggeler, T Koenig, and M Koukkou. 1998. Brain
+electric microstates and momentary conscious mind states as building blocks
+of spontaneous thinking: I. Visual imagery and abstract thoughts.International
+Journal of Psychophysiology29, 1 (1998), 1–11. doi:10.1016/S0167-8760(97)00098-
+6
+[37] Shuzhen Li, Yuxin Chen, Xuesong Chen, Ruiyang Gao, Yupeng Zhang, Chao
+Yu, Yunfei Li, Ziyi Ye, Weijun Huang, Hongliang Yi, et al. 2024. SleepNetZero:
+Zero-Burden Zero-Shot Reliable Sleep Staging with Neural Networks Based on
+Ballistocardiograms.Proceedings of the ACM on Interactive, Mobile, Wearable and
+Ubiquitous Technologies8, 4 (2024), 1–25.
+[38] Robert Lin, Ren-Guey Lee, Chwan-Lu Tseng, Heng-Kuan Zhou, C. F. Chao,
+and Joe-Air Jiang. 2006. A NEW APPROACH FOR IDENTIFYING SLEEP AP-
+NEA SYNDROME USING WAVELET TRANSFORM AND NEURAL NETWORKS.
+Biomedical Engineering: Applications, Basis and Communications18 (2006), 138–
+143. https://api.semanticscholar.org/CorpusID:2412588
+[39] Hong Liu, Haoling Tang, Wei Wei, Gesheng Wang, Yong Du, and Jianghai Ruan.
+2021. Altered peri-seizure EEG microstate dynamics in patients with absence9
+
+epilepsy.Seizure88 (2021), 15–21. https://api.semanticscholar.org/CorpusID:
+232359456
+[40] Huisheng Lu, Mingshi Wang, and Hongqiang Yu. 2005. EEG Model and Location
+in Brain when Enjoying Music.2005 IEEE Engineering in Medicine and Biology 27th
+Annual Conference(2005), 2695–2698. https://api.semanticscholar.org/CorpusID:
+21783113
+[41] Marzia Lucia, Christoph Michel, Stephanie Clarke, and Micah Murray. 2007.
+Single-subject EEG analysis based on topographic information.International
+Journal of Bioelectromagnetism www.ijbem.org9 (01 2007), 168–171.
+[42] Scott Makeig, Stefan Debener, Julie Onton, and Arnaud Delorme. 2004. Mining
+event-related brain dynamics.Trends in Cognitive Sciences8, 5 (2004), 204–210.
+doi:10.1016/j.tics.2004.03.008
+[43] Christoph M. Michel and Thomas Koenig. 2018. EEG microstates as a tool for
+studying the temporal dynamics of whole-brain neuronal networks: A review.
+NeuroImage180 (2018), 577–593. doi:10.1016/j.neuroimage.2017.11.062 Brain
+Connectivity Dynamics.
+[44] P. Milz, P.L. Faber, D. Lehmann, T. Koenig, K. Kochi, and R.D. Pascual-Marqui.
+2016. The functional significance of EEG microstates—Associations with modali-
+ties of thinking.NeuroImage125 (2016), 643–656. doi:10.1016/j.neuroimage.2015.
+08.023
+[45] Micah Murray, Denis Brunet, and Christoph Michel. 2008. Topographic ERP
+Analyses: A Step-by-Step Tutorial Review.Brain topography20 (07 2008), 249–64.
+doi:10.1007/s10548-008-0054-5
+[46] Yuqi Nie, Nam H. Nguyen, Phanwadee Sinthong, and Jayant Kalagnanam. 2022. A
+Time Series is Worth 64 Words: Long-term Forecasting with Transformers.ArXiv
+abs/2211.14730 (2022). https://api.semanticscholar.org/CorpusID:254044221
+[47] R.D. Pascual-Marqui, C.M. Michel, and D. Lehmann. 1995. Segmentation of
+brain electrical activity into microstates: model estimation and validation.IEEE
+Transactions on Biomedical Engineering42, 7 (1995), 658–665. doi:10.1109/10.
+391164
+[48] Mathias Perslev, S. Darkner, Lykke Kempfner, Miki Nikolic, Poul Jørgen Jennum,
+and C. Igel. 2021. U-Sleep: resilient high-frequency sleep staging.NPJ Digital
+Medicine4 (2021). https://api.semanticscholar.org/CorpusID:233237814
+[49] Huy Phan, Kaare Mikkelsen, Oliver Y. Chén, Philipp Koch, Alfred Mertins, and
+Maarten De Vos. 2022. SleepTransformer: Automatic Sleep Staging With In-
+terpretability and Uncertainty Quantification.IEEE Transactions on Biomedical
+Engineering69, 8 (2022), 2456–2467. doi:10.1109/TBME.2022.3147187
+[50] Gilles Pourtois, Sylvain Delplanque, Christoph M. Michel, and Patrik Vuilleu-
+mier. 2008. Beyond Conventional Event-related Brain Potential (ERP): Ex-
+ploring the Time-course of Visual Emotion Processing Using Topographic
+and Principal Component Analyses.Brain Topography20 (2008), 265–277.
+https://api.semanticscholar.org/CorpusID:15084282
+[51] Giulia Prete, Pierpaolo Croce, Filippo Zappasodi, Luca Tommasi, and Paolo
+Capotosto. 2022. Exploring brain activity for positive and negative emotions
+by means of EEG microstates.Scientific Reports12 (03 2022), 1–11. doi:10.1038/
+s41598-022-07403-0
+[52] Asha S.A, Sudalaimani C, Devanand P, Alexander G, Arya Maniyan Lathikaku-
+mari, Sanjeev V Thomas, and Ramshekhar N Menon. 2024. Analysis of EEG mi-
+crostates as biomarkers in neuropsychological processes – Review.Computers in
+Biology and Medicine173 (2024), 108266. doi:10.1016/j.compbiomed.2024.108266
+[53] G. Schalk, D.J. McFarland, T. Hinterberger, N. Birbaumer, and J.R. Wolpaw. 2004.
+BCI2000: a general-purpose brain-computer interface (BCI) system.IEEE Trans-
+actions on Biomedical Engineering51, 6 (2004), 1034–1043. doi:10.1109/TBME.
+2004.827072
+[54] Bastian Schiller, Matthias Sperl, Tobias Kleinert, Kyle Nash, and Lorena Gianotti.
+2023. EEG Microstates in Social and Affective Neuroscience.Brain Topography
+37 (07 2023), 1–17. doi:10.1007/s10548-023-00987-4
+[55] Felix Schlegel, D. Lehmann, Pascal Faber, Patricia Milz, and Lorena Gianotti.
+2011. EEG Microstates During Resting Represent Personality Differences.Brain
+topography25 (06 2011), 20–6. doi:10.1007/s10548-011-0189-7
+[56] Benjamin A. Seitzman, Malene Abell, Samuel C. Bartley, Molly A. Erickson,
+Amanda R. Bolbecker, and William P. Hetrick. 2017. Cognitive manipulation
+of brain electric microstates.NeuroImage146 (2017), 533–543. doi:10.1016/j.
+neuroimage.2016.10.002
+[57] Xiaorui Shao and Chang Soo Kim. 2022. A Hybrid Deep Learning Scheme for
+Multi-Channel Sleep Stage Classification.Computers, Materials & Continua
+(2022). https://api.semanticscholar.org/CorpusID:243464227
+[58] Xinke Shen, Xianggen Liu, Xin Hu, Dan Zhang, and Sen Song. 2023. Contrastive
+Learning of Subject-Invariant EEG Representations for Cross-Subject Emotion
+Recognition.IEEE Transactions on Affective Computing14, 3 (2023), 2496–2511.
+doi:10.1109/TAFFC.2022.3164516
+[59] In-Ho Song, Doo-Soo Lee, and Sun I Kim. 2004. Recurrence quantification analysis
+of sleep electoencephalogram in sleep apnea syndrome in humans.Neuroscience
+Letters366, 2 (2004), 148–153. doi:10.1016/j.neulet.2004.05.025
+[60] Tengfei Song, Suyuan Liu, Wenming Zheng, Yuan Zong, Zhen Cui, Yang Li, and
+Xiaoyan Zhou. 2021. Variational Instance-Adaptive Graph for EEG Emotion
+Recognition.IEEE Transactions on Affective Computing14 (2021), 343–356. https:
+//api.semanticscholar.org/CorpusID:233621668
+[61] Jianlin Su, Yu Lu, Shengfeng Pan, Ahmed Murtadha, Bo Wen, and Yunfeng
+Liu. 2023. RoFormer: Enhanced Transformer with Rotary Position Embedding.
+arXiv:2104.09864 [cs.CL] https://arxiv.org/abs/2104.09864
+[62] D. Puthankattil Subha, Paul K. Joseph, Rajendra Acharya U., and Choo Min Lim.
+2010. EEG Signal Analysis: A Survey.Journal of Medical Systems34 (2010),
+195–212. https://api.semanticscholar.org/CorpusID:1140473
+[63] Luke Tait, Francesco Tamagnini, George Stothart, Edoardo Barvas, Chiara
+Monaldini, Roberto P Frusciante, Mirco Volpini, Susanna Guttmann, Elizabeth J.
+Coulthard, Jon T. Brown, Nina Kazanina, and Marc Goodfellow. 2019. EEG mi-
+crostate complexity for aiding early diagnosis of Alzheimer’s disease.Scientific
+Reports10 (2019). https://api.semanticscholar.org/CorpusID:209578713
+[64] Padhmashree V. and Abhijit Bhattacharyya. 2022. Human emotion recognition
+based on time–frequency analysis of multivariate EEG signal.Knowledge-Based
+Systems238 (2022), 107867. doi:10.1016/j.knosys.2021.107867
+[65] V. Vanitha and P. Krishnan. 2017. Time-frequency analysis of
+EEG for improved classification of emotion.International Journal
+of Biomedical Engineering and Technology23, 2-4 (2017), 191–212.
+arXiv:https://www.inderscienceonline.com/doi/pdf/10.1504/IJBET.2017.082661
+doi:10.1504/IJBET.2017.082661
+[66] Anna Elisabetta Vaudano, Nicoletta Azzi, and Irene Trippi. 2019.Normal Sleep
+EEG. Springer International Publishing, Cham, 153–175. doi:10.1007/978-3-030-
+04573-9_10
+[67] Neeraj Wagh, Jionghao Wei, Samarth Rawal, Brent M. Berry, and Yogatheesan
+Varatharajah. 2022. Evaluating Latent Space Robustness and Uncertainty of
+EEG-ML Models under Realistic Distribution Shifts. arXiv:2209.11233 [eess.SP]
+https://arxiv.org/abs/2209.11233
+[68] Fei Wang, Shichao Wu, Weiwei Zhang, Zongfeng Xu, Yahui Zhang, Chengdong
+Wu, and Sonya Coleman. 2020. Emotion recognition with convolutional neural
+network and EEG-based EFDMs.Neuropsychologia146 (2020), 107506. doi:10.
+1016/j.neuropsychologia.2020.107506
+[69] Guangyu Wang, Wenchao Liu, Yuhong He, Cong Xu, Lin Ma, and Haifeng Li.
+2024. EEGPT: Pretrained Transformer for Universal and Reliable Representation
+of EEG Signals. InThe Thirty-eighth Annual Conference on Neural Information
+Processing Systems.
+[70] Jiquan Wang, Sha Zhao, Haiteng Jiang, Shijian Li, Tao Li, and Gang Pan.
+2024. Generalizable Sleep Staging via Multi-Level Domain Alignment.
+arXiv:2401.05363 [eess.SP] https://arxiv.org/abs/2401.05363
+[71] Xiao-Wei Wang, Dan Nie, and Bao-Liang Lu. 2011. EEG-Based Emotion Recogni-
+tion Using Frequency Domain Features and Support Vector Machines. InInterna-
+tional Conference on Neural Information Processing. https://api.semanticscholar.
+org/CorpusID:9355572
+[72] Yiming Wang, Bin Zhang, and Yujiao Tang. 2024. DMMR: Cross-Subject
+Domain Generalization for EEG-Based Emotion Recognition via Denoising
+Mixed Mutual Reconstruction. InAAAI Conference on Artificial Intelligence.
+https://api.semanticscholar.org/CorpusID:268678230
+[73] M. B. Westover, V. Moura Junior, R. Thomas, S. Cash, S. Nasiri, H. Sun, A. Gupta, J.
+Rosand, M. Ghanta, W. Ganglberger, U. Katwa, K. Stone, Z. Zhang, G. Ganjoo, T. E.
+Nassi PhD Candidate, R. Wei, D. Hwang, L. M. Trotti, A. Parekh, E. Meulenbrugge,
+E. Mignot, R Au, G. Clifford, and D. Rapoport. 2023. The Human Sleep Project
+(version 2.0).Brain Data Science Platform. https://doi.org/10.60508/qjbv-hg78.
+[74] Haixu Wu, Teng Hu, Yong Liu, Hang Zhou, Jianmin Wang, and Mingsheng
+Long. 2022. TimesNet: Temporal 2D-Variation Modeling for General Time Series
+Analysis.ArXivabs/2210.02186 (2022). https://api.semanticscholar.org/CorpusID:
+252715491
+[75] Guowen Xiao, Mengwen Ye, Bowen Xu, Zhendi Chen, and Quansheng Ren.
+2021. 4D Attention-based Neural Network for EEG Emotion Recognition.
+arXiv:2101.05484 [cs.LG] https://arxiv.org/abs/2101.05484
+[76] Chen Zechuan and Zhang Kan. 2024.The Principles of Psychology. Springer
+Nature Singapore, Singapore, 1–2. doi:10.1007/978-981-99-6000-2_1042-1
+[77] Xiaoli Zhang, Xizhen Zhang, Qiong Huang, Yang Lv, and Fuming Chen. 2024.
+A review of automated sleep stage based on EEG signals.Biocybernetics and
+Biomedical Engineering44, 3 (2024), 651–673. doi:10.1016/j.bbe.2024.06.004
+[78] Jingyi Zheng, Mingli Liang, Sujata Sinha, Linqiang Ge, Wei Yu, Arne Ekstrom,
+and Fushing Hsieh. 2022. Time-Frequency Analysis of Scalp EEG With Hilbert-
+Huang Transform and Deep Learning.IEEE Journal of Biomedical and Health
+Informatics26, 4 (2022), 1549–1559. doi:10.1109/JBHI.2021.3110267
+[79] Wei-Long Zheng and Bao-Liang Lu. 2015. Investigating Critical Frequency
+Bands and Channels for EEG-based Emotion Recognition with Deep Neural
+Networks.IEEE Transactions on Autonomous Mental Development7, 3 (2015),
+162–175. doi:10.1109/TAMD.2015.2431497
+[80] Xinliang Zhou, Chenyu Liu, Zhongruo Wang, Liming Zhai, Ziyu Jia, Cuntai
+Guan, and Yang Liu. 2024. Interpretable and Robust AI in EEG Systems: A Survey.
+arXiv:2304.10755 [eess.SP] https://arxiv.org/abs/2304.10755
+[81] Ning Zhuang, Ying Zeng, li Tong, Chi Zhang, Hanming Zhang, and Bin Yan. 2017.
+Emotion Recognition from EEG Signals Using Multidimensional Information in
+EMD Domain.BioMed Research International2017 (08 2017), 1–9. doi:10.1155/
+2017/8317357
+10
+
+Acknowledgments
+This work is supported by the Ministry of Science and Technology
+of China STI2030-Major Projects (No. 2021ZD0201900, 2021ZD0201902).
+The computations in this research were performed using the CFFF
+platform of Fudan University.
+A Experimental Setup
+This section gives the detailed experimental configuration of our
+downstream tasks.
+A.1 Sleep Staging
+A.1.1 Dataset.The dataset used is theHuman Sleep Project
+(HSP)dataset [ 73]. This dataset includes PSG signals from over20K
+subjects. Signals are sampled under various frequencies including
+256Hz and512Hz. Each sample includes a night’s sleep of a subject
+sampled, with sleep stages annotated every30seconds. Equiva-
+lently, we have the raw EEG signals 𝑠∈R 𝐶×𝑓 𝑠𝑇 where 𝐶 consists
+of different classes of channels such as EOG, ECG, and EEG and
+differs across subjects, 𝑓𝑠 denotes the sample frequency which also
+differs across subjects, and 𝑇 is the time duration of a night’s sleep,
+which is typically6-7hours. The label frequency is𝑓 𝑙 = 1
+30 Hz.
+A.1.2 Preprocessing.
+Extracting target channels.As for constructing the microstates,
+we have to filter out a fixed number of channels. To achieve this goal,
+we extract 𝑁= 6channels which is common among all samples.
+The EEG leads are shown in the following diagram [ 19, 79]. The
+channels chosen are F3, F4, C3, C4, O1, O2. After extraction, the
+EEG signals have shape𝑠 𝑒𝑥𝑡 ∈R 𝑁×𝑓 𝑠𝑇 .
+Figure 6: The Distribution of EEG Leads
+Filtering and Resampling.The raw EEG signals are then bandpass
+filtered between1Hz and40Hz, followed by a resampling at 𝑓𝑟𝑒𝑠 =
+100Hz. After these procedures, the raw EEG signals now have shape
+𝑠𝑟𝑒𝑠 ∈R 𝑁×𝑓 𝑟𝑒𝑠 𝑇 . Having obtained the resampled data, we construct
+the representations accordingly.
+Constructing microstates.The fitted clustering model is applied
+to the resampled data 𝑠𝑟𝑒𝑠 ∈R 𝑁×𝑓 𝑠𝑇 . The result is a microstate
+sequence𝑐∈𝑆 𝑓𝑟𝑒𝑠 𝑇 where𝑆∈ {𝑏 1, 𝑏2, . . . , 𝑏𝑘 }is a set of𝑘discrete
+states. Here we let𝑘=1000.
+Constructing baseline.We directly use the raw EEG signals for
+time-domain features. The input shape is𝑠 𝑡𝑖𝑚𝑒 ∈R 𝑁×𝑓 𝑟𝑒𝑠 𝑇 .
+To extract frequency information, we use short-time Fourier
+transform. The major goal is to decompose the signal into powers
+at different frequencies. [4]. For a given frequency𝑓, the power is
+computed as follows:
+𝑋(𝑡, 𝑓)=
+∫ ∞
+−∞
+𝑤(𝑡−𝜏)𝑠(𝜏)𝑒 −𝑖2𝜋 𝑓 𝜏𝑑𝜏
+𝑝(𝑡, 𝑓)= 1
+2𝜋 |𝑋(𝑡, 𝑓)| 2
+where𝑤(𝑡)is a window function. Note that
+𝑋 ′ (𝑡, 𝑓)=
+∫ ∞
+−∞
+𝑠(𝜏)𝑒 −𝑖2𝜋 𝑓 𝜏𝑑𝜏
+is the usual Fourier transform, and the window function 𝑤(𝑡) only
+has finite support which serves as a short-time weighted sum of
+the integral. We use the Hann window function defined as follows:
+𝑤(𝑡)=
+ 
+
+1
+2 (1−cos 2𝜋𝑡
+𝑇 ) |𝑡| ≤ 𝑇
+2
+0|𝑡|> 𝑇
+2
+where 𝑇 is the window length. In our setting we set 𝑇=𝑡 𝑤 = 1s.
+The overlap ratio is set to be𝑟 𝑜 =0.
+Using the above approach, the processed frequency-domain sig-
+nals have length𝑙 ′ where
+𝑙 ′ =
+ 𝑓𝑟𝑒𝑠 𝑇−𝑓 𝑟𝑒𝑠 𝑡𝑤
+(1−𝑟 𝑜 )𝑓𝑟𝑒𝑠 𝑡𝑤
+
++1
+is the number of windows. Leaving out the margin, we have that
+𝑙 ′ = 𝑇
+(1−𝑟 𝑜 )𝑡𝑤
+=𝑓 𝑓 𝑟𝑒𝑞𝑇
+here for𝑟 𝑜 =0and𝑡 𝑤 =1s, we have𝑓 𝑓 𝑟𝑒𝑞 =1Hz.
+Having calculated the power 𝑝(𝑡, 𝑓) at frequency 𝑓 and time 𝑡,
+we obtain the spectrogram 𝑃∈R 𝐹×𝑓 𝑓 𝑟𝑒𝑞 𝑇 for each channel, where
+𝐹is the frequency axis and𝑓 𝑓 𝑟𝑒𝑞𝑇is the time axis.
+Next, we apply band integration. Human EEG signal is divided
+into the following frequency bands:
+•𝛿-band:0.5∼4Hz
+•𝜃-band:4∼8Hz
+•𝛼-band:8∼12Hz
+•𝜎-band:12∼16Hz
+•𝛽-band:16∼30Hz
+•𝛾-band:30∼40Hz
+and we combine the powers among 𝐹 within each band. We use
+simpson integration as our numerical quadrature method, which is
+defined as∫ 𝑏
+𝑎
+𝑓(𝑥)𝑑𝑥= 𝑏−𝑎
+6
+
+𝑓(𝑎) +4𝑓
+ 𝑎+𝑏
+2
+
++𝑓(𝑏)
+
+for a step interval [𝑎, 𝑏]. After the integration, the array shape
+becomes 𝑠𝑓 𝑟𝑒𝑞,𝑠𝑖𝑛 ∈R 𝐵×𝑓 𝑓 𝑟𝑒𝑞 𝑇 where 𝐵= 6is the number of bands.
+As our final step, we flatten the array for each channel to𝑠𝑓 𝑟𝑒𝑞,𝑠𝑖𝑛,𝑓 𝑙𝑎𝑡 ∈
+R𝐵 𝑓𝑓 𝑟𝑒𝑞 𝑇 and stack the 𝑁 channels together, resulting in shape
+𝑠𝑓 𝑟𝑒𝑞 ∈R 𝑁×𝐵 𝑓 𝑓 𝑟𝑒𝑞 𝑇 .
+Slicing.We select fixed window size 𝑇𝑤 = 300s. In this case,
+a microstates sample will have shape 𝑐𝑤 ∈𝑆 𝑓𝑟𝑒𝑠 𝑇𝑤 =𝑆 30000, and
+the raw EEG data will have shape 𝑠𝑡𝑖𝑚𝑒,𝑤 ∈R 𝑁×𝑓 𝑟𝑒𝑠 𝑇𝑤 =R 6×30000.
+The frequency-domain representation will have shape 𝑠𝑓 𝑟𝑒𝑞,𝑤 ∈
+R𝑁×𝐵 𝑓 𝑓 𝑟𝑒𝑞 𝑇𝑤 =R 6×1800.
+11
+
+A.1.3 Labels.The label frequency is 𝑓𝑙 = 1
+30 Hz, and hence the
+label sequence will be of shape 𝑙𝑤 ∈𝐿 𝑓𝑙𝑇𝑤 =𝐿 10 where 𝐿 consists
+of the five sleep stages.
+A.2 Emotion Recognition
+A.2.1 Dataset.The dataset used is theSEEDdataset [ 19, 79]. The
+SEED dataset consists of15subjects whose EEG signals of62chan-
+nels are recorded when watching movie clips expressing different
+emotions which are categorized as positive, neutral and negative.
+There are a total number of15trials, during which subjects view
+episodes with positive, neutral, negative, negative, nuetral, posi-
+tive, negative, neutral, positive, positive, neutral, negative, neutral,
+positive, negative emotions. The dataset is filtered between0and
+75Hz and downsampled to200Hz. In raw EEG samples have shape
+𝑠∈R 𝐶×𝑓 𝑠𝑇 where 𝑓𝑠 = 200Hz and 𝐶= 62. 𝑇 is the length of the
+movie clip which varies between trials.
+A.2.2 Preprocessing.
+Extracting target channels.We extract the6target channels as
+above for labeling. The resulting shape is 𝑠𝑒𝑥𝑡 ∈R 𝑁×𝑓 𝑠𝑇 where
+𝑁=6.
+Constructing microstates and baseline.We do not filter and re-
+sample the EEG signals since these are done initially. Applying the
+clustering model, we obtain the microstate sequence𝑐∈𝑆 𝑓𝑠𝑇 where
+𝑆 is the set of1000states. The raw signal has shape 𝑠𝑡𝑖𝑚𝑒 ∈R 𝑁×𝑓 𝑠𝑇 ,
+and the frequency-domain signal has shape 𝑠𝑓 𝑟𝑒𝑞 ∈R 𝑁×𝐵 𝑓 𝑓 𝑟𝑒𝑞 𝑇
+where𝑓 𝑓 𝑟𝑒𝑞 =1Hz and𝐵=6is the number of bands.
+Windowing.Since the movie clips are not of the same length, we
+set 𝑇𝑤 = 265s which is the duration of the longest video, and pad the
+signals that are shorter. For microstates, a new token is introduced
+for padding, whereas for the other two representations, we pad
+zeros. Now the microstate sequence has length 𝑓𝑠𝑇𝑤 = 53000, the
+raw EEG signals have shape 𝑠𝑡𝑖𝑚𝑒,𝑤 ∈R 𝑁×𝑓 𝑠𝑇𝑤 =R 6×53000 and the
+frequency-domain signals have shape𝑠 𝑓 𝑟𝑒𝑞,𝑤 ∈R 6×1590.
+A.2.3 Labels.As mentioned in [ 7], human emotions can be char-
+acterized in the valence-arousal space as in Figure 7. Valence and
+arousal are two dominant factors categorizing human feelings. Since
+the SEED dataset only features the valence aspect, the prediction
+of emotions is focused on the valence component, with labels 𝐿
+defined as positive, neutral and negative. Each segmented window
+corresponds to a single emotion label.
+Figure 7: The Valence-Arousal Space
+A.3 Motor Imagery Classification
+A.3.1 Dataset.We use theMotor Movement/Imagerydataset
+[25, 53]. The dataset consists of109subjects undergoing14trials.
+The14trials includes two rest sessions and four tasks. The four
+tasks are:
+•Task1: Open and close the left or right fist.
+•Task2: Imagine opening and closing the left or right fist.
+•Task3: Open and close both fists or both feet.
+•Task4: Imagine opening and closing both fists or feet.
+Every subject went through two rest sessions and three rounds
+of successive tasks in the order above. The labels are given during
+movement roughly every four seconds. There are in total three
+labels. 𝑇0 corresponds to rest,𝑇1 corresponds to the onset of moving
+or imagining moving the left or both fists, and 𝑇2 corresponds to
+the onset of moving or imagining moving the right fist or both feet.
+The samples contain64channels at 𝑓𝑠 = 160Hz. In this case, the
+raw EEG signals have shape 𝑠∈R 𝐶×𝑓 𝑠𝑇 where 𝐶= 64, 𝑓𝑠 = 160Hz
+and𝑇is the duration of each trial.
+A.3.2 Preprocessing.
+Extracting target channels.Again, the six target channels are
+extracted and the resulting shape is𝑠 𝑒𝑥𝑡 ∈R 𝑁×𝑓 𝑠𝑇 , 𝑁=6.
+Constructing microstates and baseline.We directly apply the clus-
+tering model on the raw EEG and obtain the microstate sequence
+𝑐∈𝑆 𝑓𝑠𝑇 . The raw EEG signals have shape 𝑠𝑡𝑖𝑚𝑒 ∈R 𝑁×𝑓 𝑠𝑇 and the
+frequency-domain signals have shape 𝑠𝑓 𝑟𝑒𝑞 ∈R 𝑁×𝐵 𝑓 𝑓 𝑟𝑒𝑞 𝑇 where
+𝑓𝑓 𝑟𝑒𝑞 =1Hz.
+Slicing.Since each label lasts for roughly4s. We set 𝑇𝑤 = 4s. And
+thus the microstate sequence has length640, the raw EEG signal
+has shape 𝑠𝑡𝑖𝑚𝑒,𝑤 ∈R 6×640 where as the frequency-domain signal
+has shape𝑠 𝑓 𝑟𝑒𝑞,𝑤 ∈R 6×24.
+A.3.3 Labels.We let 𝐿 consists of four labels: left hand, right hand,
+both hands, both feet. Left hand corresponds to the label 𝑇1 in
+trials3 , 4, 7, 8, 11, 12, right hand corresponds to the label 𝑇2 in tri-
+als3 , 4, 7, 8, 11, 12, both hands corresponds to the label 𝑇1 in trials
+5, 6, 9, 10, 13, 14and both feet corresponds to the label 𝑇2 in trials
+5, 6, 9, 10, 13, 14. Each sample corresponds to a single movement
+label.
+12
+
+B Model Architecture and Training
+This section shows the detailed model structures adopted in this
+work.
+B.1 CNN+LSTM [57]
+B.1.1 Model Details.
+Overview of model structure.The following shows the model
+structure. The three models have parameters707K,692K and687K
+respectively. Models are shown in Table3, Table4and Table5.
+CNN and GRU..The convolution layers are employed to extract
+the spatial information across channels, and the gated recurrent
+units (GRUs) are used to extract temporal information.
+GRU is a simplified version of long short term memory (LSTM)
+[16]. It consists of two gates—the update gate 𝑧 and the reset gate 𝑟.
+At each time step 𝑡, the activation of the update gate 𝒛𝑡 is com-
+puted as
+𝒛𝑡 =𝜎(𝑊 𝑧𝒙𝑡 +𝑈 𝑧𝒉𝑡−1 )
+where ℎ𝑡−1 is the activation of the GRU at time step 𝑡− 1and 𝜎
+denotes the element-wise sigmoid function. Similarly, the activation
+𝒓𝑡 of the reset gate is computed as
+𝒓𝑡 =𝜎(𝑊 𝑟 𝒙𝑡 +𝑈 𝑟 𝒉𝑡−1 )
+Next, the candidate activate ˜ℎ𝑡 is computed as
+˜𝒉𝑡 =tanh(𝑊𝒙 𝑡 +𝒓 𝑇
+𝑡 𝑈𝒉 𝑡−1 )
+The activationℎ 𝑡 at time step𝑡is computed as
+𝒉𝑡 =(1 𝑇 −𝒛 𝑇
+𝑡 )𝒉𝑡−1 +𝒛 𝑇
+𝑡 ˜𝒉𝑡−1
+Using this mechanism, the model can selectively consider input
+at different time steps.
+Embedding layer.To adapt the model simultaneously to continu-
+ous and discrete EEG representations, we use different layers for
+microstates and conventional representations. For microstates, an
+embedding layer is adopted to convert discrete microstates into
+high-dimensional vectors, and for continuous signals, we use a
+convolution layer, which functions similarly by mapping the input
+into a high-dimensional latent space. The dimensions are chosen
+appropriately to guarantee that the model parameters are roughly
+the same.
+B.1.2 Training Configuration.This section lists the training con-
+figurations of the above3models in Table6. The models are trained
+on an NVIDIA-H20GPU. The parameters in each case is optimized
+for performance and memory utilization.
+B.2 Sleep Transformer [49]
+B.2.1 Model Details.
+Overview of model structure.The following shows the model
+structure of Sleep Transformer. Parameters are3 .2M,3 .2M and
+3.4M, respectively. Model structures are shown in Table7, Table8
+and Table9.
+RoFormer.The main part of the model uses an attention-based
+mechanism to extract temporal features. RoFormer is proposed in
+[61], which utilizes a novel positional embedding.
+Generally speaking, the attention mechanism needs a key 𝒌𝑖,
+query 𝒒𝑖 and value 𝒗𝑖 for each input position 𝑖. We can write them
+as
+𝒒𝑖 =𝑓 𝑞 (𝒙𝑖, 𝑖)
+𝒌𝑖 =𝑓 𝑘 (𝒙𝑖, 𝑖)
+𝒗𝑖 =𝑓 𝑣 (𝒙𝑖, 𝑖)
+where 𝒙𝑖 is the word vector at position 𝑖. The attention between
+position𝑚, 𝑛is calculated as
+𝑎𝑚,𝑛 = 𝑒
+𝒒𝑇𝑚 𝒌𝑛√
+𝑑
+Í𝑁
+𝑗=1 𝑒
+𝒒𝑇𝑚 𝒌 𝑗√
+𝑑
+and since this value is calculated in parallel, we have to incorporate
+the positional information 𝑖 along with 𝒙𝑖 into the queries and keys.
+The main idea of RoFormer is to select a positional embedding
+such that
+𝒒𝑇
+𝑚𝒌𝑛 =𝑔(𝒙 𝑚,𝒙 𝑛, 𝑛−𝑚)
+is a function that depends solely on the input word vector and the
+relative position between𝑚, 𝑛.
+To construct such a positional embedding, let the embedding
+dimension be 𝑑 which is an even number, then we construct the
+following matrix
+𝑹𝑑
+Θ,𝑚 =
+©­­­­­­­­­­­
+«
+cos𝑚𝜃 1 −sin𝑚𝜃 1 . . .0 0
+sin𝑚𝜃 1 cos𝑚𝜃 1 . . .0 0
+0 0. . .0 0
+0 0. . .0 0
+...
+... . . . ...
+...
+0 0. . .cos𝑚𝜃 𝑑
+2
+−sin𝑚𝜃 𝑑
+2
+0 0. . .sin𝑚𝜃 𝑑
+2
+cos𝑚𝜃 𝑑
+2
+ª®®®®®®®®®®®
+¬
+and we have
+𝒒𝑚 =𝑹 𝑑
+Θ,𝑚𝑾𝑞𝒙𝑚
+𝒌𝑛 =𝑹 𝑑
+Θ,𝑛𝑾 𝑘 𝒙𝑘
+𝒒𝑇
+𝑚𝒌𝑛 =𝒙 𝑇
+𝑚𝑾𝑇
+𝑞 𝑹𝑑
+Θ,𝑛−𝑚𝑾 𝑘 𝒙𝑘 =𝑔(𝒙 𝑚,𝒙 𝑛, 𝑛−𝑚)
+Embedding layer.An embedding layer is added before the mi-
+crostates model. There are2extra vectors for padding and classifi-
+cation token. A convolution layer is used instead for continuous
+signals.
+B.2.2 Training Configuration.The models are trained on an NVIDIA-
+H20GPU. Parameters are optimized for performance and memory
+utilization.
+B.3 Sleep Net Zero [37]
+B.3.1 Model Details.
+Overview of model structure.The following shows the model
+structure of Sleep Net Zero. Parameters are10 .9M,3 .2M and3 .2M.
+Model details are shown in Table12, Table13and Table14.
+Embedding layer.We adopt an embedding layer with1002to-
+kens for microstates. For raw EEG signals, since its input size is
+significantly larger than the other two representations, we increase
+the embedding dimension for better performance.
+13
+
+Table 5: CNN+LSTM for Raw EEG
+layer output configuration
+− (6,30000) −
+Conv1d(1024,30000)input channels6, output channels1024, kernel size5padding2
+BatchNorm1d(1024,30000)1024
+Conv1d(128,10000)input channels1024, output channels128, kernel size3stride3
+MaxPool1d(128,5000)kernel size2, stride2
+Dropout(128,5000)𝑝=0.25
+Conv1d(64,1000)input channels128, output channels64, kernel size5stride5
+MaxPool1d(64,500)kernel size2, stride2
+Dropout(64,500)𝑝=0.25
+Conv1d(32,500)input channels64, output channels32, kernel size3padding1
+MaxPool1d(32,250)kernel size2, stride2
+Dropout(32,250)𝑝=0.25
+GRU(64,250)input size32, hidden size64,2layers
+Dropout(64,250)𝑝=0.25
+GRU(128,250)input size64, hidden size128,2layers
+Dropout(128,250)𝑝=0.25
+reshape(10,3200) −
+Linear(10,5)input features3200, output features5
+Table 6: CNN+LSTM for Frequency-Domain
+layer output configuration
+− (6,1800) −
+Conv1d(1024,1800)input channels6, output channels1024, kernel size5padding2
+BatchNorm1d(1024,1800)1024
+Conv1d(128,600)input channels1024, output channels128, kernel size3stride3
+MaxPool1d(128,300)kernel size2, stride2
+Dropout(128,300)𝑝=0.25
+Conv1d(64,60)input channels128, output channels64, kernel size5stride5
+MaxPool1d(64,30)kernel size2, stride2
+Dropout(64,30)𝑝=0.25
+Conv1d(32,30)input channels64, output channels32, kernel size3padding1
+MaxPool1d(32,15)kernel size2, stride2
+Dropout(32,15)𝑝=0.25
+GRU(64,15)input size32, hidden size64,2layers
+Dropout(64,15)𝑝=0.25
+GRU(128,15)input size64, hidden size128,2layers
+Dropout(128,15)𝑝=0.25
+reshape(10,192) −
+Linear(10,5)input features192, output features5
+B.3.2 Training Configuration.The models are trained on an NVIDIA-
+H20GPU. Parameters in each case are optimized for performance
+and memory utilization.
+B.4 CNN-Based Model for Emotion Recognition
+[13]
+Apart from sleep staging, we show the model used for emotion
+recognition.
+B.4.1 Model Details.
+Overview of model structure.The following shows the model
+structure of the CNN-based model. Parameters are19 .1M,19 .1M
+and20 .1M. Model details are shown in Table16, Table17and Table
+18.
+Embedding layer.For microstates, an embedding layer with vo-
+cabulary1001and dimension1024is employed. The extra token is
+for padding. Convolution layers are used in the place of embedding
+for the other two representations.
+14
+
+Table 7: CNN+LSTM for Microstates
+layer output configuration
+− (30000,) −
+Embedding(30000,512)number of embeddings1000, dimension512
+transpose(512,30000) −
+BatchNorm1d(512,30000)512
+Conv1d(64,10000)input channels512, output channels64, kernel size3stride3
+MaxPool1d(64,5000)kernel size2, stride2
+Dropout(64,5000)𝑝=0.25
+Conv1d(32,1000)input channels64, output channels32, kernel size5stride5
+MaxPool1d(32,500)kernel size2, stride2
+Dropout(32,500)𝑝=0.25
+Conv1d(16,500)input channels32, output channels16, kernel size3padding1
+MaxPool1d(16,250)kernel size2, stride2
+Dropout(16,250)𝑝=0.25
+GRU(32,250)input size16, hidden size32,2layers
+Dropout(32,250)𝑝=0.25
+GRU(64,250)input size32, hidden size64,2layers
+Dropout(64,250)𝑝=0.25
+reshape(10,1600) −
+Linear(10,5)input features1600, output features5
+Table 8: Training Configuration for CNN+LSTM
+parameter batch optimizer learning rate split (train:val:test) early stop
+Raw EEG64Adam10 −4 7 : 1 : 2patience20on Kappa
+Freqency-Domain256Adam10 −4 7 : 1 : 2patience20on Kappa
+Microstates512Adam10 −4 7 : 1 : 2patience20on Kappa
+Table 9: Sleep Transformer for Raw EEG
+layer output configuration
+− (𝑏,6,30000) −
+Conv1d(𝑏,6,6000)input channels6, output channels6, kernel size5stride5
+Conv1d(𝑏,6,3000)input channels6, output channels6, kernel size2stride2
+transpose(𝑏,3000,6) −
+reshape(10𝑏,300,6) −
+RoFormer(10𝑏,300,256)hidden size256,2hidden layers,4heads, intermediate size1024
+slice and reshape(𝑏,10,256)retrieve only the first along the second dimension and reshape
+RoFormer(𝑏,10,256)hidden size256,2hidden layers,4heads, intermediate size1024
+Linear(𝑏,10,5)input features256, output features5
+B.4.2 Training Configuration.This section lists the training con-
+figurations of the above three models. The models are trained on
+an NVIDIA-H20GPU. The parameters in each case are optimized
+for performance and memory utilization.
+B.5 ResNet Model for Motor Imagery
+Classification
+Finally, we list our model for motor imagery classification.
+B.5.1 Model Details.
+Overview of model structure.The following shows the structure
+of ResNet model. Parameters are20 .3M,21 .5M and21 .4M. Model
+details are shown in Table20, Table21and Table22.
+ELU..The ELU activation function is defined as
+𝐸𝐿𝑈(𝑥)=
+ 𝑥 𝑥>0
+𝛼(𝑒 𝑥 −1)𝑥≤0
+15
+
+Table 10: Sleep Transformer for Frequency-Domain
+layer output configuration
+− (𝑏,6,1800) −
+transpose(𝑏,1800,6) −
+reshape(10𝑏,180,6) −
+RoFormer(10𝑏,180,256)hidden size256,2hidden layers,4heads, intermediate size1024
+slice and reshape(𝑏,10,256)retrieve only the first along the second dimension and reshape
+RoFormer(𝑏,10,256)hidden size256,2hidden layers,4heads, intermediate size1024
+Linear(𝑏,10,5)input features256, output features5
+Table 11: Sleep Transformer for Microstates
+layer output configuration
+− (𝑏,30000) −
+Embedding(𝑏,30000,128)number of embeddings1002, dimension128
+transpose(𝑏,128,30000) −
+Conv1d(𝑏,128,6000)input channels128, output channels128, kernel size5stride5
+Conv1d(𝑏,128,3000)input channels128, output channels128, kernel size2stride2
+transpose(𝑏,3000,128) −
+reshape(10𝑏,300,128) −
+RoFormer(10𝑏,300,256)hidden size256,2hidden layers,4heads, intermediate size1024
+slice and reshape(𝑏,10,256)retrieve only the first along the second dimension and reshape
+RoFormer(𝑏,10,256)hidden size256,2hidden layers,4heads, intermediate size1024
+Linear(𝑏,10,5)input features256, output features5
+Table 12: Training Configuration for Sleep Transformer
+parameter batch optimizer learning rate split (train:val:test) early stop
+Raw EEG64Adam10 −4 7 : 1 : 2patience20on Kappa
+Freqency-Domain1000Adam10 −4 7 : 1 : 2patience20on Kappa
+Microstates512Adam10 −4 7 : 1 : 2patience20on Kappa
+Table 13: ResNetFeatureExtractor
+layer output configuration
+− (6,30000) −
+Conv1d(64,30000)input channels6, output channels64, kernel size7padding3
+BatchNorm1d(64,30000)64
+ReLU(64,30000) −
+MaxPool1d(64,15000)kernel size3stride2padding1
+ResBlocks(512,3000)ResBlocks(in=64,out=512,stride=5), see above
+ResBlocks(128,3000)ResBlocks(in=512,out=128,stride=1), see above
+ResBlocks(256,3000)ResBlocks(in=128,out=256,stride=1), see above
+ResBlocks(512,3000)ResBlocks(in=256,out=512,stride=1), see above
+Embedding layer.For microstates, an embedding layer with vo-
+cabulary1000and dimension1024is employed. Convolution layers
+are used in the place of embedding for the other two representa-
+tions.
+B.5.2 Training Configuration.This section lists the training con-
+figurations of the above3models. The models are trained on an
+NVIDIA-H20GPU. Model parameters in each case are optimized
+for performance and memory utilization.
+16
+
+Table 14: Sleep Net Zero for Raw EEG
+layer output configuration
+− (6,30000) −
+ResNetFeatureExtractor(512,3000)see above
+transpose(3000,512) −
+RoFormer(3000,512)hidden size512,2hidden layers,2heads, intermediate size1024
+Linear(3000,5)input features512, output features5
+reshape and mean(10,5)compute the mean of every consecutive300scores
+Table 15: Sleep Net Zero for Frequency-Domain
+layer output configuration
+− (6,1800) −
+Conv1d(640,1800)input channels6, output channels640, kernel size5padding2
+Conv1d(640,360)input channels640, output channels640, kernel size5padding5
+Conv1d(320,360)input channels640, output channels320, kernel size3padding1
+Conv1d(320,180)input channels320, output channels320, kernel size2padding2
+Conv1d(160,180)input channels320, output channels160, kernel size3padding1
+transpose(180,160) −
+RoFormer(180,160)hidden size160,2hidden layers,2heads, intermediate size1024
+Linear(180,5)input features160, output features5
+reshape and mean(10,5)compute the mean of every consecutive18scores
+Table 16: Sleep Net Zero for Microstates
+layer output configuration
+− (30000,) −
+Embedding(30000,512)number of embeddings1002, dimension512
+transpose(512,30000) −
+Conv1d(512,6000)input channels512, output channels512, kernel size5padding5
+Conv1d(256,6000)input channels512, output channels256, kernel size3padding1
+Conv1d(256,3000)input channels256, output channels256, kernel size2padding2
+Conv1d(128,3000)input channels256, output channels128, kernel size3padding1
+transpose(3000,128) −
+RoFormer(3000,128)hidden size128,2hidden layers,2heads, intermediate size1024
+Linear(3000,5)input features128, output features5
+reshape and mean(10,5)compute the mean of every consecutive300scores
+Table 17: Training Configuration for Sleep Net Zero
+parameter batch optimizer learning rate split (train:val:test) early stop
+Raw EEG96Adam10 −4 7 : 1 : 2patience20on Kappa
+Freqency-Domain512Adam10 −4 7 : 1 : 2patience20on Kappa
+Microstates128Adam10 −4 7 : 1 : 2patience20on Kappa
+C More Microstate Analysis
+This section provides more analysis and visualization of microstates.
+C.1 Comparison Between Wake Stage and
+Rapid Eye Movement (REM) Stage
+Humans undergo vivid dreaming processes during REM stage [66].
+In turn, EEG signals in REM stage share the same characteristics
+17
+
+Table 18: CNN for Raw EEG
+layer output configuration
+− (6,53000) −
+Conv1d(1024,53000)input channels6, output channels1024, kernel size1
+Conv1d and ReLU(256,10600)input channels1024, output channels256, kernel size5stride5
+Conv1d and ReLU(128,2120)input channels256, output channels128, kernel size5stride5
+Conv1d and ReLU(128,1060)input channels128, output channels128, kernel size2stride2
+MaxPool1d(128,530)kernel size2stride2
+Dropout(128,530)𝑝=0.1
+Conv1d and ReLU(128,530)input channels128, output channels128, kernel size3padding1
+Conv1d and ReLU(128,530)input channels128, output channels128, kernel size3padding1
+MaxPool1d(128,265)kernel size2stride2
+Dropout(128,265)𝑝=0.1
+flatten(33920,) −
+Linear(512,)input features33920, output features512
+Dropout(512,)𝑝=0.1
+Linear(256,)input features512, output features256
+Dropout(256,)𝑝=0.1
+Linear(64,)input features256, output features64
+Dropout(64,)𝑝=0.1
+Linear(3,)input features64, output features3
+Table 19: CNN for Frequency-Domain
+layer output configuration
+− (6,1590) −
+reshape(6,265,6)let the last dimension be the freqency bands
+Conv2d(1024,265,6)input channels6, output channels1024, kernel size(1,1)
+Conv2d & ReLU(256,265,6)input channels1024, output channels256, kernel size(1,5)padding(0,2)
+Conv2d & ReLU(128,265,6)input channels256, output channels128, kernel size(1,5)stride(0,2)
+Conv2d & ReLU(128,265,6)input channels128, output channels128, kernel size(1,3)stride(0,1)
+MaxPool2d(128,265,3)kernel size(1,2)stride(1,2)
+Dropout(128,265,3)𝑝=0.1
+Conv2d & ReLU(128,265,3)input channels128, output channels128, kernel size(1,3)padding(0,1)
+Conv2d & ReLU(128,265,3)input channels128, output channels128, kernel size(1,3)padding(0,1)
+MaxPool2d(128,265,1)kernel size(1,2)stride(1,2)
+Dropout(128,265,1)𝑝=0.1
+flatten(33920,) −
+Linear(512,)input features33920, output features512
+Dropout(512,)𝑝=0.1
+Linear(256,)input features512, output features256
+Dropout(256,)𝑝=0.1
+Linear(64,)input features256, output features64
+Dropout(64,)𝑝=0.1
+Linear(3,)input features64, output features3
+with that during wakefulness. We analyze the30most frequent-
+appearing microstates during W and REM stages across groups of
+30subjects. The results are as follows:
+From the above tables we see that the4microstates161 , 385, 419
+and421occur frequently in both R and W stages, with roughly the
+same ranks. This suggests that the brain undergoes similar activity
+patterns during these stages.
+Further examination of these microstates shows that these mi-
+crostates have low potential which is below10𝜇V. This is consistent
+with the fact that during W stage, brain signals are dominated by 𝛼
+waves which have a low potential. Also, this result indicates certain
+similarities between W stage and R stage since the brain undergoes
+similar activity.
+18
+
+Table 20: CNN for Microstates
+layer output configuration
+− (6,53000) −
+Embedding(1024,53000)number of embeddings1001, dimension1024
+Conv1d and ReLU(256,10600)input channels1024, output channels256, kernel size5stride5
+Conv1d and ReLU(128,2120)input channels256, output channels128, kernel size5stride5
+Conv1d and ReLU(128,1060)input channels128, output channels128, kernel size2stride2
+MaxPool1d(128,530)kernel size2stride2
+Dropout(128,530)𝑝=0.1
+Conv1d and ReLU(128,530)input channels128, output channels128, kernel size3padding1
+Conv1d and ReLU(128,530)input channels128, output channels128, kernel size3padding1
+MaxPool1d(128,265)kernel size2stride2
+Dropout(128,265)𝑝=0.1
+flatten(33920,) −
+Linear(512,)input features33920, output features512
+Dropout(512,)𝑝=0.1
+Linear(256,)input features512, output features256
+Dropout(256,)𝑝=0.1
+Linear(64,)input features256, output features64
+Dropout(64,)𝑝=0.1
+Linear(3,)input features64, output features3
+Table 21: Training Configuration for CNN
+parameter batch optimizer learning rate split (train:val:test) early stop
+Raw EEG128Adam5×10 −4 7 : 1 : 2patience100on Kappa
+Freqency-Domain128Adam5×10 −4 7 : 1 : 2patience100on Kappa
+Microstates128Adam10 −4 7 : 1 : 2patience100on Kappa
+Table 22: ResNet for Raw EEG
+layer output configuration
+− (6,640) −
+Conv1d(1024,640)input channels6, output channels1024, kernel size3padding1
+Encoder(128,640)see below
+flatten(81920,) −
+Classifier(4,)see below
+Table 23: ResNet for Frequency-Domain
+layer output configuration
+− (6,24) −
+Conv1d(1024,24)input channels6, output channels1024, kernel size3, padding1
+Encoder2(256,24)see below
+flatten(6144,) −
+Classifier2(4,)see below
+19
+
+Table 24: ResNet for Microstates
+layer output configuration
+− (6,640) −
+Conv1d(1024,640)input channels6, output channels1024, kernel size3, padding1
+Encoder(128,640)see below
+flatten(81920,) −
+Classifier(4,)see below
+Table 25: Encoder Architecture
+layer output configuration
+− (1024,640) −
+Conv1d(512,640)input channels1024, output channels512, kernel size13, padding6
+ResBlock1d(256,640)in512, out256, kernel11, see below
+ResBlock1d(128,640)in256, out128, kernel9, see below
+ResBlock1d(128,640)in128, out128, kernel7, see below
+ELU(128,640) −
+Table 26: Encoder2Architecture
+layer output configuration
+− (1024,24) −
+Conv1d(768,24)input channels1024, output channels768, kernel size13, padding6
+ResBlock1d(512,24)in768, out512, kernel11, see below
+ResBlock1d(256,24)in512, out256, kernel9, see below
+ResBlock1d(256,24)in256, out256, kernel7, see below
+ELU(256,24) −
+Table 27: Classifier Architecture
+layer output configuration
+− (81920,) −
+Linear and ReLU(128,)in features81920, out features128
+Linear and ReLU(128,)in features128, out features128
+Linear and ReLU(64,)in features128, out features64
+Linear(4,)in features64, out features4
+Table 28: Classifier2Architecture
+layer output configuration
+− (6144,) −
+Linear and ReLU(128,)in features6144, out features128
+Linear and ReLU(128,)in features128, out features128
+Linear and ReLU(64,)in features128, out features64
+Linear(4,)in features64, out features4
+20
+
+Table 29: Training Configuration for ResNet
+parameter batch optimizer learning rate split (train:val:test) early stop
+Raw EEG128Adam5×10 −4 7 : 1 : 2patience100on Kappa
+Freqency-Domain128Adam5×10 −4 7 : 1 : 2patience100on Kappa
+Microstates128Adam2×10 −6 7 : 1 : 2patience10on Kappa
+Table 30: Rank among Subjects under W Stage
+microstate rank among10groups of subjects
+...
+...
+160 24 29 23 23 30 25 26 25 20 27
+161 14 11 16 17 14 15 15 14 19 14
+162 917 827 892 872 814 775 839 813 807 858
+...
+...
+384 229 166 236 165 188 218 150 220 258 165
+385 3 2 3 2 4 2 3 2 3 2
+386 338 721 589 677 543 640 654 531 402 634
+...
+...
+418 701 519 470 667 672 659 597 511 409 587
+419 1 1 1 1 1 1 1 1 1 1
+420 537 396 645 619 592 608 670 609 607 654
+421 2 3 2 3 2 3 2 3 2 3
+422 573 434 515 458 496 508 525 494 349 548
+...
+...
+Table 31: Rank among Subjects under R Stage
+microstate rank among10groups of subjects
+...
+...
+160 27 23 24 22 26 23 25 25 20 24
+161 15 15 18 21 14 14 21 16 22 21
+162 831 810 840 699 672 762 772 688 882 720
+...
+...
+384 158 156 202 202 168 180 174 192 220 200
+385 5 4 7 3 4 3 8 3 3 3
+386 544 626 712 818 818 817 773 736 714 634
+...
+...
+418 466 639 569 527 634 592 557 594 528 616
+419 1 1 2 1 1 1 1 1 1 1
+420 589 671 731 581 631 711 753 644 811 722
+421 3 2 1 2 2 2 2 2 2 2
+422 420 386 368 281 460 332 381 352 325 346
+...
+...
+C.2 Comparison Between the Wake Stage and
+the Non-Rapid Eye Movement III Stage
+NREM3stage denotes deep sleep. In this case, the brain activity
+differs from that in the wake stage. 21
+
+Table 32: Rank among Subjects under N3Stage
+microstate rank among10groups of subjects
+...
+...
+377 625 396 672 703 134 737 748 577 358 771
+378 1 2 3 1 2 2 1 2 2 1
+379 800 888 799 845 825 832 830 824 817 791
+...
+...
+451 753 811 707 779 627 755 822 871 614 782
+452 18 7 10 10 10 15 8 5 13 8
+453 939 979 915 881 902 932 709 910 965 899
+...
+...
+650 28 148 89 244 117 68 109 170 135 120
+651 6 4 13 2 4 6 3 4 3 2
+652 913 908 793 786 929 814 850 755 872 784
+...
+...
+Figure 10: Visualizing Microstates161,385,419and421
+Figure 8: The Model Structure of ResBlocks with in=N, out=M
+and stride=K
+Figure 9: The Model Structure of ResBlock1d with in=N,
+out=M and kernel=K
+From the microstates distribution we see that the dominant mi-
+crostates are different from that of W stage. To further back this
+observation, we record the rank of microstates378 , 452, 385across
+W and N3stage.
+Results demonstrate that the microstates that frequently occur
+during W stage typically occur rarely in N3stage. This again shows
+that the brain activity differs considerably between these2stages.
+We further visualize the microstates:
+Figure 11: Visualizing Microstates378,452and651
+and we see that these microstates correspond to a state with
+a relatively high potential, typically > 10𝜇V. This is consistent
+with the fact that during N3stage, brain activity is dominated by 𝛿
+waves which has a high amplitude [77]. Nonetheless, EEG signals
+are oscillating and will not always remain at a high voltage, hence
+in certain cases low-potential states like the microstates dominating
+in W stage will also occur with a relatively high frequency.
+22
+
+Table 33: Rank among Subjects under N3Stage
+microstate rank among10groups of subjects
+378 W132 120 214 146 169 158 109 165 172 163
+N3 0 1 2 0 1 1 0 1 1 0
+452 W95 85 166 98 112 115 112 100 143 132
+N3 17 6 9 9 9 14 7 4 12 7
+421 W3 2 1 2 2 2 2 2 2 2
+N3 489 124 26 52 278 161 71 54 34 78
+microstate rank
+378 1
+...
+...
+651 6
+...
+...
+487 14
+...
+...
+452 18
+...
+...
+...
+...
+subjects1∼30N3
+stage
+microstate rank
+...
+...
+378 2
+...
+...
+651 4
+...
+...
+452 7
+...
+...
+487 11
+...
+...
+subjects31∼60N3
+stage
+microstate rank
+...
+...
+487 2
+378 3
+...
+...
+452 10
+...
+...
+651 13
+...
+...
+...
+...
+subjects61∼90N3
+stage
+Table 36: Rank among Subjects under N3Stage
+microstate rank
+419 1
+333 2
+421 3
+...
+...
+385 5
+...
+...
+161 15
+...
+...
+...
+...
+subjects1∼30R
+stage
+microstate rank
+419 1
+421 2
+333 3
+385 4
+...
+...
+...
+...
+161 11
+...
+...
+...
+...
+subjects31∼60R
+stage
+microstate rank
+421 1
+419 2
+333 3
+...
+...
+385 7
+...
+...
+161 18
+...
+...
+...
+...
+subjects61∼90R
+stage
+Table 34: Rank among Subjects under N3Stage
+microstate rank
+419 1
+421 2
+385 3
+...
+...
+333 7
+...
+...
+161 14
+...
+...
+...
+...
+subjects1∼30W
+stage
+microstate rank
+419 1
+385 2
+421 3
+...
+...
+333 6
+...
+...
+161 11
+...
+...
+...
+...
+subjects31∼60W
+stage
+microstate rank
+419 1
+421 2
+385 3
+...
+...
+333 7
+...
+...
+161 16
+...
+...
+...
+...
+subjects61∼90W
+stage
+Table 35: Rank among Subjects under N3Stage
+C.3 Comparing other Sleep Stages
+For sleep stage N1and N2, the dominant microstates are also
+419, 385, 421, 615and other states found in W stage. This suggests
+that these microstates capture a class of weak EEG signals that the
+brain usually switches between. Also, the brain activity in stages
+N1and N2shares certain aspects with that in W stage.
+We also found that when transforming from stage W through
+stage N1, stage N2and finally to stage N3, the frequency of mi-
+crostate489is increasing. The visualization of489is as follows:
+Figure 12: Visualizing Microstates489
+which also has relatively high potential with all leads between
+2 ∼ 14𝜇V. This again shows that from W through N1, N2to N3,
+high amplitude brain activity becomes more and more common.
+23

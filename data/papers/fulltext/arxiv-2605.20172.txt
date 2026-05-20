@@ -1,0 +1,734 @@
+TPLP: Page 1–8. © The Author(s), 2021. Published by Cambridge University Press 2021
+doi:10.1017/xxxxx
+1
+Long-term Power Grid Planning via Answer Set
+Programming
+ANTONIO IELO, FRANCESCO DORIA
+University of Calabria, Italy
+SANDRA CASTELLANOS-PAEZ
+University of Huddersfield, UK
+MARCO MARATEA
+University of Calabria, Italy
+FRANCESCO PERCASSI, MAURO V ALLATI
+University of Huddersfield, UK
+submitted xx xx xxxx; revised xx xx xxxx; accepted xx xx xxxx
+Abstract
+The Power grid is a critical infrastructure underpinning all aspects of modern society and its services. Main-
+taining its effectiveness requires continuous adaptations. In particular, addressing sustainability targets,
+demand patterns, and urbanisation trends requires implementing changes to the network. Actual develop-
+ments can potentially span over a decade, with supply continuity and service quality that must be preserved
+throughout by ensuring conformance to several topological and combinatorial invariants. Long-term power
+grid planning deals with the above process, and although planning languages could be a natural choice, the
+kind of properties and invariants needed are cumbersome to express in such languages; on the contrary, they
+can be elegantly and succinctly encoded in Answer Set Programming (ASP). In this paper, we propose the
+first approach to automate and optimise the long-term power grid planning process using ASP. Experimental
+evaluations conducted on synthetic and real-world grid data confirm the expressive power of the proposed
+ASP-based approach and demonstrate its effectiveness.
+KEYWORDS: Answer Set Programming, Application, Energy Management
+1 Introduction
+Power grids are the backbone of modern societies, and they are currently experiencing significant
+structural transformations. The increasing penetration of renewable energy sources (RES) at the
+distribution level, combined with the rapid uptake of electric vehicles, heat pumps, and the wider
+electrification of end-uses, is changing operational conditions and load patterns. As distribution
+networks evolve from passive infrastructures to active systems, their management becomes more
+complex and uncertain (Fang et al. 2012). In this context, long-term planning plays a central role.
+It refers to the process through which national grid operators define how the current distribution
+network should evolve over extended time horizons, to meet future demand, integrate new tech-
+nologies, and comply with national and regional energy transition scenarios (Conejo et al. 2010).
+More specifically, the long-term planning problem focuses on identifying the feasible multi-stage
+arXiv:2605.20172v1  [cs.LO]  19 May 2026
+
+2Cambridge Author
+evolution path between the initial and the target desired power grid configuration. The two net-
+works may differ significantly in topology, and many sequences of line additions, removals, or
+switching actions may connect them. However, considering the time span and the role played by
+the power grids, supply continuity and service quality must be preserved throughout the duration
+of the evolution (Khator and Leung 1997). Long-term planning decisions are characterized by
+their scale and long-lasting impact. For instance, the French distribution network spans approx-
+imately 1.4 million kilometres, and the cost of a single power line ranges from 50k C to 200k C
+per kilometre, depending on technology and location. Planning horizons typically extend up to
+30 years, while infrastructure lifetimes may reach 60 years. As a result, even small inefficien-
+cies in planning decisions can lead to significant economic consequences. At present, long-term
+power grid planning remains largely manual. National Distribution System Operators rely on
+human experts using power-flow and cost-analysis tools, but the construction of multi-stage evo-
+lution strategies is still mainly based on expert knowledge and iterative adjustments. This limits
+reproducibility, scalability, and the systematic exploration of alternative investment trajectories.
+In particular, the identification of feasible evolution strategies remains a major bottleneck, as it
+requires exploring a large combinatorial space of possible network transformations while en-
+suring that all intermediate configurations remain operational. Recent work has called for au-
+tomated, intelligent decision-support tools that can complement human expertise and address
+the growing complexity of distribution networks (Castellanos-Paez et al. 2022; 2023). Artificial
+Intelligence methods have a long tradition in power systems, ranging from expert systems for
+operator support (Wollenberg and Sakaguchi 1987), to planning-based approaches for sequential
+operational tasks (Bell et al. 2009; Bertoli et al. 2002; Thi´ebaux et al. 2013), to evolutionary and
+learning-based techniques (Arabali et al. 2012; Glavic et al. 2017; V ´azquez-Canteli and Nagy
+2019). Mixed Integer Linear Programming has been used for network reconfiguration prob-
+lems focused on power and load flow constraints (Jabr et al. 2012; Ajaja and Galiana 2012),
+typically in static or short-horizon settings where the goal is to compute a feasible configuration
+rather than model transitions between configurations. Moreover, they are less adequate to express
+purely combinatorial properties, such as radiality (Ahmadi and Mart ´ı 2015), while being more
+suitable for flow-based constraints. Planning languages could be a natural choice, but graph
+properties and invariants (e.g., connectedness) are cumbersome to express and are better han-
+dled in knowledge representation and reasoning languages. Within this landscape, Answer Set
+Programming offers a suitable approach, providing a declarative and expressive framework for
+modelling graph-theoretic constraints, discrete actions, and multi-stage feasibility requirements.
+Answer Set Programming (ASP; (Brewka et al. 2011)) is a declarative programming language
+based on stable model semantics (Gelfond and Lifschitz 1988) of logic programs. Its expressive
+power and availability of efficient reasoners makes it a popular framework to model knowledge-
+intensive combinatorial problems. ASP has been successfully applied to academic and industrial
+problems alike (Erdem et al. 2016; Falkner et al. 2018).
+This paper presents the first approach for automating long-term power grid planning that can
+handle all grid topological constraints. We propose an approach inspired by recent applications
+of ASP toreconfigurationproblems (Yamada et al. 2023; Kato et al. 2024), where one has to find
+sequences ofeditsto navigate among solutions of (hard) combinatorial problems. We define an
+ASP encoding for the long-term power grid planning problem, that allows for both sequential and
+parallel planning. Results of experiments, using theCLINGOASP solver, executed on synthetic
+and real-world instances from the French grid, show that our solution is able to efficiently solve
+
+Theory and Practice of Logic Programming3
+Fig. 1: Medium-voltage distribution network supplied by two primary substations (black squares)
+feeding interconnected feeders (blue lines) and secondary substations; purple circles represent
+secondary substations equipped with two normally closed switches (NCS), while green circles
+denote secondary substations equipped with one NCS and one normally open switch (NOS) used
+for radial operation and reconfiguration. In this work we treat both types of secondary substations
+uniformly, and represent operational differences through the status of the network edges (open,
+close). (Figure adapted from Castellanos-Paez et al. (2023).)
+instances of a size comparable to those that experts deal with in daily operations, when allowing
+a parallel execution of actions, and to solve larger real-world instances within 30 minutes.
+2 Background
+This section introduces the required preliminary notions about distribution networks and the
+long-term power grid planning problem, that will be useful to understand our solution.
+2.1 Distribution Network Architecture
+Urban electrical distribution networks are commonly designed according to a secured feeder ar-
+chitecture (see Figure 1). Primary substations act as the supply points of the medium-voltage
+distribution network, injecting power into the system through main feeders that interconnect the
+substations and supply multiple secondary substations. Along these feeders, secondary substa-
+tions serve local areas and include distribution transformers that step down the medium-voltage
+level to low voltage for end users, as well as switching devices that control network operation.
+Each secondary substation is connected to a feeder through two switches, providing operational
+flexibility: normally closed switches (NCS) allow power flow under normal operating conditions,
+while normally open switches (NOS) are kept open to ensure radial operation, so that each load
+is supplied by a single primary substation. In the event of a fault, the network can be reconfigured
+by operating the switches, enabling secondary substations to be resupplied from an alternative
+primary substation while repair actions are carried out.
+2.2 Power Grid Planning
+Distribution System Operators (DSOs) are responsible for ensuring the safe, reliable, and
+cost-effective operation of power grids. This mandate includes maintaining existing infrastruc-
+
+4Cambridge Author
+tures, guaranteeing continuity and quality of supply, and anticipating future developments in
+demand and distributed generation (Khator and Leung 1997; Conejo et al. 2010). In this context,
+long-term power grid planning is a core activity.
+Long-term planning concerns the definition of how a distribution network should evolve over
+extended horizons, typically spanning multiple years. DSOs construct these plans considering
+multiple inputs, including consumption forecasts, expected production profiles—including the
+integration of renewable energy sources—and broader energy transition scenarios. The goal is to
+identify a future network architecture that remains technically feasible, and operationally secure.
+Infrastructure modifications in distribution grids are expensive and difficult to reverse. The cost
+of a single power line may range from 50 k C to 200 k C per kilometre, depending on technol-
+ogy (overhead vs. underground), cable type, and local conditions (rural, semi-urban, or urban).
+At the scale of a national distribution system—such as the French network, which extends over
+approximately 1.4 million kilometres—even minor changes can result in significant investments.
+Consequently, DSOs aim to minimise deviations from the existing infrastructure, favouring in-
+cremental and targeted interventions (Conejo et al. 2010).
+A distinctive feature of long-term planning is that it must consider not only the final target
+network, but also the sequence of intermediate networks that will emerge as investment actions
+are gradually executed over many years. Each intermediate configuration must remain compliant
+with operational and topological constraints: such intermediate configurations correspond to net-
+works that will be in service for extended periods. Ensuring their feasibility is therefore critical
+to maintaining security of supply and service quality over time.
+According to the ERDF methodology (ERDF 2008) for the development of distribution net-
+work master plans in France, the long-term planning process can be represented as a workflow
+composed of six main stages : system diagnosis, load forecasting, definition of a long-term target
+network, identification of development strategies, techno-economic scheduling of investments,
+and assessment of the resulting quality of supply. Among these stages, the identification of de-
+velopment strategies is a key step, as it determines how the transition from the current network
+to the target configuration is achieved. More informally, given the current network configuration
+and the target configuration, this step generates the list of interventions to be performed, and the
+corresponding resulting intermediate networks. The present work focuses on this stage, which
+remains largely manual and based on expert knowledge in current practice.
+To ensure the operationality of intermediate networks during the development strategies step,
+and for minimising the potential for wasting resources in the long-term power grid planning
+process, a number of implicit rules are usually followed by grid operators. Castellanos-Paez
+et al. (2023) extracted the following set of rules via in-depth interviews with experts from French
+DSOs that are in charge of the development strategies:
+R1 There is no closed loop between two primary substations; that is, a normally open switch is
+required to ensure radial operation, meaning that each secondary substation in the network
+is supplied by exactly one primary substation.
+R2 The network must tolerate the loss of any primary node, ensuring that a radial configura-
+tion, in which all secondary nodes remain supplied, can always be restored via switching
+operations (opening and closing lines).
+R3 For urban areas, the number of connections of secondary substations are between 2 and 3.
+
+Theory and Practice of Logic Programming5
+R4 Only lines belonging to the target network can be created, and only lines not belonging to
+the target network can be removed. These operations are irreversible, e.g., a line cannot be
+removed and later re-added.
+R5 There is only one connection between two nodes (distribution/source).
+3 Problem Formalisation
+For our purposes, the power grid is an undirected graph with two types of nodes (primary, sec-
+ondary) and two types of edges (open, close). One acts upon (“reconfigures”) the power grid
+by changing its graph structure. Thelong-term planning problem(LPP) refers to computing a
+sequence of physical interventions on the power grid infrastructure that results in a specifictar-
+getconfiguration, in such a way that each intermediate state complies with the DSOs rules as
+described in Section 2.2. In the remainder of this paper, we use the term LPP to refer to the
+discrete combinatorial component of the long-term planning process. In this section, we abstract
+and formalise the problem and the DSOs requirements into graph-theoretic terms.
+Notation.In the rest of the section, we adopt the following notation. LetP,Sbe two finite
+disjoint sets ofprimaryandsecondarystations, withV=P∪S. Apower gridis an edge-
+labeled undirected graphG(V,E,λ), withE⊆V×Vandλ:E7→ {open,close}. The label-
+ing functionλmarks closed and open lines in the power grid. We will refer to the graph
+G(V,{e∈E:λ(e) =close})as theclosed networkandG(V,E)as theopen network. The repre-
+sentation in Figure 1 is consistent with this notation: secondary substations are not distinguished
+at the node level, and their operational differences are encoded through functionλ.
+3.1 Acting upon the power grid
+There are three possible kinds of actions available to reconfigure the power grid: edge addition,
+edge removal and edge switching. Each action changes the power grid graph. Whenever applying
+actionaover the power gridGresults inG ′, we denote this byG⊢ a G′. We describe effects of
+each possible action onG.
+Edge addition.Edge addition consists of adding a new edge to the open network. Letx,y∈V
+with(x,y)̸∈E. We denote the action of adding(x,y)toGbyadd(x,y). It results in the power
+gridG(V,E ′,λ ′), whereE ′ =E∪ {(x,y)}andλ ′(e) =λ(e)for alle∈E, andλ ′(x,y) =open.
+Edge removal.Edge removal consists of removing an edge from the open network. Let(x,y)∈E
+such thatλ(x,y) =open. We denote the action of removing(x,y)asremove(x,y). It results in
+the power gridG(V,E ′,λ ′), whereE ′ =E\ {(x,y)}andλ ′(e) =λ(e)for alle∈E ′.
+Edge switching.Edge switching consists of swapping the state of two edges that are adjacent
+to the same secondary station. Letx∈S,y,z∈Vsuch thatλ(x,y) =closeandλ(x,z) =open.
+We denote the switching action byswitch(x,y,z). It results in the power gridG(V,E,λ ′), with
+λ(e) =λ ′(e)for alle∈E\ {(x,y),(x,z)}andλ ′(x,y) =open,λ ′(x,z) =close.
+Non-interfering actions.Executing an action causes a change in the power grid graph. Intu-
+itively, concurrent execution of actions that involve the same edges leads to ambiguities during
+
+6Cambridge Author
+plans’ execution. We formalise the notion of “allowed concurrency” in our domain, inspired
+by the notion ofnon-interferencein planning (see, e.g., (Rintanen et al. 2006)). We denote by
+Aff(a)the set of edges that is involved in the execution of actiona, and in particular we have that
+Aff(p(x,y)) ={(x,y)}ifp∈ {add,remove}and Aff(switch(x,y,z)) ={(x,y),(x,z)}.
+We say two actionsa 1 anda 2 arenon-interfering(orcompatible) if Aff(a 1)and Aff(a 2)are
+disjoint sets. Intuitively, non-interfering actions are “compatible”, in the sense that they can be
+carried out on the graph “at the same time” without ambiguities. A set of actionsAis non-
+interfering if all its elements are pairwise non-interfering. Thus, we extend the notion of affected
+edges to sets of actions, with Aff(A) = S
+a∈A Aff(a). We say thatG⊢ A G′ if we obtainG ′ by
+applying all the actionsa∈A; ifAis non-interfering, there is no ambiguity in the resulting graph
+G′ (as no edge is affected by multiple actions).
+3.2 Compliant Networks
+The DSOs’ rules described in Section 2.2 provide properties that power grids must comply with
+to be considered valid. These can be succinctly expressed in terms of graph-theoretic properties.
+We say a power gridG(P∪S,E,λ)is compliant whenever the following properties are satisfied.
+Definition 1(Radial)
+A power gridG(P∪S,E,λ)isradialif its closed network is acyclic and, in this network, each
+secondary node is connected to exactly one primary node. That is,Gis a forest with roots inP.
+Definition 2(Redundantly Connected)
+LetG(P∪S,E,λ)be a power grid. Lets∈Sbe a secondary station connected top∈Pin the
+closed network. We say thatsisredundantly connectedif, in the open network, there exists a
+path fromsto some primaryp ′ ̸=pwhose internal nodes do not include primary nodes.
+Definition 3(Reconfigurable)
+LetG(P∪S,E,λ)be a power grid.Gisreconfigurableif all its secondary stationss∈Sare
+redundantly connected.
+Definition 4(Degree-compliant)
+A power gridG(P∪S,E,λ)is degree-compliant if it holds that 2≤deg(s)≤3 for alls∈S.
+3.3 Long-term Planning Problem
+Finally, given an initial power gridG(P∪S,E,λ)and a target oneG T (P∪S,E T ,λ T ), we define
+thelong-term planning problemas computing a sequence of sets of actions(A 0, . . . ,An)such that
+Gi ⊢Ai Gi+1, withG 0 =G,G n =G T , and each intermediate networkG i satisfying the radiality,
+reconfigurability and degree-compliant properties. We denote byB=E T \Ethe set ofbuildable
+edges, i.e., edges present in the target network but absent from the initial one, and byR=E\E T
+the set ofremovableedges, i.e., edges present in the initial network but not in the target.
+Definition 5(Long-term Planning Problem (LPP))
+LetG(P∪S,E,λ)andG T (P∪S,E T ,λ T )be two power grids.LPP(G,G T )is the problem of
+computing a sequence of compatible sets of actions(A 0, . . . ,An)such that:
+C1G 0 =G,G n =G T ;
+
+Theory and Practice of Logic Programming7
+S1
+S2
+S3
+S4
+S5
+S6
+S7
+S8
+S9
+S10P11
+P12
+(a)
+S1
+S2
+S3
+S4
+S5
+S6
+S7
+S8
+S9
+S10P11
+P12
+(b)
+S1
+S2
+S3
+S4
+S5
+S6
+S7
+S8
+S9
+S10P11
+P12
+(c)
+S1
+S2
+S3
+S4
+S5
+S6
+S7
+S8
+S9
+S10P11
+P12
+(d)
+S1
+S2
+S3
+S4
+S5
+S6
+S7
+S8
+S9
+S10P11
+P12
+(e)
+Fig. 2: Example graph configurations illustrating the role of constraints.
+C2∀i∈ {0, . . . ,n−1},G i ⊢Ai Gi+1, withG i being radial, reconfigurable, and degree-compliant;
+C3 Ifadd(x,y)∈A i then(x,y)∈B;
+C4 Ifremove(x,y)∈A i then(x,y)∈R;
+C5 No(x,y)such thatadd(x,y)∈A i andremove(x,y)∈A j for some 0≤i,j≤n.
+Relationship with DSOs rules.C1 requires that the network evolves fromGtoG T by the end of
+the horizon. C2 requires every intermediate networkG i to satisfy radiality (R1), fault-tolerance
+under the loss of any primary node (R2), and the degree compliance (R3). R4 is captured by
+C3–C5, which constrain admissible line additions and removals and enforce their irreversibility.
+In the remainder, we refer to theboundedversion of LPP whenever we assume an integer upper
+boundk∈Non the length of the solutions. We refer to thesequentialversion of the problem
+whenever we add the requirement that|A i|=1, andparallelotherwise (that is,|A i| ≥1).
+Example.Figure 2 illustrates the constraints considered in this work. Figure 2a shows a com-
+pliant configuration, where radiality, redundant connectivity, and degree constraints are all satis-
+fied. Figure 2b shows the reconfigurability of the graph from Figure 2a under the failure ofP 11;
+in particular, radiality can be restored by closing edges(S 2,S 9)and(S 1,S 4). Figure 2c shows a
+configuration that violates radiality for two distinct reasons: nodesS6 andS 9 are isolated, and the
+feeder associated withP 12 contains a cycle. Figure 2d shows a graph that is radial but not redun-
+dantly connected. Figure 2e shows how the violation of connectivity in the graph provided in 2d
+implies non-reconfigurability: in particular, in case of failure ofP 11, nodeS 1 can be resupplied
+by closing(S 1,S 4), whereasS 2,S 5, andS 10 remain isolated.
+4 ASP Encoding
+In this section, we present our Answer Set Programming (ASP) solution designed to model the
+LPP problem. We assume the reader to be familiar with ASP and the input language of the
+CLINGOsystem, and refer them to standard introductory material (Lifschitz 2019; Gebser et al.
+2012). We start with a high-level description of our approach.
+The idea of the encoding is to model how thestarting network Gevolves subject to a sequence
+of sets of actions(A 0, . . . ,Ak), with the goal of transforming it into a desiredtarget network
+GT within a given number of stepsk. The approach is inspired by classical ASP applications in
+planning (Son et al. 2023) and bounded reconfiguration (Yamada et al. 2023; Kato et al. 2024)
+problems. We first present the data model, and then the proposed ASP encoding.
+
+8Cambridge Author
+4.1 Data Model
+LetG(P∪S,E,λ)andG T (P∪S,E T ,λ T )be a pair of power grids. We describe the predicates
+and facts we use to represent inputs and outputs of theLPP(G,G T )problem.
+Input.To describe the available stations in the power grid, we use atoms of the formnode(x)
+forx∈P∪S. The atomnode attr(x,primary)models that nodexis a primary node,x∈P.
+Edges that belong to the start configuration are described by the predicatestart/3. In particu-
+lar, ifλ(x,y) =o, we have the atomstart(x,y,o), witho∈ {open,close}. Similarly, edges in
+the target configuration are described by the predicatetarget/3, with the atomtarget(x,y,o)
+wheneverλ T (x,y) =o. We state that an edge(x,y)may be built or removed by using the atoms
+buildable(x,y)andmust remove(x,y). As input, we expect anundirectedrepresentation of the
+graph, and in particular we assume the factstart(x,y,o)withx<y.
+Output.A solution(A 0, . . . ,Ak)to theLPP(G,G T )problem is described by means of the
+action/2 predicate, where the atomaction(t,a)models thata∈A t. In particular,awill be func-
+tion terms of the formadd/2,remove/2 andswitch/3, mirroring how possible actions are defined
+in Section 3.1. As an example,action(3,switch(x,y,z))means that the solution includes the ac-
+tionswitch(x,y,z)at time 3, that isswitch(x,y,z)∈A 3.
+4.2 Encoding of the problem
+We present the ASP encoding used to model the LPP problem. We describe it incrementally, with
+each paragraph assuming all the rules that precede it. We refer to thei-th line in the encoding by
+ri. We present the encoding to compute a bounded solution of length at mostk.
+Initial definitions.We start with definitions that make the encoding more readable. LetG(P∪
+S,E,λ)be a power grid. We denote which nodes of our network are respectively primary stations
+or secondary stations by theprimary/1 andsecondary/1 predicates, respectively. We will have
+the atomprimary(x)ifx∈P, andsecondary(x)ifx∈S. Theopposite/2 predicate expresses the
+notion that open line and closed lines are opposite concepts. Thenetwork/4 predicate stores the
+“state”, withnetwork(i,x,y,o)stating thatλ i(x,y) =oin thei-th power grid. We assumet=−1
+corresponds to the initial state of the network 1. Theedge/4 predicate is a “symmetric closure”
+ofnetwork/4 over time (that also keeps track of each edge’s state), that will be useful to define
+the effects of theswitchaction (r 13–r14).
+1primary(X) :- node_attr(X, is_primary).
+2secondary(X) :- node(X), not primary(X).
+3opposite(open,close). opposite(close,open).
+4network(-1,X,Y,A) :- start(X,Y,A).
+5edge(T, X, Y, A) :- network(T, X, Y, A).
+6edge(T, X, Y, A) :- network(T, Y, X, A).
+1 The encoding assumes actions at timetget applied at timet, and depend on timet−1. This is a minor implementation
+detail, just an index shift wrt the definition of a solution(A 0, . . . ,Ak)of the LPP problem.
+
+Theory and Practice of Logic Programming9
+Generating action sequences.The following rules generate the search space of possible action
+sequences. Informally, we first guess “the plan’s length”(r 8)by guessing atime/1 atom (and
+propagating backwards existence of previous time-points, up to zero(r 9):
+7#const k. step(0..k-1). time(0).
+8{ time(T) } :- step(T).
+9time(T-1) :- time(T), T > 0.
+Next, the following choice rules impose that edges to be built and removed will be subject to
+anadd(r 12) andremoveaction (r 10), respectively, exactly once within the whole solution. We
+prohibit the removal of closed edges (r11). The third choice rule (r13–r14) guesses edge switching
+operations. The last constraintr 15 imposes that we perform at least one action in each time-point.
+10{ action(T,remove(X,Y)): time(T) } = 1 :- must_remove(X,Y).
+11:- action(T, remove(X,Y)), network(T-1,X,Y,close).
+12{ action(T,add(X,Y)): time(T) } = 1 :- buildable(X,Y).
+13{ action(T,switch(X,Y,Z)): edge(T-1, X, Y, O), edge(T-1, X, Z, O’),
+14opposite(O,O’), secondary(X) } :- time(T).
+15:- time(T), not action(T,_).
+The atomaction(t,a)encodes that at timetthe actionais performed, where the actionais
+a function term as described in Section 4.1. We assume that actions taken at timetact upon the
+network as available in the previous time-stept−1, and take effect at timet.
+Thea f f ected by/4 predicate (r16–r21) marks networks’ edges that are affected by an action,
+according to the definition of Aff(·). In particular, the atoma f f ected by(t,x,y,a)states that
+(x,y)∈Aff(a), and thatais performed at timet. Affected edges will either change their state
+(i.e., whether they are open or close), or be added/removed at the next time-point.
+16affected_by(T,X,Y,add(X,Y)) :- action(T,add(X,Y)).
+17affected_by(T,X,Y,remove(X,Y)) :- action(T,remove(X,Y)).
+18affected_by(T,X,Y,switch(X,Y,Z)) :- action(T,switch(X,Y,Z)).
+19affected_by(T,Y,X,switch(X,Y,Z)) :- action(T,switch(X,Y,Z)).
+20affected_by(T,X,Z,switch(X,Y,Z)) :- action(T,switch(X,Y,Z)).
+21affected_by(T,Z,X,switch(X,Y,Z)) :- action(T,switch(X,Y,Z)).
+Notice that (seer 10–r12) we can add an edge(x,y)only if it we have thebuildable(x,y)fact,
+and similarly we can remove it only if we have themust remove(x,y)fact. Thus, for add and
+remove actions, we know precisely the affected edge in the ASP representation. On the other
+hand, the available switch actions are defined on the previous network state (r 13), and an edge
+may be affected by switch actions from different endpoints. As an example, edge(S 6,S 9)in
+Figure 2 may be affected byswitch(S 6,S 8,S 9)but alsoswitch(S 9,S 6,S 2). Thus, the definition of
+a f f ected by/4 takes this into account (r 18–r21). To ensure our solutions consist of compatible
+action sets, we forbid to guess non-compatible actions (i.e., actions affecting the same edge).
+22:- affected_by(T,X,Y,A), affected_by(T,X,Y,A’), A < A’.
+Actions’ Effect.The following rules applythe effectof actions taken at timeton the net-
+work at timet−1, according to the formalisation of Section 3.1. They share the use of atoms
+network(t−1, , , )andaction(t, )—past network state and action to execute—in the body, and
+havenetwork(t, , , )—how the network is affected by the action.
+Actions of the formadd(x,y)simply define that the edge(x,y)will exist at the next time-step:
+
+10Cambridge Author
+23network(T,X,Y,open) :- time(T), action(T,add(X,Y)).
+The edge switchingswitch(x,y,z)operation first identifies the correct pair of edges that is
+involved in the action, then flips their state in the next time-step:
+24network(T,X,Y,O’) :- affected_by(T,X,Y,switch(_,_,_)), network(T-1,X,Y,O),
+25opposite(O,O’).
+All edges that are not affected by an action are implicitly carried over to the next time-step,
+with the same state as before. This is a form ofinertia. The combination ofremove(x,y)affecting
+(x,y)and intertia implicitly removes edges.
+26network(T,X,Y,A) :- time(T), network(T-1,X,Y,A), not affected_by(T,X,Y,_).
+Encoding Radiality I (Connectedness).To enforce the radiality property, as by Definition 1, we
+require the closed network to be a forest with roots in the primary nodesP. First, we ensure that
+(i)all secondarys∈Sreach at least one primaryp∈Pin the closed network, and(ii)there are
+no loops between primaries over the closed network. We start by defining the standard notion of
+graph reachability over the closed network by means of the predicatereach/3 (r 27–r30):
+27reach(T,X,Y) :- time(T), network(T,X, Y,close).
+28reach(T,X,Y) :- time(T), network(T,Y, X,close).
+29reach(T,X,Y) :- time(T), reach(T,Y,X).
+30reach(T,X,Z) :- time(T), reach(T,X,Y), reach(T,Y,Z).
+Then, we use the atomreaches primary(t,x,y)to model that nodexis connected to the primary
+stationyat timet. The constraints model, respectively, that two distinct primaries should not
+reach each other (r32), and that all secondary stations should be connected to at least one primary
+station (r33).
+31reaches_primary(T,X,Y) :- time(T), reach(T,X,Y), primary(Y).
+32:- primary(X), primary(Y), time(T), X < Y, reach(T,X,Y).
+33:- secondary(Y), time(T), not reaches_primary(T,Y,_).
+Encoding Radiality II (Acyclicity).Since the problem deals with undirected graphs and the
+previous rules (r32–r33) enforce that each secondary station is connected to exactly one primary
+station in the closed network (recall that if it were connected to two there would be a loop
+between primaries, which we forbid by means of a constraint (r 32), it is sufficient to enforce
+that the network at timethasthe correct number of edgesto enforce acyclicity. Since we are
+looking for|P|disjoint trees and the number of edges in a tree ofqnodes isq−1, we want our
+network to have exactly|V|−|P|edges. The predicatesnum primaries/1 andnum nodes/1 store
+the number of primary nodes and overall number of nodes in the network, while the constraint
+(r36–r37) enforces the correct number of overall edges.
+34num_primaries(R) :- R=#count{Z: primary(Z)}.
+35num_nodes(X) :- X=#count{Z: node(Z)}.
+36:- num_primaries(R), num_nodes(Q), time(T),
+37#count{X, Y: network(T,X,Y,close)} != (Q-R).
+Encoding Reconfigurability.Secondary stations must beredundantly connected(Definition 2)
+to an extra primary substation over the open network, distinct from the one they are connected to
+
+Theory and Practice of Logic Programming11
+in the closed network. Recall that a secondary station cannot be connected to two primary stations
+in the closed network, as this would create a loop between primaries and violate radiality.
+38redundancy_reach(T,X,Y) :- time(T), network(T,X,Y,_).
+39redundancy_reach(T,X,Y) :- time(T), redundancy_reach(T,Y,X).
+40redundancy_reach(T,X,Z) :- time(T), redundancy_reach(T,X,Y),
+41redundancy_reach(T,Y,Z), not primary(Y).
+42redundancy(T,S) :- secondary(S), time(T), redundancy_reach(T, S, X),
+43primary(X), not reach(T, S, X).
+44:- secondary(S), time(T), not redundancy(T,S).
+The predicateredundancy reach/3 models reachability over the open network (r 38–r41),
+with the atomredundancy reach(t,x,y)modelling that nodexis connected to nodeyover
+the open networkwith a path that does not traverse any primary substation– notice thenot
+primary(Y)atom in the body of the recursive definition ofredudancy reach/3 (r41). This en-
+sures the only way networks’ edges involving primaries are taken into account in computing
+redundancy reach/3 is via direct edges. Finally,redundancy(t,s)denotes that at timetthe sec-
+ondary stationsreaches a primary substation over the open network, and we prevent a secondary
+station that does not (r 44), ensuring reconfigurability as by Definition 3, i.e. that all secondary
+nodes are redundantly connected.
+Encoding degree-compliance.We use aggregates to count the number of adjacent edges to each
+node, with the atomdegree(t,x,d)meaning that nodexhas degreedin the network at timet.
+The constraints(r 46–r47)enforce thatd∈[2,3], as by Definition 4:
+45degree(T,X,D) :- time(T), node(X), D=#count{Y: edge(T,X,Y,_)}.
+46:- secondary(S), time(T), degree(T,S,D), D < 2.
+47:- secondary(S), time(T), degree(T,S,D), D > 3.
+Final configuration.We encode that the final network obtained by applying the guessed actions
+sequence is exactly the target networkG T , as in Definition 5: it contains the same edges asG T
+and in the same state (r49–r50), and all edges to be removed have been removed (r51).
+48final(T) :- time(T), T = #max{ T’ : time(T’) }.
+49:- final(T), target(X,Y,A), not network(T,X,Y,A).
+50:- final(T), network(T,X,Y,A), not target(X,Y,A).
+51:- final(T), must_remove(X,Y), network(T,X,Y,_).
+Preferred solutions.Answer sets of the above logic program encode sequences of (sets of) ac-
+tions that reconfigureGintoG T . As customary in ASP applications, multiple answer sets may
+exist, i.e., multiple ways to reconfigureGintoG T . ASP optimization (via weak constraints) en-
+ables us to single outpreferred solutions, according to different criteria. For the purposes of this
+paper, we are interested in reducing the overall number of actions executed in the plan, as well
+as its length (lexicographically). We can express this by the constraints:
+52:∼action(T,switch(X,Y,Z)). [1@2,T,A]
+53:∼time(T). [1@1,T]
+
+12Cambridge Author
+0 20 40 60 80 100 120 140 160
+# Solved Instances
+10−2
+10−1
+100
+101
+102
+103
+Runtime [log-s]
+ExpSearch (S)
+Bounded @ g (S)
+Bounded @ 2 g (S)
+ExpSearch (P)
+Bounded @ 1
+2 (P)
+Bounded @ g (P)
+Bounded @ 2 g (P)
+10−1 101 103
+Bounded Search [log-s]
+10−2
+10−1
+100
+Exponential Search [log-s]
+1
+2g
+g
+2g
+Fig. 3: (a) A point(i,t)indicates thatiinstances are solved intseconds. (b) A point(x,y)denotes
+a synthetic instance solved inyseconds by exponential and inxby bounded. Points below the
+bisector indicate faster exponential search.
+The weak constraintr 52 minimizes the total number of actions 2, while the weak constraintr 53
+favours shorter plans.
+5 Experimental Analysis
+The empirical evaluation aims to assess the capabilities of the proposed approach. We start by
+describing the experimental settings and, then, in Section 5.1, we present the results.
+Execution environment.Experiments were executed on a 64-bit Linux machine equipped with
+an Intel i7-13700 @ 5.2 GHz with 32GB of RAM and 16 physical cores, running up to 8 concur-
+rent jobs via GNU Parallel. Each run was limited to a timeout of 1800 CPU seconds and 2 GB
+of memory. We use theCLINGOsolver (version 5.4.1) in default configuration.
+Implementation details.In real scenarios, a bound on reconfiguration’s length is unknown. We
+progressively expand such bound by means of multiple solver calls. In particular, we solve the
+bounded version of the problem over the interval[2 h,2 h+1](i.e., we search for a plan of length
+at least 2h and at most 2h+1) starting withh=0, and increasing it up to the point where we find
+a solution (or hit resource limits). To enforce a lower bound 2h on plan’s length, we add the fact
+time(2h), while to enforce an upper bound 2h+1 we set the runtime constantkto 2 h+1.
+Data.Our test set is composed by a collection of synthetic and real-world instances. The 7
+real instances were obtained using data from a French urban network consisting of two source
+stations (primary nodes). This data has been anonymised and used to create smaller subnetworks
+that comply with a secure feeder architecture, and correspond to French distribution network
+design practices in terms of topology, feeder capacity constraints, and balancing criteria. The
+instances range in size from 6 to 40 secondary nodes, and all have 2 primary nodes. Further, we
+generated synthetic instances by varying the number of nodes|V| ∈ {8,12,15,18,22,30,40,50},
+2 Edges cannot be added (removed) twice, hence minimizing actions is equivalent to minimizing the number of switches.
+
+Theory and Practice of Logic Programming13
+|V|Exp. Search 1
+2 g g2g Total
+8 25;25 0;25 25;25 25;25 75;100
+12 21;25 0;25 25;25 25;25 71;100
+18 11;25 0;25 19;21 16;16 46;87
+22 7;25 0;16 13;11 9;11 29;63
+30 5;25 0;15 5;10 5;5 15;55
+40 5;25 0;10 5;5 0;0 10;40
+50 0;25 0;5 0;0 0;0 0;30
+Total 74;175 0;121 92;97 80;82 246;475
+Table 1: Number of solved instances by graph
+size and method. Cell contentx;ydenotes that
+we solvexinstances with sequential planning,
+andyinstances with parallel planning, respec-
+tively.
+8 12 18 22 30 40 50
+|V |
+10−2
+10−1
+100
+101
+102
+103
+Runtime [log-s]
+Exp. Search
+1
+2g
+g
+2g
+Fig. 4: Parallel plans runtime comparison
+across graph sizes. Red bar is the median run-
+time.
+fixing the number of primary nodes to|P|=2. This size matches what experts deal with in daily
+operations. For each size, we sampled five random compliant power grids. Starting from each grid
+G, we constructed a sequential plan by applying valid random actions that preserve compliance,
+leading toG T . In doing so, we avoid trivial redundancies, i.e., addition-removals of the same
+edge, or “opposite switches” in adjacent time-steps. Motivated by the empirical observation that,
+in real instances, solution length is approximately equal to the number of edges, we considered
+plan depths of the formα· |E|withα∈ {0.2,0.6,1.0,1.4,1.8}. Executing these action sequences
+yields pairs of compliant configurations(G,G T ), which constitute valid instances of the LPP.
+Overall, this process generates 175 synthetic LPP instances. Moreover,α· |E|is an upper bound
+for a sequential solution’s length. We will refer to this (instance-wise) upper bound asg, and
+experiments will consider 1
+2g,gand 2gas possible bounds.
+5.1 Results
+Below we present the results of our experiments. All solutions have been validated using an
+external purposely-designed tool to assess the satisfaction of the DSO rules.
+Synthetic instances.In order to select the best approaches, to be employed on real data, we
+first test our encoding in the bounded and exponential search version, searching for sequential
+and parallel plans, on the synthetic instances. We report our results in terms of the cactus plot
+and scatterplot in Figure 3. First, we can observe in Figure 3a that we are able to solve more
+problem instances dealing with parallel plans wrt sequential plans. Intuitively, this is due to
+non-interfering actions “compressing” the solutions’ length, which translates to dealing with
+smaller logic programs. In ASP planning, this typically correlates witheasierproblems, given
+that long plans are a known pain point also for ASP-based planning (see, e.g., (Son et al. 2023)).
+Exponential search performs worse than bounded search over sequential plans, as it incurs in
+overhead due to multiple solver calls that are required to expand the search horizon, while the
+bounded encoding operates directly on it. In the parallel setting, the exponential search approach
+dominates, solving 54 more instances wrt the bounded at horizon1
+2g, 78 wrtgand 93 wrt 2g, with
+all instances being mostly trivial for the parallel approach. The scatterplot in Figure 3b shows that
+for parallel plans, all instances slow down as bounds increase. In particular, we can observe (top-
+
+14Cambridge Author
+Parallel Parallel Optimization
+Instance # NodesrΣ|A i|max|A i|rΣ|A i|max|A i|Opt?
+P06 8 0.0 12 5 0.0 7 4✓
+P10 12 0.0 20 6 0.1 20 6✓
+P13 12 0.0 19 5 0.1 16 7✓
+P16 18 1.0 30 7 0.9 30 7
+P22 24 0.4 40 12 1.8 29 10✓
+P30 30 41.2 67 10 62.2 65 11
+P40 42 – – – 1485.7 103 14
+Table 2: Runtime (r) on real instances of a given size (# Nodes), with total number of actions
+(Σ|Ai|) and maximum number of concurrent actions (max|A i|). Dashes (–) denote timeout. The
+“Opt?” column marks instances where we are able to prove optimality of the parallel plan.
+right corner of the scatter-plot) that these synthetic instances—despite being trivial whenever
+they admit a short solution—are challenging if we try to solve at a much higher bound: we
+observe several instances that can be solved within seconds by the exponential search approach,
+but time-out with larger bounds. Table 1 shows that all techniques solvefewerinstances as|V|
+increases. Parallel exponential search scales better as|V|increases. This is confirmed by runtimes
+distributions in Figure 4. The largest instances are comparable in size to those handled by human
+experts, both for training and for the actual long-term planning of power grids. Larger grids are
+generally decomposed into networks of between 20-25 nodes. In that sense, our approach can
+readily support the work of experts. Overall, these results on synthetic instances motivate our
+focusing on parallel plans and exponential search approaches to solve real-world scenarios.
+Real instances.Table 2 reports runtime of our exponential search approach, with and without
+optimization statements (as discussed in Section 4). We are able to solve instances of up to 42
+nodes, proving the approach is useful for operation-support in realistic scenarios, and can solve
+instances of size larger than those experts deal in daily operations. Runtimes are comparable with
+the ones we obtained over synthetic instances of the same size. On some solved instances, we are
+also able to prove optimality of parallel plans. In real-world scenarios, this translate in lower costs
+and simpler-to-put-in-place operations. These solutions were validated by an automated tool and
+visually reviewed by domain experts, who confirmed their consistency with DSO planning rules
+and their comparability, at the topological level, to solutions typically produced by experts.
+6 Conclusion
+The problem of long-term power grid planning requires computing sequences of operations on
+the power grid infrastructure totransformit into a target configuration, while guaranteeing that
+each intermediate state satisfies certain properties of interest. Enacting these plans may span
+many years of costly operations. Currently, such plans are devised manually by domain experts.
+This paper proposes an ASP-based approach to tackle the problem, providing an automated so-
+lution inspired by ASP planning and ASP reconfiguration. Our experiments on synthetic and
+real-world data show that the approach can solve complex instances comparable to, or larger
+than, those currently handled by human operators. As future work, we plan to further improve
+scalability by applying, e.g., domain-specific heuristics and decomposition methods, and adapt to
+infrastructure-specific requirements that may be present in other installations, such as immutabil-
+ity of certain components or budget limitations.
+
+Theory and Practice of Logic Programming15
+Acknowledgements
+This work has been partially supported by the Italian “Ministero delle Imprese e Sviluppo Eco-
+nomico” (MIMIT) under projects “Ei-TWIN - Energy Digital Twin” (CUP B29J2400068000);
+by Regione Calabria under PR Calabria FESR FSE 2021–2027 through the projects “MOZART
+- Modelli e tecniche di mOdernizzazione di applicaZioni e data silos a supporto di clienti esterni,
+field force e impiegati di backoffice basati su AI GeneRativa e apprendimento auTomatico” (CUP
+J49I24001740005), and “SIGENERA - Large Language Models (LLM) per il controllo di SIs-
+temi informativi, la GENERazione automatica di testo, e l’accesso a basi di conoscenzA ” (CUP
+J29I24001770005). Francesco Percassi and Mauro Vallati were supported by a UKRI Future
+Leaders Fellowship, grant number MR/Z00005X/1.
+References
+AHMADI, H.ANDMART ´I, J. R. 2015. Mathematical representation of radiality constraint in distribution
+system reconfiguration problem.International Journal of Electrical Power & Energy Systems,64, 293–
+299.
+AJAJA, A.ANDGALIANA, F. D. Distribution network reconfiguration for loss reduction using MILP. In
+IEEE PES Innovative Smart Grid Technologies Conference, ISGT 2012, Washington, DC, USA, January
+16-20, 20122012, pp. 1–6. IEEE.
+ARABALI, A., GHOFRANI, M., ETEZADI-AMOLI, M., FADALI, M. S.,ANDBAGHZOUZ, Y. 2012.
+Genetic-algorithm-based optimization approach for energy management.IEEE Transactions on Power
+Delivery,28, 1, 162–170.
+BELL, K., COLES, A., COLES, A., FOX, M.,ANDLONG, D. 2009. The role of ai planning as a decision
+support tool in power substation management.Ai Communications,22, 1, 37–57.
+BERTOLI, P., CIMATTI, A., SLANEY, J. K.,ANDTHI ´EBAUX, S. Solving power supply restoration prob-
+lems with planning via symbolic model checking. InProceedings of ECAI2002, pp. 576–580.
+BREWKA, G., EITER, T.,ANDTRUSZCZYNSKI, M. 2011. Answer set programming at a glance.Commun.
+ACM,54, 12, 92–103.
+CASTELLANOS-PAEZ, S., ALVAREZ-HERAULT, M.-C.,ANDLALANDA, P. Automated planning to evolve
+smart grids with renewable energies. InArtificial Intelligence for Knowledge Management, Energy, and
+Sustainability2022, pp. 141–155. Springer.
+CASTELLANOS-PAEZ, S., ALVAREZ-HERAULT, M. C.,ANDLALANDA, P. Decision support tool for the
+development of power distribution networks based on AI planning. InCIRED2023, pp. 1425–1429.
+CONEJO, A. J., CARRION, M.,ANDMORALES, J. M. 2010.Decision Making Under Uncertainty in
+Electricity Markets. Springer.
+ERDEM, E., GELFOND, M.,ANDLEONE, N. 2016. Applications of answer set programming.AI Mag.,37,
+3, 53–68.
+ERDF 2008. Description physique du r ´eseau public. Accessed: 2026-01-30.
+FALKNER, A. A., FRIEDRICH, G., SCHEKOTIHIN, K., TAUPE, R.,ANDTEPPAN, E. C. 2018. Industrial
+applications of answer set programming.K ¨unstliche Intell.,32, 2-3, 165–176.
+FANG, X., MISRA, S., XUE, G.,ANDYANG, D. 2012. Smart grid — the new and improved power grid:
+A survey.IEEE Communications Surveys & Tutorials,14, 4, 944–980.
+GEBSER, M., KAMINSKI, R., KAUFMANN, B.,ANDSCHAUB, T. 2012.Answer Set Solving in Practice.
+Synthesis Lectures on Artificial Intelligence and Machine Learning. Morgan & Claypool Publishers.
+GELFOND, M.ANDLIFSCHITZ, V. The stable model semantics for logic programming. InLogic Program-
+ming, Proceedings of the Fifth International Conference and Symposium1988, pp. 1070–1080.
+GLAVIC, M., FONTENEAU, R.,ANDERNST, D. 2017. Reinforcement learning for electric power system
+decision and control: Past considerations and perspectives.IFAC-PapersOnLine,50, 1, 6918–6927.
+
+16Cambridge Author
+JABR, R. A., SINGH, R.,ANDPAL, B. C. 2012. Minimum loss network reconfiguration using mixed-
+integer convex programming.IEEE Transactions on Power systems,27, 2, 1106–1115.
+KATO, M., BANBARA, M., SCHAUB, T., SOH, T.,ANDTAMURA, N. 2024. Dominating set reconfigura-
+tion with answer set programming.Theory Pract. Log. Program.,24, 4, 755–771.
+KHATOR, S. K.ANDLEUNG, L. C. 1997. Power distribution planning: A review of models and issues.
+IEEE Transactions on Power Systems,12, 3, 1151–1159.
+LIFSCHITZ, V. 2019.Answer Set Programming. Springer.
+RINTANEN, J., HELJANKO, K.,ANDNIEMEL ¨A, I. 2006. Planning as satisfiability: parallel plans and al-
+gorithms for plan search.Artif. Intell.,170, 12-13, 1031–1080.
+SON, T. C., PONTELLI, E., BALDUCCINI, M.,ANDSCHAUB, T. 2023. Answer set planning: A survey.
+Theory Pract. Log. Program.,23, 1, 226–298.
+THI ´EBAUX, S., COFFRIN, C., HIJAZI, H.,ANDSLANEY, J. Planning with MIP for supply restoration in
+power distribution systems. InProceedings of IJCAI2013, pp. 2900–2907.
+V ´AZQUEZ-CANTELI, J. R.ANDNAGY, Z. 2019. Reinforcement learning for demand response: a review
+of algorithms and modeling techniques.Applied Energy,235, 1072–1089.
+WOLLENBERG, B. F.ANDSAKAGUCHI, T. 1987. Artificial intelligence in power system operations.Pro-
+ceedings of the IEEE,75, 12, 1678–1685.
+YAMADA, Y., BANBARA, M., INOUE, K.,ANDSCHAUB, T. Recongo: Bounded combinatorial reconfigu-
+ration with answer set programming. InJELIA2023, pp. 278–286.

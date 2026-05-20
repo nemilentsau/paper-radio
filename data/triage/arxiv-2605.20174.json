@@ -1,0 +1,22 @@
+{
+  "paper_id": "arxiv-2605.20174",
+  "title": "Multi-axis Analysis of Image Manipulation Localization",
+  "core_claim": "The paper introduces AUDITS, a 530K-image benchmark for studying image manipulation detection across domain shift, quality, manipulation type, and manipulation size, and reports robustness experiments on existing localization methods.",
+  "triage_rationale": "This looks like a substantial benchmark-and-evaluation paper in a timely area, with clear utility for the field even if the contribution is primarily empirical. It is better suited for review than immediate advancement because the abstract promises a broad dataset and robustness study but does not yet show a novel algorithmic breakthrough.",
+  "topic_tags": [
+    "computer-vision",
+    "image-manipulation-detection",
+    "benchmark",
+    "domain-shift",
+    "robustness",
+    "synthetic-data"
+  ],
+  "likely_red_flags": [
+    "Benchmark paper rather than a new method",
+    "Claims are evaluation-heavy and may depend on dataset construction choices",
+    "Abstract does not specify strong quantitative gains or a clear methodological novelty"
+  ],
+  "research_score_estimate": 7.2,
+  "podcast_score_estimate": 6.4,
+  "decision": "queue_for_review"
+}

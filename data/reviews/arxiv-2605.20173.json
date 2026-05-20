@@ -1,0 +1,65 @@
+{
+  "paper_id": "arxiv-2605.20173",
+  "one_line_claim": "The paper argues that production LLM agents should be designed around a named stochastic-deterministic boundary, then selected from six runtime architecture patterns using a five-step workload methodology.",
+  "what_they_tested": "This is primarily a methodology and software-architecture paper, not an ML experiment paper. The authors report an audit of five open-source agent frameworks, classify 21 published agent failure post-mortems, apply the methodology to five constructed workloads, and provide one runnable contract-renewal reference implementation using a projected IBM Telco Customer Churn dataset.",
+  "strongest_point": "The stochastic-deterministic boundary is a useful engineering abstraction: proposer, verifier, commit, and reject signal map cleanly onto real LLM-to-action systems, and the paper connects that boundary to concrete distributed-systems patterns rather than treating agent architecture as prompt craft.",
+  "weakest_point": "The evidence is much weaker than the architectural rhetoric: the core audit and post-mortem classification are summarized as headline counts without enough per-case detail in the paper, and the validation workloads are author-constructed rather than independently deployed, compared, or stress-tested systems.",
+  "missing_baselines": [
+    "A comparison against established architecture-decision methods such as ADR-only practice, threat modeling, production readiness reviews, or existing distributed-systems design checklists applied to the same workloads.",
+    "A comparison against mainstream agent-runtime frameworks' recommended patterns, for example LangGraph, AutoGen, CrewAI, OpenAI Agents, or Temporal-style workflow architectures, using the same workload descriptions.",
+    "Independent practitioner classifications of the 21 post-mortems to measure inter-rater agreement on whether failures localize to the SDB.",
+    "A no-method or expert-free baseline where engineers choose architectures without the proposed predicate sequence, then compare resulting pattern choices and failure coverage.",
+    "Real production incidents or open-source issue traces replayed through the diagnostic catalog, rather than only illustrative failure signatures.",
+    "A runtime reliability benchmark comparing P3 event-log designs versus P5 shared-state-machine designs under model-version changes."
+  ],
+  "missing_ablations": [
+    "Remove each SDB component, verifier, durable commit, and typed reject signal, in the reference implementation to show which failures actually appear.",
+    "Vary the state-spine predicates such as the one-hour pause threshold and the reconstructibility/world-change assumptions to test whether the methodology is stable.",
+    "Stress-test replay divergence by running the same event log through different model versions, prompts, or temperatures and measuring downstream divergence.",
+    "Ablate the six-line architecture decision record versus the full five-step process to see whether the heavy methodology adds value beyond documentation discipline.",
+    "Measure the operational cost of choosing P5 over P3 on workloads like lead warming, including implementation complexity, latency, and debugging overhead.",
+    "Run the contract-renewal example with different base agent frameworks or models to test whether the claimed pattern composition is framework- and model-agnostic."
+  ],
+  "red_flags": [
+    "The paper repeatedly uses strong language like 'load-bearing primitive' and 'dominant lever' while admitting that the reliability equation is a metaphor rather than a derived or fitted model.",
+    "The claimed empirical audit is under-specified in the paper body: 19 of 21 LLM-to-action call sites and 15 of 21 post-mortems are headline numbers, but the extracted text does not show a table of all call sites, coding criteria, or disagreement handling.",
+    "The post-mortem classification is author-coded, and the threats section explicitly says the classification is the author's.",
+    "The five workload applications are constructed by the author; only one is implemented, and none are reported as real deployed systems.",
+    "The reference implementation uses a public churn dataset projected into 100 renewal scenarios, which exercises the architecture but does not validate real 90-day renewal operations.",
+    "The paper treats contemporary and even future-sounding model/version labels as incidental examples, but claims about model-variance compression and architecture becoming dominant are not empirically quantified.",
+    "Several pattern-selection predicates look like plausible engineering rules of thumb rather than validated decision boundaries.",
+    "The paper is about agent software architecture more than ML research; it should not be presented as evidence that a new learning method improves agent reliability."
+  ],
+  "positive_signals": [
+    "The SDB contract is compact, inspectable, and directly actionable for production agents that turn LLM outputs into writes or tool calls.",
+    "The pattern catalog is grounded in known systems concepts, including actors, sagas, logs, CAS/state machines, supervision, and human approval planes.",
+    "The paper gives concrete failure signatures and corrective actions, which makes it more useful than a purely taxonomic essay.",
+    "Replay divergence is a good named failure mode for LLM consumers over deterministic event logs and is worth discussing even if the paper does not quantify it.",
+    "The methodology produces an explicit architecture decision record, forcing teams to document runtime class, spine, coordination, control, sequence, and model/date assumptions.",
+    "The authors include a runnable companion implementation claim rather than stopping at diagrams.",
+    "The threats-to-validity section is unusually direct about construction bias, arbitrary thresholds, replay availability, and author-coded evidence."
+  ],
+  "research_score": 5.6,
+  "podcast_score": 8.4,
+  "overclaim_score": 7.7,
+  "replication_interest": 6.8,
+  "verdict": "Worth covering as a sharp architecture essay with strong practitioner vocabulary, not as a validated ML result. The SDB framing, replay-divergence concept, and pattern-selection checklist are concrete enough to spark a useful Paper Radio segment, especially for critiquing the gap between agent demos and production systems. The skeptical read is that most of the paper's validation is constructed, author-coded, or illustrative: no independent raters, no deployed-system comparison, no measured reliability gains, and no actual demonstration that the proposed methodology outperforms existing engineering practice. Treat it as a good conceptual framework that needs replication, incident-level evidence, and quantitative stress tests.",
+  "citations": [
+    "Abstract: the SDB is defined as a four-part contract among proposer, verifier, commit step, and reject signal for how an LLM output becomes a system action.",
+    "Abstract and Section 2.3: the paper reports an audit of five open-source frameworks with explicit verifier-and-commit logic at 19 of 21 LLM-to-action call sites.",
+    "Section 2.3: the paper reports that 15 of 21 published agent failure post-mortems localize to boundary weaknesses and 17 of 21 fixes strengthen verification, commit semantics, or reject signaling.",
+    "Section 2.3: the illustrative cases are a Promptfoo model-upgrade safety regression fixed with an output classifier/tool gating and an OpenAI Agents JS reject-signal bug where rejected tool calls were reported as completed.",
+    "Table 1 and Section 3: the six patterns are hierarchical delegation, scatter-gather plus saga, event-driven sequencing, shared state machine, supervisor plus gate, and human in the loop.",
+    "Section 4: the five-step methodology classifies runtime, chooses a state spine, wraps with coordination, bounds with control, and sequences the build console-first.",
+    "Section 4.2: P5 is selected when pauses exceed one hour or external waits exist, pause-state is not reconstructible from original input, and the world changes during the pause.",
+    "Section 5.1: the reliability model y(t) = mu t + sigma xi(t) is explicitly presented as a metaphor, not a derived model.",
+    "Section 5.2: replay divergence is defined as the same event replayed on a newer model version producing different downstream events than the first run.",
+    "Section 6: the reference application is a 90-day telecommunications contract-renewal workload with P5 state machine, P1 orchestration, P2 saga compensation, P4 gate, and P6 control planes.",
+    "Section 6.3: the reference implementation uses the IBM Telco Customer Churn dataset projected into 100 renewal scenarios.",
+    "Section 7: four additional applications are worked examples only, and the paper states that none are deployed systems.",
+    "Table 7: the five workloads produce different architecture records, including no durable spine for billing assist, P3 for order fall-out and lead warming, and P5 for port-in and contract renewal.",
+    "Section 8.2: the threats section acknowledges construction bias in the worked applications and says they are not independently audited by other practitioners.",
+    "Section 8.2: the paper says the post-mortem classification is the author's and that readers can substitute their own classifications and recompute the totals.",
+    "Section 8.3: the paper explicitly excludes cold-start implementation, organizational SLA negotiation, token budgets, model selection, retrieval index sizing, and prompt management."
+  ]
+}

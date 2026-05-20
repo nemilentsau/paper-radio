@@ -1,0 +1,72 @@
+{
+  "paper_id": "arxiv-2605.20174",
+  "one_line_claim": "AUDITS is a 530K-image benchmark for image manipulation localization that lets researchers stress-test detectors across image source, manipulation type, manipulation size, and human-perceived edit quality.",
+  "what_they_tested": "They build two subsets from VisualNews and COCO, generate diffusion-based replacement, removal, and insertion edits with 11 manipulation techniques, add masks and pristine images, and evaluate PSCC-Net, MMFusion, HiFi, EVP, TruFor, SIDA, DOLOS, UperNet, plus several domain-generalization variants. The core experiments train on AUDITS-News or AUDITS-COCO, test in-domain and cross-domain across manipulation-type ID/OOD splits, then add size-conditioned results, external transfer to MagicBrush and CocoGLIDE, and a small AMT-based quality analysis over 3,412 majority-voted images.",
+  "strongest_point": "The benchmark design is genuinely useful: it separates image-source shift from manipulation-type shift, includes modern diffusion/inpainting generators rather than only classic splicing or copy-move artifacts, evaluates many existing detectors under the same protocol, and reports enough cross-source/cross-generator failures to expose brittle generalization that single-dataset reporting would hide.",
+  "weakest_point": "The dataset is large but still synthetic and mask-defined: most edits are generated from COCO/VisualNews segmentation masks, VisualNews masks come from ODISE rather than human ground truth, the evaluation invents an ambiguous-pixel weighting rule with empirical thresholds, and the human-quality study covers only a small subset of generators and images, so the benchmark may measure detector response to this construction pipeline as much as real-world manipulation robustness.",
+  "missing_baselines": [
+    "A direct comparison to training on existing large manipulation datasets such as COCO-Inpaint, TGIF, DOLOS, MagicBrush, and DEFACTO under the same train/test budget, not only external evaluation after AUDITS training or the limited EVP-only DEFACTO appendix.",
+    "A simple image-difference or artifact heuristic baseline using the original/edited pair where available, to calibrate how much of the benchmark is driven by diffusion off-mask drift and global color/texture changes.",
+    "Modern foundation-model or forensic-feature baselines that are not standard supervised localization networks, such as CLIP/DINO feature anomaly maps, noise-residual detectors, or self-supervised change/localization methods.",
+    "Human localization or human image-level detection baselines on the same split, since the paper repeatedly motivates social trust and obvious edits but only uses humans to label perceived quality.",
+    "Cross-dataset training baselines where detectors are trained on mixtures of AUDITS plus traditional and diffusion datasets for all main model families, not only EVP in appendix Tables 11 and 12.",
+    "Compute- and data-matched baselines showing whether the performance drops are caused by source/generator shift rather than unequal manipulation-size distributions or class/object frequency differences between COCO and VisualNews."
+  ],
+  "missing_ablations": [
+    "Sensitivity of the ternary evaluation to the off-mask drift threshold tau=0.0025 and ambiguous-pixel weight alpha=0.5; these choices directly affect AUROC/F1 but are only described as empirical.",
+    "Replacing ODISE-predicted masks on VisualNews with manually checked masks or high-confidence subsets to estimate how much annotation noise affects localization scores.",
+    "Generator-by-generator train/test leave-one-out results for all 11 manipulation methods in the main paper; Tables 24 and 25 help, but they are not integrated into the primary protocol.",
+    "Ablation of same-object replacement versus different-object replacement at realistic scale; the current new-object experiment uses only 100 images per subset.",
+    "Quality-label robustness to survey design choices, annotator filtering, worker agreement thresholds, majority-vote rules, and the decision to merge 'maybe' with 'no'.",
+    "Per-source and per-topic VisualNews analysis beyond aggregate News vs COCO, especially because news outlets and topics are unbalanced.",
+    "A study that equalizes manipulation-size bins across COCO and News before attributing failures to image-source shift.",
+    "Evaluation with pristine/authentic images should be part of the main protocol, not relegated to an appendix table whose interpretation is acknowledged as confusing."
+  ],
+  "red_flags": [
+    "The paper's strongest practical framing is misinformation robustness, but all manipulated images are generated in a controlled synthetic pipeline over COCO and VisualNews; real edited social/news imagery, screenshots, compression chains, reshares, and mixed editing workflows are not central to the benchmark.",
+    "AUDITS-News ground-truth masks depend on ODISE panoptic segmentation, so mask errors and open-vocabulary segmentation biases can become benchmark labels.",
+    "The ambiguous-pixel protocol rewards or penalizes off-mask diffusion drift using fixed tau and alpha values chosen empirically, yet the main source-domain and manipulation-type conclusions rely on this nonstandard metric in Sections 4.2 and 4.3.",
+    "The human evaluation is small relative to the dataset: 4,950 surveyed images and 3,412 quality-labeled images out of 530,640 total, with Adobe Firefly excluded and some generators missing for COCO.",
+    "The paper says most people realized images were manipulated in the survey, which weakens the claim that the benchmark represents highly convincing manipulations.",
+    "Domain-generalization methods are treated as potential fixes, but the paper gives limited implementation detail and no careful tuning/fairness analysis, so the negative DG conclusion should be read cautiously.",
+    "Several tables are hard to parse in the extracted text and the paper sometimes uses awkward or inconsistent wording around train/test directions, authentic-image inclusion, and performance interpretation.",
+    "The ethics section is thin: it asserts the work is ethical by nature and only briefly notes misuse, despite releasing a large manipulated-image dataset."
+  ],
+  "positive_signals": [
+    "The dataset is publicly linked on Hugging Face, which makes this much more valuable than a purely descriptive benchmark paper.",
+    "AUDITS explicitly separates COCO and VisualNews, enabling a cleaner test of image-source shift than prior benchmarks that confound source and manipulation method.",
+    "The benchmark includes 11 recent manipulation techniques across replacement, removal, and insertion, including SDXL, Flux-Inpainting, HD-Painter, GLIGEN, and Adobe Firefly.",
+    "The main evaluation covers a broad detector set: PSCC-Net, MMFusion, HiFi, EVP, TruFor, SIDA, DOLOS, UPerNet, and domain-generalization variants.",
+    "The results are not just leaderboard numbers; they identify concrete failure modes such as large manipulation recall problems, source shift, generator shift, and object-category-specific weakness.",
+    "External transfer experiments on MagicBrush and CocoGLIDE show that method rankings change across datasets, supporting the paper's argument against single-benchmark generalization claims.",
+    "The appendix adds useful checks with authentic images, seed statistics, semantic salience via captions, traditional manipulation datasets, image-level detection, and recent generator breakdowns.",
+    "The paper is honest that current DG methods do not solve the multi-axis shifts and that future work needs contextual information and better manipulations."
+  ],
+  "research_score": 7.1,
+  "podcast_score": 7.2,
+  "overclaim_score": 4.8,
+  "replication_interest": 8,
+  "verdict": "Worth reviewing for Paper Radio as a benchmark episode rather than an algorithmic breakthrough. The paper has a strong story: detectors look competent in-distribution, then break under source, generator, size, and external-dataset shifts. The critique should focus on whether AUDITS measures real manipulation robustness or mostly robustness to a particular synthetic diffusion-and-segmentation pipeline, and on how much the nonstandard ambiguous-pixel metric and small human-quality subset shape the conclusions.",
+  "citations": [
+    "data/papers/arxiv-2605.20174.md:1-22 gives the title, metadata, abstract, 530K-image claim, public PDF/fulltext paths, and triage rationale.",
+    "data/papers/fulltext/arxiv-2605.20174.txt:20-26 states the core AUDITS claim: over 530K images, two image sources, diffusion-based inpaintings, and domain-shift experiments.",
+    "data/papers/fulltext/arxiv-2605.20174.txt:53-72 lists the four intended axes: image source, manipulation quality, manipulation type, and manipulation size, and claims DG methods do not fix the shifts.",
+    "data/papers/fulltext/arxiv-2605.20174.txt:103-121 compares AUDITS to prior datasets and reports 530,640 images, multi-domain coverage, diffusion manipulations, controlled sizes, 11 manipulation types, and human perception labels.",
+    "data/papers/fulltext/arxiv-2605.20174.txt:162-168 reports AUDITS-News with 311,989 images and AUDITS-COCO with 218,651 images, including manipulated and pristine counts.",
+    "data/papers/fulltext/arxiv-2605.20174.txt:174-207 describes the 11 manipulation techniques and the use of ODISE masks for VisualNews and COCO masks for COCO.",
+    "data/papers/fulltext/arxiv-2605.20174.txt:215-244 describes VisualNews topic/outlet diversity, COCO object categories, and manipulation-size counts for small, medium, and large edits.",
+    "data/papers/fulltext/arxiv-2605.20174.txt:228-252 describes the AMT quality survey: 4,950 images, 14,850 responses, 1,829 workers, and 3,412 majority-voted high/low quality images.",
+    "data/papers/fulltext/arxiv-2605.20174.txt:262-272 lists the evaluated models and domain-generalization variants, including PSCC-Net, MMFusion, HiFi, EVP, TruFor, SIDA, DOLOS, UPerNet, SWAD, Model Soups, MIRO, and URM.",
+    "data/papers/fulltext/arxiv-2605.20174.txt:286-338 defines the ternary ground truth, off-mask drift threshold tau=0.0025, and ambiguous-pixel weight alpha=0.5.",
+    "data/papers/fulltext/arxiv-2605.20174.txt:343-380 gives Table 2 and notes that the ambiguous-pixel weighted protocol is used only for Sections 4.2 and 4.3, while later tables use standard metrics.",
+    "data/papers/fulltext/arxiv-2605.20174.txt:387-405 reports the main source/type-shift conclusion and says DG variants give only modest, inconsistent gains.",
+    "data/papers/fulltext/arxiv-2605.20174.txt:412-423 reports that small manipulations can score higher partly because most pixels are authentic, and that large manipulations suffer from low recall.",
+    "data/papers/fulltext/arxiv-2605.20174.txt:425-460 reports external transfer to MagicBrush and CocoGLIDE and argues that method rankings are not fixed across datasets.",
+    "data/papers/fulltext/arxiv-2605.20174.txt:471-490 reports the high/low human-quality AUC comparison and says quality labels have negligible impact on detector performance.",
+    "data/papers/fulltext/arxiv-2605.20174.txt:498-508 reports object-category qualitative analysis and the conclusion that current detectors struggle on OOD samples.",
+    "data/papers/fulltext/arxiv-2605.20174.txt:713-723 gives the ethical caveat and explains why authentic-image results are moved to appendix Table 6.",
+    "data/papers/fulltext/arxiv-2605.20174.txt:788-797 reports the traditional-manipulation analysis showing AUDITS alone does poorly on classic manipulations but AUDITS plus DEFACTO can help.",
+    "data/papers/fulltext/arxiv-2605.20174.txt:865-882 describes small-scale new-object replacement and additional human-evaluation findings, including that many survey participants detected manipulation and that AUDITS-COCO was more challenging.",
+    "data/papers/fulltext/arxiv-2605.20174.txt:994-1007 gives recent-generator AUC breakdowns for Flux-Inpainting, HD-Inpainting, Firefly, and SDXL when trained on AUDITS-News or AUDITS-COCO."
+  ]
+}

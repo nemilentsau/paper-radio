@@ -1,0 +1,52 @@
+{
+  "paper_id": "arxiv-2605.20177",
+  "one_line_claim": "Staging VLM post-training as visual perception, textual reasoning, then visual reasoning improves accuracy and shortens reasoning traces compared with merged training.",
+  "what_they_tested": "They synthesize perception-focused QA from DOCCI captions, train Qwen2.5-VL-7B and Qwen3-VL-8B with GRPO/RLVR across three capability stages, and compare against merged training, alternative stage orders, SFT for perception, difficulty curricula, and open-weight VLM baselines on visual math and perception benchmarks.",
+  "strongest_point": "The paper has a coherent ablation stack: perception+reasoning vs reasoning-only, staged vs merged, stage-order swaps, RLVR vs SFT for the perception stage, and capability curriculum combined with difficulty curriculum. The staged approach wins fairly consistently, especially in Tables 2, 3, 4, 10, and 11.",
+  "weakest_point": "The central causal claim that perception is the bottleneck rests on imperfect proxies: caption-derived QA labels, caption-vs-image filtering, and Claude-Haiku perception-error judgments with only 33/40 manual agreement. This supports the story, but does not fully isolate true visual perception from caption artifacts, evaluator bias, or benchmark-specific effects.",
+  "missing_baselines": [
+    "A merged-training baseline with the same vision-encoder open/frozen schedule as staged training in the main table, not only appendix variants.",
+    "A random or repeated-stage curriculum baseline controlling for multi-phase optimization without semantic capability ordering.",
+    "A perception-only post-training model evaluated before adding text and visual reasoning, to quantify how much of the downstream gain comes from Stage 1 alone under the exact main benchmark suite.",
+    "A baseline using the same DOCCI-derived QA data as ordinary supervised QA or direct caption QA without the hard negative filtering step.",
+    "Comparisons to stronger closed or larger open VLMs would help calibrate the 'advanced results' claim, even if the method is targeted at 7-8B open models."
+  ],
+  "missing_ablations": [
+    "Sensitivity to the amount and quality of perception data, since the pipeline depends on fine-grained captions and generated labels.",
+    "Reward-component ablation separating accuracy reward from format reward in GRPO.",
+    "Ablation of the two-model filtering criterion: one filter model vs two filter models vs no filtering.",
+    "Training-seed variance for the actual training runs, not only three-run averaged evaluation results.",
+    "Per-benchmark analysis of where shorter reasoning helps versus where it might hide under-reasoning or answer-only shortcuts."
+  ],
+  "red_flags": [
+    "The main staged-vs-merged setup is partly confounded: the paper says the visual encoder is enabled for all staged stages, while the merged baseline disables it following common practice. Appendix Table 8 reduces this concern but the headline Table 2 comparison is not the cleanest causal test.",
+    "The perception dataset is generated from captions, and the answer is treated as ground truth from text. That can teach caption-consistent priors and textual detail recovery rather than direct image perception unless image-grounding quality is carefully audited.",
+    "All evaluations are reported as using Claude-Haiku-4.5 as judge across benchmarks. Judge-model dependence is a nontrivial source of variance and possible bias, especially for small percentage gains.",
+    "Some headline gains are modest: Qwen3 staged and OneThinker tie on average visual math in Table 1, and staged beats merged by 1.10 overall points in Table 2 for Qwen3.",
+    "The diagnosis that 86.9% of incorrect sampled answers are due to perception error is based on automated Claude judgments; the paper manually checks only 40 such judgments and reports 82.5% agreement."
+  ],
+  "positive_signals": [
+    "The method is tested on multiple backbones, including Qwen2.5, Qwen3, InternVL3, and InternVL3.5 in the appendix.",
+    "The paper reports broad benchmark coverage spanning visual math, perception, hallucination, visual-only QA, and robustness-style tests.",
+    "The authors explicitly test ordering effects and find that doing visual reasoning first degrades results, which is directly relevant to the curriculum claim.",
+    "They include a concrete SFT-vs-RLVR comparison for perception training, where RLVR performs better on both model families.",
+    "Appendix Table 11 reports averaged results over three independent evaluation runs and staged training wins on most benchmarks."
+  ],
+  "research_score": 7.2,
+  "podcast_score": 7.6,
+  "overclaim_score": 6.4,
+  "replication_interest": 8.0,
+  "verdict": "Worth covering. The paper is technically substantive and has a good Paper Radio hook: 'longer thinking cannot fix bad seeing.' The evidence favors capability-staged post-training, but the clean causal story is weaker than the narrative because perception labels, perception-error diagnosis, and some evaluation judgments are model-mediated. I would frame it as a promising curriculum recipe with strong ablations, not as definitive proof that visual perception is the dominant bottleneck in VLM reasoning.",
+  "citations": [
+    "Abstract and Section 1: the authors claim visual tasks are limited more by perception than reasoning and report 86.9% of incorrect sampled Qwen3-VL-8B answers on three visual math datasets as perception errors.",
+    "Section 3.1: perception data are synthesized from DOCCI captions using Qwen2.5-72B, then filtered by caption-answerable but image-failed cases using Qwen2.5-VL-7B and Qwen2.5-VL-32B.",
+    "Section 4.1: experiments use Qwen2.5-VL-7B-Instruct and Qwen3-VL-8B-Instruct, EasyR1, GRPO, group size 5, 8 NVIDIA H200 GPUs, and Claude-Haiku-4.5 as judge.",
+    "Table 1: Qwen3-VL-8B staged reaches 75.9 MathVista, 56.1 WeMath, 74.5 RealWorldQA, 73.1 MMStar, and 65.77 overall average.",
+    "Table 2: staged training beats merged training overall for Qwen2.5-VL-7B by 59.75 vs 58.34 and for Qwen3-VL-8B by 65.77 vs 64.67.",
+    "Section 4.3.1 and Figure 5: staged Qwen3-VL-8B produces 445 average validation tokens versus 562 for merged training while scoring higher on visual math.",
+    "Table 3: visual reasoning first, Stage 3->2->1, underperforms the perception/text-first orders, especially for Qwen2.5-VL-7B where visual math average drops to 37.70.",
+    "Table 4: RLVR perception training outperforms SFT for the perception stage, e.g. Qwen2.5-VL-7B overall 59.75 vs 56.35 and Qwen3-VL-8B overall 65.77 vs 65.14.",
+    "Table 5: combining capability and difficulty curricula reaches 62.99 average versus 60.53 for capability-only, 60.36 for difficulty-only, and 58.56 for merged.",
+    "Limitations section: the authors acknowledge experiments are limited to 7-8B scale, depend on fine-grained captions, and use only a three-stage capability decomposition."
+  ]
+}

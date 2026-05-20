@@ -1,0 +1,21 @@
+{
+  "paper_id": "arxiv-2605.20182",
+  "title": "Atoms of Thought: Universal EEG Representation Learning with Microstates",
+  "core_claim": "A universal EEG tokenizer based on microstates learned from clustered continuous signals improves representation learning across multiple downstream tasks such as sleep staging, emotion recognition, and motor imagery classification.",
+  "triage_rationale": "The paper has a concrete methodological idea with cross-task evaluation and a plausible interpretability angle, so it is worth a closer look. It is still a relatively specialized EEG representation paper with claims that need full-review scrutiny for dataset breadth, baseline strength, and generalization.",
+  "topic_tags": [
+    "EEG",
+    "representation learning",
+    "brain-computer interfaces",
+    "neuroinformatics",
+    "classification"
+  ],
+  "likely_red_flags": [
+    "Abstract only claims broad improvement; actual baseline coverage and ablations are unknown",
+    "Universal tokenizer may depend heavily on the medical EEG pretraining dataset and clustering choices",
+    "Interpretability and scalability claims are not substantiated in the abstract"
+  ],
+  "research_score_estimate": 6.4,
+  "podcast_score_estimate": 5.8,
+  "decision": "queue_for_review"
+}

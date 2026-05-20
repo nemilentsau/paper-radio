@@ -1,0 +1,67 @@
+{
+  "paper_id": "arxiv-2605.20170",
+  "one_line_claim": "KoRe claims that 1-hop Wikidata star graphs can be encoded by a GNN plus directional residual vector quantization into 20 discrete knowledge tokens, then injected into Qwen3-8B to match or beat textual KG prompting while using far fewer tokens.",
+  "what_they_tested": "The paper trains KoRe-base on Tri-REx Star synthetic factual sentences and KoRe-QA by further fine-tuning on SimpleQuestions, then evaluates Hit@1/3/5/10 over answer object tokens on Tri-REx, SimpleQuestions, and zero-shot WebQSP. Baselines include vanilla Qwen3-8B, textualized graph triples in the prompt, LoRA-only without KG input, and selected ConceptFormer numbers from prior work.",
+  "strongest_point": "The paper tackles a real bottleneck in KG-augmented LLMs and gives concrete, dataset-level evidence that a compact graph-token representation can recover much of the value of textual triples at lower context cost.",
+  "weakest_point": "The evaluation is dominated by a custom Hit@k token-ranking metric rather than generated-answer exact match, F1, retrieval end-to-end QA, or human-verifiable grounding, so the central claim is weaker than the headline suggests.",
+  "missing_baselines": [
+    "A budget-matched textualization baseline using the same answer-only fine-tuning and instruction format as KoRe.",
+    "A retrieval-only or KG query baseline that directly selects answers from the supplied 1-hop graph.",
+    "A soft continuous graph-prefix baseline using the same GNN and alignment module without vector quantization.",
+    "A learned linear or MLP encoder over sentence-embedded triples without TransformerConv message passing.",
+    "A modern prompt-compression or triple-selection baseline that keeps only the most relevant graph triples.",
+    "A same-backbone ConceptFormer-style reimplementation on Qwen3-8B rather than GPT-2-era literature numbers."
+  ],
+  "missing_ablations": [
+    "Vary the number of knowledge tokens Q and report both accuracy and token cost.",
+    "Compare directional RVQ with standard RVQ, no quantization, and random or frozen codebooks.",
+    "Ablate the Qwen3-Embedding-8B node and edge initializer against smaller sentence encoders.",
+    "Compare central-node pooling with attention or global pooling on the noisy QA graphs.",
+    "Ablate PageRank neighbor selection and edge caps to test dependence on graph filtering.",
+    "Report seed variance and confidence intervals for WebQSP and SimpleQuestions gains.",
+    "Measure codebook utilization, dead-code resets, and coverage diagnostics."
+  ],
+  "red_flags": [
+    "The code is promised as future availability rather than released with the paper, limiting replication of a complex four-module pipeline.",
+    "The metric ranks gold object tokens under teacher-forced answer positions, which is not the same as open answer generation.",
+    "Textualization has stronger Hit@10 than KoRe-QA on SimpleQuestions and stronger Hit@1/3/5/10 than KoRe on Tri-REx.",
+    "The WebQSP comparison to ConceptFormer is not apples-to-apples because KoRe uses Qwen3-8B plus Qwen3-Embedding-8B.",
+    "The paper reports no statistical uncertainty or seed variance despite training LoRA, GNN, codebook, and alignment components.",
+    "Graph extraction is treated as available input rather than an end-to-end retrieval or entity-linking problem.",
+    "SimpleQuestions filtering removes cases where central or target entities are missing from retrieved subgraphs.",
+    "Claims about grounding and hallucination reduction are not directly tested with attribution or generated hallucination rates."
+  ],
+  "positive_signals": [
+    "The problem formulation is crisp: inject 1-hop Wikidata star graphs as compact conditioning for factual answer generation.",
+    "The architecture is concrete enough to critique: frozen sentence encoder, TransformerConv, GraphNorm, directional RVQ, projection, alignment, and Qwen3-8B token-space injection.",
+    "The LoRA-only baseline collapses on Tri-REx and QA tests, supporting the need for nonparametric graph input.",
+    "The paper reports token counts alongside accuracy, making the efficiency tradeoff explicit.",
+    "Tri-REx is described as having disjoint train, validation, and test entities, which helps guard against simple memorization.",
+    "The authors acknowledge several important limits: single-hop scope, disabled reasoning mode, limited interpretability, English-only evaluation, and one Wikidata schema.",
+    "The SimpleQuestions discussion notes that textualization's low Hit@1 but high Hit@10 may reflect answer-style and evaluation effects.",
+    "The WebQSP holdout is interesting because KoRe-QA transfers after SimpleQuestions training without direct WebQSP training."
+  ],
+  "research_score": 6.4,
+  "podcast_score": 7.3,
+  "overclaim_score": 6.7,
+  "replication_interest": 7.8,
+  "verdict": "Worth covering as a promising but not yet decisive graph-token injection paper. The compact-token idea is technically interesting, the results are large enough to merit attention, and the failure modes are good discussion material: ranking metrics versus generation, baseline fairness, hidden retrieval assumptions, and preprocessing cost. I would present KoRe as evidence that discrete graph prefixes may be useful, not as proof that they ground modern LLMs better than strong textual or retrieval baselines.",
+  "citations": [
+    "Abstract: KoRe encodes 1-hop subgraphs into compact discrete knowledge tokens and reports competitive performance with up to 10x token reduction.",
+    "Section 3.1: the task is framed as conditioning on a 1-hop star subgraph centered on the query entity, extracted from Wikidata.",
+    "Section 3.2: KoRe combines graph extraction, sentence-encoder node and edge embeddings, TransformerConv graph encoding, RVQ code indices, and alignment into the LLM token space.",
+    "Graph Extraction & Encoding: Tri-REx uses Tri-REx Star with 100 maximum edges, while QA datasets keep up to 10,000 edges.",
+    "Directional Residual Vector Quantisation: the authors report standard RVQ led to codebook collapse and introduce cosine selection with directional residual updates plus EMA/dead-code reset.",
+    "Training Objective: the model optimizes answer-token language-model loss plus RVQ loss, computing LM loss only on the target answer span.",
+    "Section 4.1: SimpleQuestions filtering leaves 9,294 train, 1,377 validation, and 2,677 test examples after excluding missing central or target entities.",
+    "Section 4.2: baselines are vanilla Qwen3-8B, textualized graph triples, LoRA-only without KG, and ConceptFormer from the literature.",
+    "Section 4.3: the primary metric is Hit@k over object-entity answer tokens using teacher-forced token ranks.",
+    "Section 4.4: implementation uses codebook size 128, Q=20 tokens, LoRA rank 4, Qwen3-Embedding-8B, Qwen3-8B, and 4 A100 64GB GPUs.",
+    "Table 1: on Tri-REx, textualization scores 33.9 Hit@1 and 75.9 Hit@10 with 252.2 average tokens, while KoRe-base scores 28.1 Hit@1 and 63.5 Hit@10 with 70.4 average tokens.",
+    "Table 2: on SimpleQuestions, KoRe-QA scores 51.5 Hit@1 and 77.8 Hit@10 with 64.2 average tokens, while textualization scores 6.2 Hit@1 and 82.5 Hit@10 with 248.2 average tokens.",
+    "Section 5.2: the authors suggest textualization may be penalized at Hit@1 because the LLM can produce a preamble before the answer.",
+    "Table 3: on WebQSP, KoRe-QA scores 51.4 Hit@1 and 86.0 Hit@10 with 62.9 average tokens, versus textualization at 1.8 Hit@1 and 41.7 Hit@10 with 676.5 average tokens.",
+    "Conclusion: the paper claims 20 discrete tokens per entity and up to 10x fewer tokens than natural-language graph serialization.",
+    "Limitations: KoRe is limited to 1-hop star subgraphs, reasoning mode is disabled, triple-level interpretability is not straightforward, experiments are English-centric, and only a single Wikidata KG schema is evaluated."
+  ]
+}
