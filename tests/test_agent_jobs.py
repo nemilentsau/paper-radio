@@ -101,6 +101,8 @@ class AgentJobsTest(unittest.TestCase):
         self.assertIn("decision must be exactly one of", prompt)
         self.assertIn("triage_rationale", prompt)
         self.assertIn("Use a 0 to 10 scale", prompt)
+        self.assertIn("For applied-domain candidates", prompt)
+        self.assertIn("concrete domain workflow", prompt)
         self.assertIn("Score both research quality and podcast value", prompt)
 
     def test_promote_memory_prompt_requires_validated_card_updates(self):

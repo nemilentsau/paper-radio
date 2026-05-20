@@ -34,6 +34,32 @@ class CliTest(unittest.TestCase):
         self.assertEqual(args.max_results, 50)
         self.assertEqual(args.run_date, "2026-05-12")
 
+    def test_parser_accepts_candidate_applied_domain_command(self):
+        parser = build_parser()
+
+        args = parser.parse_args(
+            [
+                "candidate-applied-domain",
+                "--preset",
+                "bio_medicine",
+                "--max-results",
+                "100",
+                "--keep-results",
+                "10",
+                "--min-score",
+                "3",
+                "--run-date",
+                "2026-05-20",
+            ]
+        )
+
+        self.assertEqual(args.command, "candidate-applied-domain")
+        self.assertEqual(args.preset, "bio_medicine")
+        self.assertEqual(args.max_results, 100)
+        self.assertEqual(args.keep_results, 10)
+        self.assertEqual(args.min_score, 3)
+        self.assertEqual(args.run_date, "2026-05-20")
+
     def test_parser_accepts_ingest_arxiv_command(self):
         parser = build_parser()
 

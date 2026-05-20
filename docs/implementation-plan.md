@@ -177,6 +177,11 @@ Reason:
 
 First version: arXiv-only, category plus keyword search.
 
+Status: first slice implemented. `candidate-applied-domain` can fetch a larger
+arXiv metadata pool, score title/abstract matches against a preset, keep a small
+filtered candidate batch, and write ordinary candidate JSON/Markdown that can be
+fed into `plan-triage`.
+
 Target episode type:
 
 - `applied_domain_llm_roundup`
@@ -190,11 +195,8 @@ Initial domain buckets:
 
 - bio/medicine: `q-bio.*`, `cs.CL`, `cs.AI`, `stat.ML`
 - chemistry/materials: `physics.chem-ph`, `cond-mat.mtrl-sci`, `cs.LG`, `stat.ML`
-- physics/astronomy: `physics.*`, `astro-ph.*`, `hep-*`, `cs.LG`
-- finance/econ: `q-fin.*`, `econ.*`, `stat.ML`, `cs.AI`
-- climate/energy/infrastructure: `physics.ao-ph`, `eess.*`, `cs.CE`, `cs.AI`
-- robotics/embodied: `cs.RO`, `cs.CV`, `cs.AI`
-- software/security: `cs.SE`, `cs.CR`, `cs.AI`, `cs.CL`
+- finance modeling: `q-fin.*`, `econ.*`, `stat.ML`, `cs.AI`
+- scientific literature/discovery: `cs.CL`, `cs.AI`, `cs.IR`, `stat.ML`, `q-bio.QM`
 
 Keyword families:
 
@@ -214,13 +216,31 @@ uv run python -m paper_radio.cli daily-run \
   ...
 ```
 
-The CLI flags are still to be designed, but the behavior should be:
+The explicit candidate command is:
+
+```bash
+uv run python -m paper_radio.cli candidate-applied-domain \
+  --preset bio_medicine \
+  --max-results 100 \
+  --keep-results 10 \
+  --run-date 2026-05-21
+```
+
+Current presets:
+
+- `bio_medicine`
+- `chemistry_materials`
+- `finance_modeling`
+- `scientific_discovery`
+
+The current behavior is:
 
 1. Pull a larger arXiv metadata pool from selected domain categories.
 2. Filter/rank by LLM/foundation-model keywords.
-3. Triage candidates with domain-use-case criteria.
-4. Select a 10-paper episode set.
-5. Run the existing production pipeline unchanged after selection.
+3. Add candidate metadata such as `applied_domain`, matched keywords, workflow terms, and applied-domain score.
+4. Triage candidates with domain-use-case criteria.
+5. Select a 10-paper episode set.
+6. Run the existing production pipeline unchanged after selection.
 
 Review prompt additions for this lane:
 

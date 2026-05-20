@@ -9,11 +9,12 @@ critique, and dossier writing. NotebookLM is only the final audio renderer.
 The current system can:
 
 1. Pull recent arXiv candidates.
-2. Triage them into a small episode set.
-3. Fetch PDFs and extracted full text.
-4. Generate compact paper review records with separate research and podcast scores.
-5. Build one episode-level factual source dossier.
-6. Prepare a NotebookLM handoff bundle.
+2. Pull applied-domain arXiv candidates with lightweight keyword/workflow scoring.
+3. Triage them into a small episode set.
+4. Fetch PDFs and extracted full text.
+5. Generate compact paper review records with separate research and podcast scores.
+6. Build one episode-level factual source dossier.
+7. Prepare a NotebookLM handoff bundle.
 
 The current memory layer is intentionally lightweight: each completed source
 dossier writes a per-episode `memory_note.md`, then a validated promotion job can
@@ -30,10 +31,13 @@ Working today:
 - quality gates for review and dossier outputs
 - basic promoted memory: episode notes, durable cards, vocab validation, and
   prompt-time retrieval
+- arXiv applied-domain candidate lane with presets for bio/medicine,
+  chemistry/materials, finance modeling, and scientific discovery
 
 Planned next:
 
-- applied-domain LLM/foundation-model arXiv lane, starting with practical use cases
+- applied-domain daily-run mode that wires the new candidate lane into the
+  one-command production runner
 - broader discovery lanes after that: Hugging Face papers, research blogs, and non-arXiv domain indexes
 - richer portfolio selection across source lanes
 - weekly and monthly memory products
@@ -114,6 +118,23 @@ uv run python -m paper_radio.cli candidate-arxiv \
   --category cs.AI \
   --max-results 100
 ```
+
+Discover applied-domain LLM/foundation-model candidates:
+
+```bash
+uv run python -m paper_radio.cli candidate-applied-domain \
+  --preset bio_medicine \
+  --max-results 100 \
+  --keep-results 10 \
+  --run-date 2026-05-20
+```
+
+Available presets:
+
+- `bio_medicine`
+- `chemistry_materials`
+- `finance_modeling`
+- `scientific_discovery`
 
 Create triage jobs:
 
@@ -211,10 +232,11 @@ schema-shaped so runs can be validated, resumed, and handed off cleanly.
 
 ## Current Refactor Direction
 
-Before expanding source lanes, the codebase should get a small structure pass:
+Before expanding source lanes further, keep the structure pass narrow:
 
-- extract shared JSONL helpers
-- extract project and episode path helpers
+- shared JSON/JSONL helpers live in `paper_radio/io.py`
+- project path helpers live in `paper_radio/paths.py`
+- job prompt text lives in `paper_radio/prompts/`
 - keep `paper_radio/memory/` focused on notes, cards, retrieval, and validation
 - keep the production runner explicit and ordered
 

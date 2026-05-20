@@ -20,6 +20,12 @@ that the paper's claims are correct.
 Set triage_rationale to one or two concrete sentences explaining the decision.
 Use a 0 to 10 scale for research_score_estimate and podcast_score_estimate, not a 0 to 1 scale.
 
+For applied-domain candidates, judge whether the LLM or foundation model is part of a concrete domain workflow,
+not merely a generic benchmark with domain vocabulary. Reward realistic validation, expert baselines, retrieval,
+extraction, perception, planning, decision support, workflow control, or scientific analysis. Penalize benchmark-only
+claims, missing expert or prior-system comparisons, weak leakage analysis, and broad deployment claims from narrow
+evidence.
+
 Embedded candidate JSON:
 {candidate_json}
 

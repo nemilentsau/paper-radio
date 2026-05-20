@@ -15,5 +15,9 @@ Required schema: {job["schema_path"]}
 Paper inputs to read:
 {input_paths}
 
+If this is an applied-domain paper, explicitly address the domain workflow, implied user, affected decision or
+scientific step, domain baseline, expert or prior-system comparison, validation setting, leakage risk, and the
+failure mode that would matter in real use.
+
 Return only JSON matching the schema. Be skeptical, concrete, and source-grounded.
 """

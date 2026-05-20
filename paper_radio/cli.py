@@ -5,6 +5,7 @@ from pathlib import Path
 
 from paper_radio.agent_jobs import write_agent_job_artifacts
 from paper_radio.agent_runner import run_job
+from paper_radio.applied_domains import fetch_applied_domain_candidates
 from paper_radio.arxiv import fetch_recent_candidates, ingest_arxiv_ids
 from paper_radio.config import PROJECT_ROOT
 from paper_radio.daily_run import (
@@ -41,6 +42,18 @@ def cmd_candidate_arxiv(args: argparse.Namespace) -> None:
         PROJECT_ROOT,
         categories=args.category,
         max_results=args.max_results,
+        run_date=args.run_date or date.today().isoformat(),
+    )
+    print(json.dumps({"json_path": str(paths.json_path), "markdown_path": str(paths.markdown_path)}, indent=2))
+
+
+def cmd_candidate_applied_domain(args: argparse.Namespace) -> None:
+    paths = fetch_applied_domain_candidates(
+        PROJECT_ROOT,
+        preset_name=args.preset,
+        max_results=args.max_results,
+        keep_results=args.keep_results,
+        min_score=args.min_score,
         run_date=args.run_date or date.today().isoformat(),
     )
     print(json.dumps({"json_path": str(paths.json_path), "markdown_path": str(paths.markdown_path)}, indent=2))
@@ -164,6 +177,33 @@ def build_parser() -> argparse.ArgumentParser:
     candidate_arxiv_parser.add_argument("--max-results", type=int, default=100, help="Maximum arXiv results to fetch")
     candidate_arxiv_parser.add_argument("--run-date", help="Candidate batch date, defaults to today")
     candidate_arxiv_parser.set_defaults(func=cmd_candidate_arxiv)
+
+    candidate_applied_parser = subparsers.add_parser("candidate-applied-domain")
+    candidate_applied_parser.add_argument(
+        "--preset",
+        default="bio_medicine",
+        help="Applied-domain preset: bio_medicine, chemistry_materials, finance_modeling, scientific_discovery",
+    )
+    candidate_applied_parser.add_argument(
+        "--max-results",
+        type=int,
+        default=100,
+        help="Maximum arXiv results to fetch before filtering",
+    )
+    candidate_applied_parser.add_argument(
+        "--keep-results",
+        type=int,
+        default=10,
+        help="Maximum filtered candidates to keep for triage",
+    )
+    candidate_applied_parser.add_argument(
+        "--min-score",
+        type=int,
+        default=2,
+        help="Minimum applied-domain keyword score to keep",
+    )
+    candidate_applied_parser.add_argument("--run-date", help="Candidate batch date, defaults to today")
+    candidate_applied_parser.set_defaults(func=cmd_candidate_applied_domain)
 
     ingest_arxiv_parser = subparsers.add_parser("ingest-arxiv")
     ingest_arxiv_parser.add_argument("--id", action="append", required=True, help="arXiv ID. Repeat for multiple IDs.")

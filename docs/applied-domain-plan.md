@@ -116,49 +116,52 @@ Useful keywords:
 - `agent`
 - `foundation model`
 
-### Robotics And Embodied Systems
-
-Candidate categories:
-
-- `cs.RO`
-- `cs.CV`
-- `cs.AI`
-
-Useful keywords:
-
-- `large language model`
-- `LLM`
-- `robot`
-- `embodied`
-- `agent`
-- `planning`
-- `manipulation`
-- `multimodal`
-- `vision-language`
-
-### Finance, Economics, Security, Software
+### Finance And Economic Modeling
 
 Candidate categories:
 
 - `q-fin.*`
 - `econ.*`
-- `cs.SE`
-- `cs.CR`
 - `cs.AI`
-- `cs.CL`
+- `stat.ML`
 
 Useful keywords:
 
 - `large language model`
 - `LLM`
 - `financial`
+- `finance`
 - `forecasting`
-- `audit`
+- `portfolio`
 - `risk`
-- `security`
-- `vulnerability`
-- `code agent`
-- `software engineering`
+- `market`
+- `backtesting`
+- `economic`
+- `econometric`
+- `agent`
+
+### Scientific Literature And Discovery
+
+Candidate categories:
+
+- `cs.CL`
+- `cs.AI`
+- `cs.IR`
+- `stat.ML`
+- `q-bio.QM`
+
+Useful keywords:
+
+- `large language model`
+- `LLM`
+- `scientific discovery`
+- `literature review`
+- `hypothesis generation`
+- `evidence synthesis`
+- `knowledge discovery`
+- `research agent`
+- `retrieval`
+- `RAG`
 
 ## V1 Discovery Strategy
 
@@ -253,11 +256,19 @@ Do not promote one-off domain facts unless they change how future papers should 
 
 ## V1 Implementation Tasks
 
-1. Add a documented applied-domain preset.
-2. Add or reuse CLI flags for domain categories and keyword filters.
-3. Add applied-domain triage prompt guidance.
-4. Add applied-domain review prompt guidance.
-5. Add tests for candidate filtering/scoring if new code is introduced.
+Status: first slice implemented.
+
+1. Add a documented applied-domain preset. Done: four presets are available.
+2. Add or reuse CLI flags for domain categories and keyword filters. Done via `candidate-applied-domain`.
+3. Add applied-domain triage prompt guidance. Done.
+4. Add applied-domain review prompt guidance. Done.
+5. Add tests for candidate filtering/scoring if new code is introduced. Done.
+
+Next implementation step:
+
+- wire this candidate lane into a higher-level applied-domain daily run, or
+  teach `daily-run` to accept a source mode without complicating the core
+  frontier-ML path.
 6. Run one explicit applied-domain episode.
 7. Inspect whether the selected papers are actually domain-useful.
 8. Adjust categories, keywords, and prompts before adding new sources.
