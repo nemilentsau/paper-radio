@@ -42,6 +42,7 @@ See:
 
 - [Product and architecture note](docs/idea.md)
 - [Implementation plan](docs/implementation-plan.md)
+- [Applied domain LLM plan](docs/applied-domain-plan.md)
 
 ## Setup
 

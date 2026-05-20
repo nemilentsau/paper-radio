@@ -166,6 +166,8 @@ Status: implemented for tag/alias card retrieval and recent working memory. The 
 
 Before adding Hugging Face, lab blogs, or a multi-source portfolio selector, add one focused source lane for applied-domain LLM/foundation-model papers.
 
+Detailed plan: [Applied Domain LLM Plan](applied-domain-plan.md).
+
 Reason:
 
 - It expands the intellectual surface without changing the whole ingestion architecture.
