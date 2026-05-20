@@ -45,6 +45,20 @@ class SourceFetchTest(unittest.TestCase):
             self.assertEqual(paper.local_pdf_path, "data/papers/pdfs/arxiv-2605.10933.pdf")
             self.assertEqual(paper.full_text_path, "data/papers/fulltext/arxiv-2605.10933.txt")
 
+    def test_fetch_paper_source_replaces_pdf_surrogates_before_writing_full_text(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            write_paper_record(root, make_paper())
+
+            result = fetch_paper_source(
+                root,
+                "arxiv-2605.10933",
+                fetch_pdf_bytes=lambda url: b"%PDF-1.7 fake",
+                extract_pdf_text=lambda path: ("full paper text " * 100) + "\ud835",
+            )
+
+            self.assertIn("\ufffd", result.full_text_path.read_text(encoding="utf-8"))
+
     def test_fetch_paper_source_raises_and_leaves_no_full_text_when_pdf_download_fails(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

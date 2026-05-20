@@ -23,7 +23,8 @@
   "pdf_url": "https://arxiv.org/pdf/2605.20176",
   "abs_url": "https://arxiv.org/abs/2605.20176",
   "source_types": [
-    "arxiv_recent"
+    "arxiv_applied_domain",
+    "applied_domain:bio_medicine"
   ],
   "status": "triaged",
   "trusted_orgs": [],

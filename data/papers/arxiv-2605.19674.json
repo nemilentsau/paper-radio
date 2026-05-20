@@ -1,0 +1,43 @@
+{
+  "paper_id": "arxiv-2605.19674",
+  "source": "arxiv",
+  "source_id": "2605.19674",
+  "title": "Beyond Rational Illusion: Behaviorally Realistic Strategic Classification",
+  "authors": [
+    "Xinpeng Lv",
+    "Yunxin Mao",
+    "Renzhe Xu",
+    "Chunyuan Zheng",
+    "Yikai Chen",
+    "Haoxuan Li",
+    "Yang Shi",
+    "Jinxuan Yang",
+    "Zhouchen Lin",
+    "Yuanlong Chen",
+    "Yuanxing Zhang",
+    "Shaowu Yang",
+    "Wenjing Yang",
+    "Haotian Wang"
+  ],
+  "author_affiliations": [],
+  "abstract": "Strategic classification(SC) studies the interaction between decision models and agents who strategically manipulate their features for favorable outcomes. Existing SC frameworks typically rely on the idealized assumption that agents are strictly rational. However, evidence from behavioral economics and psychology consistently shows that real-world decision-making is often shaped by cognitive biases, deviating from pure rationality. To formalize this limitation, we identify and define a new problem setting, termed the behaviorally realistic strategic classification problem, where agents' strategic manipulations deviate from full rationality due to psychological biases. Motivated by the identified limitation, we propose the Prospect-Guided Strategic Framework (Pro-SF) to address the problem, a principled framework grounded in prospect theory to model and learn under behaviorally realistic strategic responses. Specifically, to capture behaviorally realistic strategic manipulations, our framework reformulates the Stackelberg-style interaction between agents and the decision-maker by incorporating three key mechanisms inspired by prospect theory, including the asymmetry between benefits and costs, different subjective reference points, and non-rational probability distortion. Experiments on synthetic and real-world datasets establish Pro-SF as a behaviorally grounded approach to strategic classification, bridging machine learning and behavioral economics for more reliable deployment in the real world.",
+  "published_at": "2026-05-19T11:04:55Z",
+  "updated_at": "2026-05-19T11:04:55Z",
+  "categories": [
+    "cs.AI"
+  ],
+  "pdf_url": "https://arxiv.org/pdf/2605.19674",
+  "abs_url": "https://arxiv.org/abs/2605.19674",
+  "source_types": [
+    "arxiv_applied_domain",
+    "applied_domain:finance_modeling"
+  ],
+  "status": "triaged",
+  "trusted_orgs": [],
+  "triage_decision": "queue_for_review",
+  "triage_rationale": "This is a substantive ML theory paper with a concrete decision-and-response setup, and the behavioral-economics angle gives it more analytical value than a generic benchmark-only submission. It is not clearly tied to a real deployment workflow or finance-specific task, so it is better queued than advanced immediately.",
+  "research_score_estimate": 6.5,
+  "podcast_score_estimate": 7.0,
+  "local_pdf_path": "data/papers/pdfs/arxiv-2605.19674.pdf",
+  "full_text_path": "data/papers/fulltext/arxiv-2605.19674.txt"
+}

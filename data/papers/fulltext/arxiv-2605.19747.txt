@@ -1,0 +1,680 @@
+Direct Simulation of LiNi 0.8Mn0.1Co0.1O2
+Transport Properties Using an Efficient and
+Accurate Machine Learning Potential
+Jian He, Constantijn H. J. A. van de Wetering, Rolande W. Nolsen, and
+Nongnuch Artrith ∗
+Materials Chemistry and Catalysis, Debye Institute for Nanomaterials Science, Utrecht
+University, Universiteitsweg 99, 3584 CG Utrecht, The Netherlands
+E-mail: n.artrith@uu.nl
+Abstract
+The rate capability of layered lithium nickel manganese cobalt oxide (NMC) cathode mate-
+rials plays a decisive role in high-power applications such as fast charging, necessitating a
+detailed understanding of lithium-ion diffusion. However, the mechanisms governing lithium-
+ion transport in NMC remain insufficiently understood, both experimentally and computa-
+tionally. In this study, we employ an advanced and efficient machine learning potential
+(MLP) to simulate lithium self-diffusion in LiNi 0.8Mn0.1Co0.1O2 (NMC811), enabling direct
+large-scale molecular dynamics (MD) simulations. The workflow integrates a fine-tuned
+MACE (Message Passing Atomic Cluster Expansion) foundation model as a structural gen-
+erator and leverages an active learning strategy applied to a near-ground-state dataset. This
+approach enables the construction of a reliable MLP for NMC811 in a data-efficient manner
+using a limited number of density functional theory (DFT) reference calculations. Based on
+1
+arXiv:2605.19747v1  [cond-mat.mtrl-sci]  19 May 2026
+
+this potential, we performed MD simulations to predict lithium diffusion coefficients. The
+MLP-based simulations preserve the accuracy of DFT while overcoming its time and length
+scale limitations, thereby allowing direct simulation of lithium self-diffusion in NMC811.
+Introduction
+To meet the growing demand for high-energy-density lithium-ion batteries (LIBs), current
+layered cathode materials face significant challenges, including capacity degradation and
+instability at the cathode–electrolyte interface, particularly under high-rate operating con-
+ditions.
+Among these, LiNi0.8Mn0.1Co0.1O2 (NMC811) has emerged as a promising cathode mate-
+rial for next-generation LIBs due to its high energy density and cost effectiveness.1–3 However,
+its intrinsically disordered structure poses substantial challenges for experimental charac-
+terization of microscopic properties. Recent studies have confirmed that hindered lithium
+diffusion is a key factor contributing to capacity fade under high-rate conditions. 4–6
+A fundamental understanding of lithium diffusion in NMC811 is therefore critical for
+improving rate performance. Yet, experimental measurements of lithium diffusivity, par-
+ticularly as a function of state of charge (SOC), suffer from large uncertainties. For in-
+stance, galvanostatic intermittent titration technique (GITT), electrochemical impedance
+spectroscopy (EIS), and potentiostatic intermittent titration technique (PITT) often yield
+lithium self-diffusion coefficients that differ by several orders of magnitude. 1,5,7–9
+Computational methods play an essential role in probing lithium transport. However,
+most DFT-based studies are restricted to evaluating energy barriers of specific diffusion mech-
+anisms in small supercells due to prohibitive computational cost. For example, in layered
+LiCoO2 (LCO), the oxygen dumbbell hop (ODH) and tetrahedral site hop (TSH) mecha-
+nisms have been extensively studied, 10–12 and similar mechanisms have been assumed for
+NMC materials. 13–15 Nevertheless, the disordered nature of NMC811 suggests that diffusion
+2
+
+pathways may vary significantly, motivating the use of direct MD simulations.
+Conventional DFT-based molecular dynamics (DFT-MD) rarely accesses the system sizes
+and timescales required to capture lithium migration events. Machine learning potentials
+(MLPs) offer a promising alternative by accelerating computations while retaining near-DFT
+accuracy.16
+Recently, considerable effort has been devoted to developing MLP frameworks, including
+Behler–Parrinello neural network,17 the smooth overlap of atomic positions (SOAP) descrip-
+tor,18 the atomistic neural network framework ænet, 19 Deep Potential Molecular Dynamics
+(DEEPMD),20 and MACE. 21,22 Training robust MLPs typically requires large and diverse
+datasets, which is computationally demanding when based on DFT.
+In this work, we present a data-efficient workflow for constructing an interatomic MLP
+tailored to NMC811. The workflow consists of two main stages: (i) collecting near-ground-
+state configurations and (ii) employing active learning to efficiently sample non-equilibrium
+states. Using this approach, we achieved direct MD simulations of lithium self-diffusion in
+NMC811 with significantly fewer training data than conventional approaches.
+Methods
+Initial DFT Dataset Generation
+All DFT calculations were performed using the Vienna Ab Initio Simulation Package (VASP
+6.4.1).23,24 The Perdew–Burke–Ernzerhof (PBE) exchange–correlation functional 25 was em-
+ployed with a plane-wave cutoff of 480 eV and Γ-point (1×1×1) sampling. DFT-D3 van
+der Waals corrections 26 were applied in all systems. Strong on-site Coulomb interactions of
+the transition-metal 3d electrons were treated using the Hubbard-corrected PBE+U func-
+tional.27 The effectiveU eff values were set to 5.96, 4.84, and 5.14 eV for Ni, Mn, and Co,
+respectively.28 This parameterization has been successfully employed in previous studies on
+NMC materials. 29,30 Spin-polarized calculations were initialized with magnetic moments of
+3
+
+2.0µ B for Ni, 4.0µ B for Mn, and 0.0µ B for Co.
+The initial DFT dataset comprised 985 bulk Li 1–x Ni0.8Mn0.1Co0.1O2 structures.
+Nudged Elastic Band Calculations
+Nudged elastic band (NEB) calculations were performed using VASP 6.4.1 with the same
+computational settings as used for generating the DFT training dataset.
+NEB calculations were carried out on a Li 24Ni48Mn6Co6O120 supercell with randomly
+distributed lithium vacancies and transition-metal ions. Five intermediate images were gen-
+erated via linear interpolation between the initial and final states. The standard NEB method
+was employed with a spring constant of 5 eV ˚A−2. Geometry optimizations were performed
+with convergence thresholds of 10 −4 eV for total energy and 0.02 eV ˚A−1 for atomic forces.
+The Brillouin zone was sampled using a Γ-point mesh.
+The resulting minimum energy paths were used to benchmark the MLP against DFT in
+capturing transition-state energetics. A comparison of relative energies along the NEB path
+is shown in Figure 5.
+Machine Learning Potential Fine-Tuning
+To refine the interatomic potential for NMC cathode systems, we fine-tuned a small MACE
+foundation model (mace agnesi small.model) using a curated dataset of 985 DFT-labeled
+atomic configurations. Only atomic energies and forces were used as training targets; stress
+data were excluded. The loss function employed weights of 10.0 for energies and 1.0 for
+forces to emphasize energy accuracy during fine-tuning. The dataset was split into training
+and validation subsets with a validation fraction of 0.10. Model training was performed
+for up to 500 epochs (max num epochs= 500) with a batch size of 10. Stochastic weight
+averaging (SWA) was enabled to improve generalization and stabilize convergence. Training
+was carried out on an NVIDIA A40 GPU.
+4
+
+Evolutionary Search with ævo-MACE
+The fine-tuned MACE foundation model was employed as the energy predictor within the
+ævo-MACE software package.31 To explore stable configurations of NMC811, we conducted
+an atomistic evolutionary search on Li 0–60 Ni48Mn6Co6O120, with atomic sites grouped into
+three sublattices: (A) oxygen atoms (fixed), (B) lithium layer (variable occupancy), and (C)
+transition-metal layer (48 Ni, 6 Mn, and 6 Co), corresponding to the nominal stoichiometry
+of NMC811. All candidate configurations preserved the overall composition and symmetry
+constraints of the structure.
+The evolutionary algorithm used a population size of 15, elitist retention of the top 4
+candidates per generation, and a mutation rate of 0.1 to introduce configurational diversity.
+No predefined structures were included in the initial population. During the search, the total
+energy of each candidate was evaluated using the fine-tuned MACE potential described
+above. The use of a machine-learned potential enabled rapid screening of configurational
+space at near-DFT accuracy while maintaining tractable computational cost.
+To construct the convex hull and identify thermodynamically stable phases, the formation
+energy for each configuration was calculated as:
+∆f E=E Li1−xMO2 −(1−x)E LiMO2 −xE MO2 (1)
+whereE Li1−xMO2 is the total energy of the partially delithiated structure, andE LiMO2 and
+EMO2 are the energies of the fully lithiated and fully delithiated end members, respectively,
+as shown in Figure S2.
+Active Learning
+To efficiently sample structures from MD trajectories, we employed a supervised committee
+(model ensemble) strategy,32,33 in which the near-ground-state dataset served as the starting
+pool for active learning. Four ænet models were trained using different random seeds to form
+5
+
+the committee, and one of these models was then used to perform MD simulations via the
+ænet–LAMMPS interface. 31
+All ænet–LAMMPS simulations were run for 5 ns with a time step of 2 fs, while the
+temperature was linearly increased from 1000 K to 2000 K to sample configurations with
+varying degrees of distortion. In each round of active learning, the exploration set, as an
+initial structure in each ænet–LAMMPS simulation, included NMC structures spanning SOC
+values from 0.0 to 1.0 in increments of 0.1. For each SOC, 20 structures were sampled from
+the MD trajectories, yielding 200 structures per active learning round.
+Candidate structures for DFT single-point calculations were selected based on the max-
+imal standard deviation of atomic forces predicted by the ensemble of models. Specifically,
+for each configurationR t, the uncertaintyϵ t was defined as
+ϵt = max
+i
+q
+∥Fw,i(Rt)− ⟨F w,i(Rt)⟩∥2
+,(2)
+whereF w,i(Rt) =−∇ iEw(Rt) denotes the force on atomipredicted by modelE w, and the
+average⟨F w,i(Rt)⟩is computed as the mean prediction over all models in the ensemble,
+⟨Fw,i(Rt)⟩= 1
+Nm
+NmX
+α=1
+Fwα,i(Rt).(3)
+In the initial 20 iterations, structures were selected if their force-uncertainty metric sat-
+isfied
+0.05 eV ˚A−1 ≤ϵ t <0.50 eV ˚A−1,(4)
+and after the 20th iteration, the upper bound was tightened to
+0.05 eV ˚A−1 ≤ϵ t <0.15 eV ˚A−1,(5)
+to reduce the inclusion of unphysical structures and improve the quality of the training
+dataset.34
+6
+
+ænet–LAMMPS MD Simulations
+Molecular dynamics simulations were performed using the Large-scale Atomic/Molecular
+Massively Parallel Simulator (LAMMPS). The ænet potential 19 was used to describe inter-
+atomic interactions, with parameters assigned to Co, Li, Mn, Ni, and O. All simulations
+were conducted in the canonical (NVT) ensemble using the canonical sampling through ve-
+locity rescaling (CSVR) thermostat to maintain a constant temperature. Periodic boundary
+conditions were applied in all three directions. The simulations used a time step of 2.0 fs.
+For mean square displacement (MSD) analysis, large-scale MD simulations were carried
+out using the final ænet model obtained after 35 rounds of active learning. Simulations were
+initialized with five randomly generated Li 0–480Ni384Mn48Co48O960 structures, each adopting
+the trigonalR ¯3mcrystal symmetry. Lithium MSD sampling began after a 200 ps equilibra-
+tion period, and production simulations were performed for 5 ns in the NVT ensemble.
+The lithium diffusion coefficientDwas extracted using the Einstein relation,
+D= 1
+6 lim
+t→∞
+d
+dt
+
+(δr)2
+,(6)
+where⟨(δr) 2⟩denotes the ensemble-averaged MSD of lithium ions. The MSD values were
+obtained from LAMMPS via thecompute msdcommand applied to lithium atoms, andD
+was determined by performing a linear fit to the long-time regime of the MSD curve.
+7
+
+Results and Discussion
+Initial DFT 
+Dataset
+Near ground-
+state Dataset
+MLP Training
+Active-learning
+Accurate?
+Final Model
+Yes
+No
+DFT
+(a)
+(b)
+(c)
+(d)
+(g)
+(e)
+(f)
+aenet-lammps
+MACE-aevo
+MACE MP-0
+Fine-tuning
+Figure 1: Overview of the machine learning potential construction workflow. (a) Random
+Li0–60 Ni48Mn6Co6O120 configurations as the initial dataset; (b) fine-tuned MACE founda-
+tion model using the initial DFT dataset; (c) evolutionary search for near-ground-state
+Li0–60 Ni48Mn6Co6O120 structures using ævo-MACE; (d) expanded DFT dataset combining
+the initial dataset and near-ground-state structures; (e) ænet MLP training using the dataset
+from panel (d); (f) MD simulations using the ænet potential; (g) active learning to select
+candidate structures from ænet–LAMMPS MD trajectories for DFT relabeling.
+Figure 1 provides an overview of the workflow for constructing an MLP for NMC811.
+The process can be broadly divided into two stages: the first explores near-ground-state
+configurations of NMC811, and the second employs active learning to systematically sample
+non-equilibrium structures. The genetic (evolutionary) algorithm is widely used for sam-
+pling near-ground-state structures and has demonstrated strong performance across diverse
+crystalline materials. In conventional implementations, DFT is typically employed as the
+energy model, which renders the approach prohibitively expensive for disordered materials
+with large configurational spaces.
+To address this limitation, we employed the pretrained MACE foundation model as a
+baseline and fine-tuned it on NMC-specific configurations. As shown in Figure 2, the original
+MACE mp-0 model exhibits systematic deviations in both energy and force predictions for
+a test set of randomly generated Li 0–60Ni48Mn6Co6O120 structures, in which the number and
+8
+
+positions of lithium vacancies, as well as the arrangements of Ni, Mn, and Co atoms, are fully
+randomized. To correct these systematic errors, an additional set of Li 0–60Ni48Mn6Co6O120
+configurations was constructed for fine-tuning, with lithium vacancy concentrations of 0, 6,
+12, and 18 (evenly spaced in intervals of 6 atoms) to systematically span the compositional
+space. Single-point DFT calculations were performed on these structures to generate the
+fine-tuning dataset.
+As illustrated in Figure 2, the fine-tuning set (highlighted in pink) significantly improved
+the predictive accuracy of the MACE mp-0 model for disordered NMC configurations, de-
+spite the limited amount of DFT data required. These results demonstrate the strong in-
+terpolation capability of the MACE foundation model, enabling effective fine-tuning with a
+small and sparsely distributed dataset to achieve accurate interpolation across the targeted
+configurational space.
+9
+
+(a)
+ (b)
+(c) (d)
+Figure 2: Fine-tuning of the MACE mp-0 model on randomly generated
+Li0–60Ni48Mn6Co6O120 structures. (a,b) Model predictions for energy and atomic forces
+using the pretrained MACE mp-0 model. (c,d) Model predictions after fine-tuning with 985
+DFT-labeled random NMC811 structures.
+After obtaining a fine-tuned model with reliable predictive capability, we applied an evo-
+lutionary search to a series of randomly generated Li 0–60Ni48Mn6Co6O120 structures using
+the ævo-MACE package. The resulting near-ground-state structures were further relaxed
+via DFT geometry optimization. Intermediate configurations from the optimization trajec-
+tories were included in the initial dataset, yielding a more diverse NMC811 training set that
+encompasses a range of structural distortions. However, constructing a robust MLP requires
+coverage of a broader configurational space, including non-equilibrium structures.
+10
+
+A commonly adopted approach for sampling non-equilibrium structures is to extract con-
+figurations from MD trajectories. In previous work, various criteria have been employed to
+improve the efficiency of sampling by selecting only a subset of configurations for DFT rela-
+beling. For liquid electrolytes, density-matching schemes have been used, while for crystalline
+materials, force-based selection criteria are commonly applied. 32,35–37 In the present system,
+lithium transport behavior depends sensitively on the local potential energy surface, con-
+sistent with the octahedral–tetrahedral–octahedral (O–T–O) hopping pathway documented
+in layered oxides. 10,14 Therefore, atomic-force dispersion serves as a suitable criterion for
+sampling non-equilibrium structures, as it effectively captures the extent of deviation from
+equilibrium and enables exploration of a broader configurational space.
+Single point DFT
+Sampling
+Active learning
+Exploration set
+Initial data + aevo-MACE
+As MD initial 
+structures
+MLP training(a) (b) (c)
+(d)(e)
+(f)
+11
+
+Figure 3: Schematic illustration of the ænet-based active learning scheme. (a) DFT dataset
+from initial random Li0–60Ni48Mn6Co6O120 structures and near-ground-state structures from
+ævo-MACE; (b) ænet MLP training; (c) ænet–LAMMPS MD simulations; (d) active-learning
+selection of structures from MD trajectories; (e) DFT single-point relabeling; (f) randomly
+generated initial Li 0–60Ni48Mn6Co6O120 structures used in MD.
+As shown in Figure 3a,b, the MLP was trained using both the initial random NMC
+dataset and the near-ground-state configurations collected via the ævo-MACE search. To
+ensure computational efficiency during active learning, we employed the Chebyshev descrip-
+tor within ænet, 38 as retraining a full MACE model in each iteration was computationally
+prohibitive. This MLP was subsequently used to perform ænet–LAMMPS MD simulations
+in the 1000–2000 K range to sample non-equilibrium structures. Candidate configurations
+for DFT relabeling were selected based on the standard deviation of atomic forces predicted
+by the committee of four active-learning models. Structures with force deviations above the
+upper threshold were considered unphysical and excluded, whereas those below the lower
+threshold were deemed already well described by the current MLP. Only structures with
+intermediate uncertainties were selected for DFT single-point calculations, as shown in Fig-
+ure 3c–e. The candidate structures from MD simulation generally exhibit more diverse energy
+landscape, as shown in Figure S1. The initial structures for the MD simulations comprised
+randomly generated NMC configurations with stochastically distributed lithium vacancies
+and transition-metal arrangements (Figure 3f).
+12
+
+(a)
+(b)
+Figure 4: (a) Energy profiles predicted by DFT (solid lines) and the MLP (dashed lines) for
+an independent test set of Li 0–60 Ni48Mn6Co6O120 configurations along MD trajectories at
+1000 K. (b) A representative initial configuration used in the MD. The color bar represents
+different SOC values.
+To validate the predictive accuracy of the MLP in MD simulations, we evaluated its
+performance on a set of randomly generated Li 0–60Ni48Mn6Co6O120 structures by comparing
+the predicted energies along MD trajectories at different temperatures. As shown in Figure 4,
+the MLP after 28 rounds of active learning exhibits excellent predictive performance across
+temperatures, indicating that the potential has effectively captured a broad region of the
+underlying potential energy surface.
+13
+
+4
+(a)
+0123456
+(b)
+Figure 5: (a) Schematic illustration of an NEB calculation on a Li 24Ni48Mn6Co6O120 struc-
+ture with randomly distributed lithium vacancies and transition-metal ions. Images 0 and 6
+correspond to the initial and final states of lithium migration, respectively, while images 1–5
+represent the NEB path. (b) Comparison of relative energies along the NEB path predicted
+by DFT and the MLP; the DFT energy of image 0 is set to 0 eV. use average.
+As shown in Figure 5a, we performed an NEB calculation on a Li 24Ni48Mn6Co6O120
+structure to assess the accuracy of the MLP in describing transition states. Five intermediate
+images were used to investigate the migration of a lithium ion from an occupied site to a
+neighboring vacancy. Figure 5b presents the energy profiles predicted by the MLP and DFT
+for the initial, final, and intermediate configurations along the NEB path, demonstrating
+good agreement between the two methods.
+14
+
+0.2 0.4 0.6 0.8 1.0
+x in Li1 xMO2
+10 14
+10 12
+10 10
+10 8
+10 6
+10 4
+10 2
+DLi+  / cm2 s 1
+T ubtimkuna et.al Exp-300K
+Chien et.al Exp-300K
+300K-Extrapolated
+600 K
+800 K
+1000 K
+1200 K
+Figure 6: MLP-predicted lithium self-diffusion coefficients from large-scale ænet–LAMMPS
+MD simulations; experimental data are taken from Tubtimkunaet al. 7 and Chien
+et al. 9 Simulations were repeated five times using different randomly generated
+Li48–432Ni384Mn48Co48O960 structures, each with randomized Li-vacancy and transition-metal
+distributions; error bars indicate the standard deviation across these simulations.
+c
+(a) (b)
+Figure 7: (a)Diffusion coefficients obtained at elevated temperatures were extrapolated to
+300 K using the Arrhenius relation for comparison with experiment. (b) A representative
+atomic configuration of Li 48–432Ni384Mn48Co48O960 used in the diffusion simulations.
+After confirming the generalization capability of the MLP, we used it to simulate large-
+scale lithium self-diffusion in NMC811 with five randomly generated supercells of Li48–432Ni384Mn48Co48O960.
+MD simulations were performed at temperatures ranging from 600 to 1000 K, with a total
+15
+
+production time of 5 ns after a 200 ps equilibration period. The MSD was collected for
+lithium ions, and the diffusion coefficient was calculated via the Einstein relation. Addi-
+tionally, the Arrhenius relation was used to extrapolate the diffusion coefficient to 300 K for
+comparison with available experimental values, as shown in Figure 7 . Detailed MSD data
+can be found in Figure S4-6.
+As shown in Figure 6, the MLP-predicted diffusion coefficients exhibit qualitative agree-
+ment with experimental data. Notably, at low SOC the predicted diffusion coefficients are
+closer to experimental values. This trend is likely due to the lower concentration of lithium
+vacancies and reduced configurational degrees of freedom at low SOC, which yields improved
+predictive performance under uniform sampling. In contrast, at high SOC the predicted
+diffusion coefficients show larger variance across the five randomly generated structures, in-
+dicating reduced accuracy for systems with higher configurational complexity under uniform
+sampling conditions.
+Conclusion
+We presented a data-efficient and computationally tractable workflow for constructing a ma-
+chine learning interatomic potential tailored to the complex, disordered structure of NMC811.
+By combining a fine-tuned MACE foundation model, an evolutionary algorithm for near-
+ground-state structure exploration, and an uncertainty-based active learning scheme, we
+efficiently sampled both equilibrium and non-equilibrium configurations across a wide range
+of lithium stoichiometries. The resulting potential enabled large-scale MD simulations to
+directly predict lithium self-diffusion coefficients in NMC811 over a wide temperature range.
+Validation against DFT calculations demonstrated the potential’s accuracy in describing
+both ground-state and transition-state energies. Furthermore, the predicted diffusion coeffi-
+cients exhibit qualitative agreement with experimental data, especially under high SOC con-
+ditions where the configurational complexity is reduced. These results highlight the potential
+16
+
+of machine-learning-based approaches to go beyond conventional DFT and cluster-expansion
+methods by directly simulating transport properties in realistic, disordered cathode materi-
+als.
+The proposed workflow can be extended to other complex systems and provides a robust
+framework for understanding ion transport behavior, which is essential for the rational design
+of high-performance battery materials.
+Data Availability Statement
+The machine learning training datasets and model files used in this work are openly available
+on the Materials Cloud Archive athttps://www.materialscloud.org/xxxx. Additional
+data supporting the findings of this study are available from the corresponding author upon
+reasonable request.
+Conflict of Interest
+The authors declare no competing financial or non-financial interests.
+Acknowledgment
+The authors thank the Dutch National e-Infrastructure and the SURF Cooperative for the
+computational resources used in the DFT calculations. This work was funded by a start-up
+grant (Dutch Sector Plan) from Utrecht University awarded to N.A.
+References
+1. Noh, H.-J.; Youn, S.; Yoon, C. S.; Sun, Y.-K. Comparison of the structural and electro-
+chemical properties of layered Li[NixCoyMnz]O2 (x = 1/3, 0.5, 0.6, 0.7, 0.8 and 0.85)
+17
+
+cathode material for lithium-ion batteries.J. Power Sources2013,233, 121–130.
+2. Lin, R.; Bak, S.-M.; Shin, Y.; Zhang, R.; Wang, C.; Kisslinger, K.; Ge, M.; Huang, X.;
+Shadike, Z.; Pattammattel, A. Hierarchical nickel valence gradient stabilizes high-nickel
+content layered cathode materials.Nat. Commun.2021,12, 2350.
+3. Li, W.; Erickson, E. M.; Manthiram, A. High-nickel layered oxide cathodes for lithium-
+based automotive batteries.Nat. Energy2020,5, 26–34.
+4. Kasnatscheew, J.; Evertz, M.; Kloepsch, R.; Streipert, B.; Wagner, R.; Cekic Laskovic, I.;
+Winter, M. Learning from Electrochemical Data: Simple Evaluation and Classification
+of LiMO2-type-based Positive Electrodes for Li-Ion Batteries.Energy Technol.2017,5,
+1670–1679.
+5. McClelland, I.; Booth, S. G.; Anthonisamy, N. N.; Middlemiss, L. A.; P´ erez, G. E.;
+Cussen, E. J.; Baker, P. J.; Cussen, S. A. Direct Observation of Dynamic Lithium
+Diffusion Behavior in Nickel-Rich, LiNi 0.8 Mn0.1 Co0.1 O2 (NMC811) Cathodes Using
+OperandoMuon Spectroscopy.Chem. Mater.2023,35, 4149–4158.
+6. C. McNulty, R.; Hampson, E.; N. Cutler, L.; P. Grey, C.; M. Dose, W.; R. Johnson, L.
+Understanding the limits of Li-NMC811 half-cells.J. Mater. Chem. A2023,11, 18302–
+18312.
+7. Tubtimkuna, S.; Phattharasupakun, N.; Bunyanidhi, P.; Sawangphruk, M. Diffusion of
+Zirconium (IV) Ions from Coated Thick Zirconium Oxide Shell to the Bulk Structure
+of Ni-Rich NMC811 Cathode Leading to High-Performance 18650 Cylindrical Li-Ion
+Batteries.Adv. Mater. Technol.2022,7, 2200436.
+8. M¨ arker, K.; Reeves, P. J.; Xu, C.; Griffith, K. J.; Grey, C. P. Evolution of Structure and
+Lithium Dynamics in LiNi0.8 Mn0.1 Co0.1 O2 (NMC811) Cathodes during Electrochemical
+Cycling.Chem. Mater.2019,31, 2545–2554.
+18
+
+9. Chien, Y.-C.; Liu, H.; Menon, A. S.; Brant, W. R.; Brandell, D.; Lacey, M. J. Rapid
+determination of solid-state diffusion coefficients in Li-based batteries via intermittent
+current interruption method.Nat. Commun.2023,14, 2289.
+10. Van der Ven, A.; Ceder, G.; Asta, M.; Tepesch, P. D. First-principles theory of ionic
+diffusion with nondilute carriers.Phys. Rev. B2001,64, 184307.
+11. Ven, A. V. d.; Ceder, G. Lithium Diffusion in Layered LixCoO2.Electrochem. Solid-State
+Lett.2000,3, 301.
+12. Van der Ven, A.; Ceder, G. Lithium diffusion mechanisms in layered intercalation com-
+pounds.J. Power Sources2001,97-98, 529–531.
+13. Hoang, K.; Johannes, M. Defect Physics and Chemistry in Layered Mixed Transition
+Metal Oxide Cathode Materials: (Ni,Co,Mn) vs (Ni,Co,Al).Chem. Mater.2016,28,
+1325–1334.
+14. Jaberi, A.; Trudeau, M. L.; Song, J.; Gauvin, R. Study of Lithium Transport in NMC
+Layered Oxide Cathode Material Using Multiscale Computational Approach.ACS Appl.
+Energy Mater.2024,7, 7724–7736.
+15. Dixit, M.; Kosa, M.; Lavi, O. S.; Markovsky, B.; Aurbach, D.; Major, D. T. Thermody-
+namic and kinetic studies of LiNi 0.5 Co 0.2 Mn 0.3 O 2 as a positive electrode material
+for Li-ion batteries using first principles.Phys. Chem. Chem. Phys.2016,18, 6799–6812.
+16. Guo, H.; Wang, Q.; Stuke, A.; Urban, A.; Artrith, N. Accelerated Atomistic Modeling
+of Solid-State Battery Materials With Machine Learning.Front. Energy Res.2021,9.
+17. Behler, J.; Parrinello, M. Generalized Neural-Network Representation of High-
+Dimensional Potential-Energy Surfaces.Phys. Rev. Lett.2007,98, 146401.
+18. Bart´ ok, A. P.; Kondor, R.; Cs´ anyi, G. On representing chemical environments.Phys.
+Rev. B2013,87, 184115.
+19
+
+19. Artrith, N.; Urban, A. An implementation of artificial neural-network potentials for
+atomistic materials simulations: Performance for TiO2.Comput. Mater. Sci.2016,114,
+135–150.
+20. Zhang, L.; Han, J.; Wang, H.; Car, R.; E, W. Deep Potential Molecular Dynamics: A
+Scalable Model with the Accuracy of Quantum Mechanics.Phys. Rev. Lett.2018,120,
+143001.
+21. Batatia, I.; Batzner, S.; Kov´ acs, D. P.; Musaelian, A.; Simm, G. N. C.; Drautz, R.; Ort-
+ner, C.; Kozinsky, B.; Cs´ anyi, G. The Design Space of E(3)-Equivariant Atom-Centered
+Interatomic Potentials. 2022;http://arxiv.org/abs/2205.06643.
+22. Batatia, I.; Kovacs, D. P.; Simm, G.; Ortner, C.; Csanyi, G. MACE: Higher Order
+Equivariant Message Passing Neural Networks for Fast and Accurate Force Fields.Adv.
+Neu. Inf. Pro. Sys.2022,35, 11423–11436.
+23. Kresse, G.; Furthm¨ uller, J. Efficiency of ab-initio total energy calculations for metals
+and semiconductors using a plane-wave basis set.Comput. Mater. Sci.1996,6, 15–50.
+24. Kresse, G.; Furthm¨ uller, J. Efficient iterative schemes for ab initio total-energy calcula-
+tions using a plane-wave basis set.Phys. Rev. B1996,54, 11169–11186.
+25. Perdew, J. P.; Burke, K.; Ernzerhof, M. Generalized Gradient Approximation Made
+Simple.Phys. Rev. Lett.1996,77, 3865–3868.
+26. Grimme, S.; Antony, J.; Ehrlich, S.; Krieg, H. A consistent and accurate ab initio
+parametrization of density functional dispersion correction (DFT-D) for the 94 elements
+H-Pu.J. Chem. Phys.2010,132, 154104.
+27. Himmetoglu, B.; Floris, A.; De Gironcoli, S.; Cococcioni, M. Hubbard-corrected DFT
+energy functionals: The LDA+U description of correlated systems.Int. J. Qua. Chem.
+2014,114, 14–49.
+20
+
+28. Zhou, F.; Cococcioni, M.; Marianetti, C. A.; Morgan, D.; Ceder, G. First-principles
+prediction of redox potentials in transition-metal compounds with LDA + U.Phys. Rev.
+B2004,70, 235121.
+29. Garcia, J. C.; Bare˜ no, J.; Yan, J.; Chen, G.; Hauser, A.; Croy, J. R.; Iddir, H. Surface
+Structure, Morphology, and Stability of Li(Ni 1/3 Mn1/3 Co1/3 )O2 Cathode Material.J.
+Phys. Chem. C2017,121, 8290–8299.
+30. Schipper, F.; Dixit, M.; Kovacheva, D.; Talianker, M.; Haik, O.; Grinblat, J.; Erick-
+son, E. M.; Ghanty, C.; Major, D. T.; Markovsky, B. Stabilizing nickel-rich layered
+cathode materials by a high-charge cation doping strategy: zirconium-doped LiNi 0.6
+Co 0.2 Mn 0.2 O 2.J. Mater. Chem. A2016,4, 16073–16084.
+31. Artrith, N.; Urban, A.; Ceder, G. Constructing first-principles phase diagrams of amor-
+phous LixSi using machine-learning-assisted sampling with an evolutionary algorithm.
+J. Chem. Phys.2018,148.
+32. Zhang, Y.; Wang, H.; Chen, W.; Zeng, J.; Zhang, L.; Wang, H.; E, W. DP-GEN: A
+concurrent learning platform for the generation of reliable deep learning based potential
+energy models.Com. Phys. Commun.2020,253, 107206.
+33. Kong, L.; Li, J.; Sun, L.; Yang, H.; Hao, H.; Chen, C.; Artrith, N.; Torres, J. A. G.;
+Lu, Z.; Zhou, Y. Overcoming the Size Limit of First Principles Molecular Dynamics
+Simulations with an In-Distribution Substructure Embedding Active Learner.2023,
+34. Zhang, Y.; Wang, H.; Chen, W.; Zeng, J.; Zhang, L.; Wang, H.; E, W. DP-GEN: A
+concurrent learning platform for the generation of reliable deep learning based potential
+energy models.Com. Phys. Commun.2020,253, 107206.
+35. Andrade, M. F. C.; Ko, H.-Y.; Zhang, L.; Car, R.; Selloni, A. Free energy of proton
+transfer at the water–TiO 2 interface from ab initio deep potential molecular dynamics.
+Chem. Sci.2020,11, 2335–2341.
+21
+
+36. Chen, J.; Fang, M.; Wu, Q.; Tang, S.; Zheng, J.; Wei, C.; Cao, X.; Shi, Y.; Xu, N.;
+He, Y. Insights into the Atomic Mechanism of Lithium-Ion Diffusion in Li 6PS5Cl via a
+Machine Learning Potential.Chem. Mater.2025,37, 591–599.
+37. Jia, W.; Wang, H.; Chen, M.; Lu, D.; Lin, L.; Car, R.; Weinan, E.; Zhang, L. Pushing
+the Limit of Molecular Dynamics with Ab Initio Accuracy to 100 Million Atoms with
+Machine Learning. Proc. Int. Conf. High Perform. Comput. Netw. Storage Anal. 2020;
+pp 1–14.
+38. Artrith, N.; Urban, A.; Ceder, G. Efficient and accurate machine-learning interpolation
+of atomic energies in compositions with many species.Phys. Rev. B2017,96, 014112.
+22
+
+Supporting Information
+Direct Simulation of LiNi 0.8Mn0.1Co0.1O2 Transport Properties Using an
+Efficient and Accurate Machine Learning Potential
+Jian He, Constantijn H. J. A. van de Wetering, Rolande W. Nolsen, Nongnuch Artrith
+Materials Chemistry and Catalysis, Debye Institute for Nanomaterials Science, Utrecht
+University, Universiteitsweg 99, 3584 CG Utrecht, The Netherlands
+n.artrith@uu.nl
+5.4
+ 5.2
+ 5.0
+ 4.8
+ 4.6
+DFT Energy (eV/atom)
+0
+50
+100
+150
+200
+250
+300
+350
+400Number of Structures
+aevo-MACE
+Active Learning
+Figure S1: Energy distribution of training datasets from aevo-MACE and active learning.
+S1
+
+0.0 0.2 0.4 0.6 0.8 1.0
+x in Li1 xMO2
+0.08
+0.06
+0.04
+0.02
+0.00
+0.02
+0.04
+0.06
+Formation Energy (eV)
+Figure S2: Convex hull diagram of the Li 1–x Ni0.8Mn0.1Co0.1O2 system. Atomic configura-
+tions were generated using the aevo-MACE genetic algorithm, and formation energies were
+calculated by DFT.
+S2
+
+(a)
+b
+(b)
+(c)
+S3
+
+Figure S3: Energy profiles predicted by DFT (solid lines) and the MLP (dashed lines) for
+an independent test set of Li 0–60 Ni48Mn6Co6O120 configurations along MD trajectories at
+different temperatures: (a) 600 K, (b) 800 K, (c) 1200 K .
+0 1000 2000 3000 4000 5000
+Time (ps)
+0
+5
+10
+15
+20
+25MSDLi, total (Å2)
+0.9
+0.8
+0.7
+0.6
+0.5
+0.4
+0.3
+0.2
+0.1
+Li1xMO2
+Figure S4: Li-ion mean square displacement (MSD) profiles at 600 K, averaged over five
+distinct randomly generated Li 48–432Ni384Mn48Co48O960 configurations in aenet–LAMMPS
+simulations.
+0 1000 2000 3000 4000 5000
+Time (ps)
+0
+25
+50
+75
+100
+125
+150
+175MSDLi, total (Å2)
+0.9
+0.8
+0.7
+0.6
+0.5
+0.4
+0.3
+0.2
+0.1
+Li1xMO2
+S4
+
+Figure S5: Li-ion mean square displacement (MSD) profiles at 800 K, averaged over five
+distinct randomly generated Li 48–432Ni384Mn48Co48O960 configurations in aenet–LAMMPS
+simulations.
+0 1000 2000 3000 4000 5000
+Time (ps)
+0
+250
+500
+750
+1000
+1250
+1500
+1750MSDLi, total (Å2)
+0.9
+0.8
+0.7
+0.6
+0.5
+0.4
+0.3
+0.2
+0.1
+Li1xMO2
+Figure S6: Li-ion mean square displacement (MSD) profiles at 1000 K, averaged over five
+distinct randomly generated Li 48–432Ni384Mn48Co48O960 configurations in aenet–LAMMPS
+simulations.
+0 1000 2000 3000 4000 5000
+Time (ps)
+0
+1000
+2000
+3000
+4000
+5000
+6000
+7000MSDLi, total (Å2)
+0.9
+0.8
+0.7
+0.6
+0.5
+0.4
+0.3
+0.2
+0.1
+Li1xMO2
+S5
+
+Figure S7: Li-ion mean square displacement (MSD) profiles at 1200 K, averaged over five
+distinct randomly generated Li 48–432Ni384Mn48Co48O960 configurations in aenet–LAMMPS
+simulations.
+S6

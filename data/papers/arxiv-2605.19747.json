@@ -1,0 +1,33 @@
+{
+  "paper_id": "arxiv-2605.19747",
+  "source": "arxiv",
+  "source_id": "2605.19747",
+  "title": "Direct Simulation of LiNi0.8Mn0.1Co0.1O2 Transport Properties Using an Efficient and Accurate Machine Learning Potential",
+  "authors": [
+    "Jian He",
+    "Constantijn H. J. A. van de Wetering",
+    "Rolande W. Nolsen",
+    "Nongnuch Artrith"
+  ],
+  "author_affiliations": [],
+  "abstract": "The rate capability of layered lithium nickel manganese cobalt oxide (NMC) cathode materials plays a decisive role in high-power applications such as fast charging, necessitating a detailed understanding of lithium-ion diffusion. However, the mechanisms governing lithium-ion transport in NMC remain insufficiently understood, both experimentally and computationally. In this study, we employ an advanced and efficient machine learning potential (MLP) to simulate lithium self-diffusion in LiNi0.8Mn0.1Co0.1O2 (NMC811), enabling direct large-scale molecular dynamics (MD) simulations. The workflow integrates a fine-tuned MACE (Message Passing Atomic Cluster Expansion) foundation model as a structural generator and leverages an active learning strategy applied to a near-ground-state dataset. This approach enables the construction of a reliable MLP for NMC811 in a data-efficient manner using a limited number of density functional theory (DFT) reference calculations. Based on this potential, we performed MD simulations to predict lithium diffusion coefficients. The MLP-based simulations preserve the accuracy of DFT while overcoming its time and length scale limitations, thereby allowing direct simulation of lithium self-diffusion in NMC811.",
+  "published_at": "2026-05-19T12:16:08Z",
+  "updated_at": "2026-05-19T12:16:08Z",
+  "categories": [
+    "cond-mat.mtrl-sci"
+  ],
+  "pdf_url": "https://arxiv.org/pdf/2605.19747",
+  "abs_url": "https://arxiv.org/abs/2605.19747",
+  "source_types": [
+    "arxiv_applied_domain",
+    "applied_domain:chemistry_materials"
+  ],
+  "status": "triaged",
+  "trusted_orgs": [],
+  "triage_decision": "advance_to_review",
+  "triage_rationale": "This is a concrete materials workflow paper, not just a benchmark: it uses a foundation model, active learning, and direct MD simulation to answer a physically meaningful transport question in NMC811. The topic is narrow but methodologically substantive, with clear applied relevance and enough technical content to merit review.",
+  "research_score_estimate": 7.2,
+  "podcast_score_estimate": 5.8,
+  "local_pdf_path": "data/papers/pdfs/arxiv-2605.19747.pdf",
+  "full_text_path": "data/papers/fulltext/arxiv-2605.19747.txt"
+}

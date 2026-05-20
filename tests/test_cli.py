@@ -94,12 +94,15 @@ class CliTest(unittest.TestCase):
                 "data/triage",
                 "--manifest",
                 "jobs/triage.jsonl",
+                "--paper-id",
+                "arxiv-2605.20176",
             ]
         )
 
         self.assertEqual(args.command, "promote-triage")
         self.assertEqual(args.triage_dir, "data/triage")
         self.assertEqual(args.manifest, "jobs/triage.jsonl")
+        self.assertEqual(args.paper_id, ["arxiv-2605.20176"])
 
     def test_parser_accepts_create_episode_command(self):
         parser = build_parser()

@@ -1,0 +1,64 @@
+{
+  "paper_id": "arxiv-2605.19747",
+  "one_line_claim": "A fine-tuned MACE-to-aenet active-learning workflow can train a machine-learning interatomic potential for disordered NMC811 and use it for large-scale MD estimates of lithium self-diffusion, but the evidence supports qualitative transport trends more than quantitatively reliable battery-design predictions.",
+  "what_they_tested": "The authors build an NMC811 potential in stages: 985 DFT-labeled random Li1-xNi0.8Mn0.1Co0.1O2 structures fine-tune a small MACE foundation model; that model drives aevo-MACE evolutionary search for near-ground-state structures; four aenet committee models then perform active-learning MD from 1000-2000 K with force-disagreement selection and DFT relabeling over 35 rounds; the final aenet potential is tested against DFT energy profiles, one NEB lithium-hop path, and five large Li48-432Ni384Mn48Co48O960 MD replicas per condition for diffusion coefficients at elevated temperatures with Arrhenius extrapolation to 300 K. This is an applied materials-workflow paper: the implied user is a computational battery-materials researcher deciding whether an MLP can replace small-cell DFT barriers or unavailable long DFT-MD trajectories for NMC811 transport. The affected scientific step is estimating Li self-diffusion versus SOC to reason about rate capability. The domain baseline is DFT/DFT-NEB on small cells, classical cluster-expansion or barrier models, and experimental GITT/EIS/PITT/interruption/muon-style diffusion estimates. The paper compares to DFT energetics and two experimental diffusion datasets, but not to a prior NMC811 transport model, expert-selected barrier network, or an independent prospective validation setting.",
+  "strongest_point": "The workflow is technically coherent for this domain: it uses a foundation MLP only to accelerate structure discovery, relabels candidate structures with DFT, adds active-learning coverage of non-equilibrium MD states, validates both MD-like energy traces and a transition-state path, and finally runs simulations large enough and long enough to observe diffusion events that would be impractical with direct DFT-MD.",
+  "weakest_point": "The central applied claim rests on weak validation of the actual target quantity. The paper shows qualitative agreement of diffusion coefficients with two experimental datasets after high-temperature simulation and Arrhenius extrapolation, but gives little quantitative error analysis, no independent experimental or DFT-MD holdout for diffusion, only one NEB path for transition-state validation, and acknowledges larger variance at high SOC where configurational complexity is highest.",
+  "missing_baselines": [
+    "A direct comparison with established NMC/NMC811 diffusion modeling workflows such as DFT-NEB barrier networks, kinetic Monte Carlo, cluster-expansion plus migration barriers, or prior multiscale computational approaches.",
+    "A budget-matched MACE-only or aenet-only workflow to show that the MACE foundation-model structural generator plus aenet active learner is better than simpler MLP training from the same DFT budget.",
+    "A random or space-filling DFT sampling baseline for active learning, using the same number of DFT single-point calculations, to isolate the value of the force-committee uncertainty rule.",
+    "A small-cell AIMD or short DFT-MD comparison where feasible, even at elevated temperature, to validate dynamics rather than only static energies.",
+    "A domain-expert configuration baseline: hand-constructed representative NMC811 cation/vacancy orderings and O-T-O hop environments selected by a battery/materials expert.",
+    "Comparison to classical or empirical interatomic potentials if any exist for layered oxide diffusion, at least to clarify what accuracy/cost regime the MLP displaces."
+  ],
+  "missing_ablations": [
+    "Remove the aevo-MACE near-ground-state stage and train active learning from only the initial random DFT set.",
+    "Use the original MACE MP-0 model, the fine-tuned MACE model, and the final aenet model on the same held-out structures to quantify how much each stage contributes.",
+    "Vary active-learning thresholds, committee size, number of rounds, and the 1000-2000 K exploration schedule.",
+    "Ablate energy-versus-force loss weighting and the exclusion of stress targets, since diffusion depends sensitively on local barriers and lattice response.",
+    "Test sensitivity to DFT choices: PBE+U parameters, gamma-only sampling, D3 correction, magnetic initialization, and cell relaxation protocol.",
+    "Finite-size and trajectory-length convergence for diffusion coefficients beyond five random supercells and 5 ns production runs.",
+    "Arrhenius-fit sensitivity: which temperatures are included, whether a single activation energy is valid over the whole range, and how uncertainty propagates to 300 K."
+  ],
+  "red_flags": [
+    "The abstract and conclusion say the MLP preserves DFT accuracy, but the displayed validation appears mostly qualitative; the extracted text does not report numerical energy/force RMSE, barrier errors, diffusion uncertainty intervals, or held-out test-set sizes.",
+    "The target property is extrapolated: simulations are run at elevated temperatures and then mapped to 300 K with an Arrhenius relation, which may be fragile across SOC-dependent mechanisms and changing vacancy concentrations.",
+    "Only one NEB lithium-hop path is described for transition-state validation in a chemically disordered material where local transition-metal and vacancy environments can create many distinct barriers.",
+    "The paper contains an internal inconsistency in the discussion/conclusion: the results text says predictions are closer to experiment at low SOC, while the conclusion says qualitative agreement is especially under high SOC conditions where configurational complexity is reduced; the results text also states high SOC has larger variance and higher complexity.",
+    "Potential leakage risk: training, active-learning selection, and validation all draw from the same generated composition/supercell family Li0-60Ni48Mn6Co6O120 or scaled variants; independent validation on separately generated cation-ordering protocols, cell sizes, or experimental structures is not shown.",
+    "The active-learning MD explores 1000-2000 K structures, while production diffusion uses 600-1200 K and extrapolates to 300 K; coverage of low-temperature rare-event transition states is inferred rather than directly demonstrated.",
+    "The data availability URL is a placeholder Materials Cloud address in the extracted text, so the reproducibility claim is not currently actionable from the manuscript alone.",
+    "For real battery-material use, the failure mode that matters is not just a wrong diffusion coefficient; it is recommending an SOC/structure-rate interpretation that misleads cathode design because the model misses local disorder, phase changes, surface/grain-boundary effects, degradation, or experimental protocol dependence."
+  ],
+  "positive_signals": [
+    "The paper targets a concrete materials bottleneck: lithium diffusion in NMC811 is experimentally uncertain and DFT-MD is too small and short for direct transport.",
+    "The workflow separates structure generation from final potential training and uses DFT relabeling rather than trusting the foundation model directly.",
+    "Active learning uses a four-model committee and explicit force-disagreement thresholds, a reasonable uncertainty signal for non-equilibrium structures.",
+    "The final production simulations use large Li48-432Ni384Mn48Co48O960 supercells, five random configurations, 200 ps equilibration, 5 ns production, and MSD-based diffusion extraction.",
+    "The authors compare the MLP to DFT on both MD trajectory energy profiles and an NEB lithium migration path, which is more relevant than only reporting train/validation losses.",
+    "Experimental comparison is included using Tubtimkuna et al. and Chien et al. diffusion data, and the authors are cautious enough to call the agreement qualitative.",
+    "The paper explicitly notes larger variance at high SOC, which is an important applied warning rather than a purely polished result."
+  ],
+  "research_score": 6.6,
+  "podcast_score": 5.8,
+  "overclaim_score": 6.4,
+  "replication_interest": 7.2,
+  "verdict": "Worth reviewing for Paper Radio as a solid applied materials-ML workflow, but frame it as a promising simulation pipeline rather than a definitive answer to NMC811 transport. The strongest story is the practical chain from foundation MLP to evolutionary search to active learning to long MD. The skeptical story is equally important: the paper validates the potential mostly against DFT energies and one barrier path, then asks listeners to accept high-temperature MLP-MD plus Arrhenius extrapolation as evidence about room-temperature battery diffusion. For real use, a computational battery scientist would need quantitative error bars, broader transition-state validation, stronger domain baselines, independent structural validation, and proof that the workflow does not fail exactly in high-SOC or highly disordered regimes where cathode-design decisions are most sensitive.",
+  "citations": [
+    "Abstract: the paper claims a workflow using a fine-tuned MACE foundation model as a structural generator plus active learning to build a reliable NMC811 MLP from limited DFT calculations and directly simulate lithium self-diffusion.",
+    "Introduction: the authors motivate the applied problem by noting that NMC811 diffusion measurements from GITT, EIS, and PITT can differ by several orders of magnitude and that DFT-MD rarely reaches the required sizes and timescales.",
+    "Methods / Initial DFT Dataset Generation: DFT uses VASP 6.4.1, PBE+U with D3 corrections, 480 eV cutoff, gamma-point sampling, and an initial dataset of 985 bulk Li1-xNi0.8Mn0.1Co0.1O2 structures.",
+    "Methods / Machine Learning Potential Fine-Tuning: the small mace_agnesi_small.model foundation model is fine-tuned on 985 DFT-labeled configurations using energies and forces only, with a 0.10 validation split and energy/force loss weights of 10.0 and 1.0.",
+    "Methods / Evolutionary Search with aevo-MACE: the fine-tuned MACE model evaluates Li0-60Ni48Mn6Co6O120 candidates under fixed oxygen, variable lithium, and fixed transition-metal sublattices, using population size 15, top-4 elitism, and mutation rate 0.1.",
+    "Methods / Active Learning: four aenet models form a committee; aenet-LAMMPS MD runs for 5 ns with 2 fs steps while heating from 1000 K to 2000 K; 200 structures per round are sampled across SOC values and selected by maximum force standard deviation thresholds.",
+    "Methods / aenet-LAMMPS MD Simulations: final diffusion simulations use the aenet model after 35 active-learning rounds, five randomly generated Li0-480Ni384Mn48Co48O960 structures, 200 ps equilibration, 5 ns production, NVT dynamics, and Einstein-relation MSD fitting.",
+    "Results / Figure 2: the original MACE MP-0 model shows systematic energy and force deviations on random NMC structures, while fine-tuning with 985 DFT-labeled structures improves predictions.",
+    "Results / Figure 4 and Figure S3: the authors validate MLP energy profiles against DFT along independent MD trajectories at 600 K, 800 K, 1000 K, and 1200 K, but the extracted text does not provide numerical error metrics.",
+    "Results / Figure 5: a single Li24Ni48Mn6Co6O120 NEB lithium-hop path with five intermediate images is used to compare DFT and MLP transition-state energetics.",
+    "Results / Figures 6-7: diffusion coefficients are computed at elevated temperatures, extrapolated to 300 K with an Arrhenius relation, and compared qualitatively with experimental data from Tubtimkuna et al. and Chien et al.",
+    "Results discussion: the authors state that predictions are closer to experiment at low SOC and that high-SOC diffusion coefficients have larger variance across the five random structures, indicating reduced accuracy under higher configurational complexity.",
+    "Conclusion: the manuscript claims the workflow can go beyond conventional DFT and cluster-expansion methods by directly simulating transport properties in realistic disordered cathode materials.",
+    "Data Availability Statement: training datasets and model files are said to be available on Materials Cloud, but the extracted manuscript shows a placeholder URL, https://www.materialscloud.org/xxxx."
+  ]
+}

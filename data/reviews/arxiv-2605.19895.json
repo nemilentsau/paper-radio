@@ -1,0 +1,52 @@
+{
+  "paper_id": "arxiv-2605.19895",
+  "one_line_claim": "A CNN trained on enumerated feasible CP solutions can ground an LLM to synthesize useful MiniZinc streamliners that still speed up already-hardened benchmark models.",
+  "what_they_tested": "The paper evaluates a pipeline that enumerates at least 500 solutions per training instance, trains a 3-layer CNN against perturbed non-solutions, converts filter/property signals into LLM-generated streamliner constraints, clusters and validates candidates, then deploys family-budget portfolios on Black Hole, hardened Social Golfers, and hardened Vessel Loading using Chuffed/MiniZinc held-out benchmark instances.",
+  "strongest_point": "The evaluation asks the right practitioner question: after standard symmetry-breaking and implied constraints are already applied, can the method find residual incomplete constraints that help? Table 1's hardening comparison and Table 2's hardened portfolio results make the methodological framing stronger than a raw speedup paper.",
+  "weakest_point": "The central causal claim that the CNN is load-bearing is only partially established: there is no clean ablation of LLM-with-model-plus-solutions, LLM-with-unranked-properties, single-layer CNN, or StreamLLM rerun on the hardened Social Golfers/Vessel Loading setup, and the authors report only one end-to-end stochastic pipeline run.",
+  "missing_baselines": [
+    "StreamLLM rerun on the same hardened Social Golfers and Vessel Loading models, not just direct comparison on Black Hole.",
+    "LLM-only synthesis with the MiniZinc model plus the same enumerated solution summaries but without CNN ranking or filter-contrast evidence.",
+    "LLM with all structural properties unranked, to isolate whether CNN correlation ranking adds value in the statistics path.",
+    "Deterministic property/template search expanded beyond near-constant templates, since some reported winners are simple aggregate or bound constraints.",
+    "Human CP expert or prior-system streamliner comparison on the hardened models, because the implied user is a MiniZinc/CP practitioner choosing a last-resort incomplete constraint."
+  ],
+  "missing_ablations": [
+    "CNN architecture depth: the paper admits the most interpretable signal was usually in the first layer but does not test a one-layer or non-convolutional alternative.",
+    "Negative-sample generator choice: row-permuted, position-swapped, and random negatives may determine what the CNN learns, but there is no generator ablation.",
+    "Number of enumerated solutions and training instances needed for stable streamliner discovery.",
+    "LLM model and prompt variance, including multiple end-to-end seeds and a cheaper/open model if syntactic reliability can be enforced by repair.",
+    "Family-budget selection versus descriptor-prefix artifacts; AST or behavioral clustering is not compared."
+  ],
+  "red_flags": [
+    "No separate validation set is used between training and test; candidates are selected by training-set savings and then reported on held-out tests, which is acceptable but leaves selection robustness unclear.",
+    "The test sets retain only instances where the hardened baseline returns SAT within timeout, excluding unknown baselines and avoiding UNSAT-oriented failure cases; real users may need to know when a streamliner wrongly destroys all solutions.",
+    "The method depends on proprietary Claude Opus synthesis, and open-weight models tested by the author were not reliable enough to sustain the pipeline.",
+    "Portfolio wall-clock savings can look much better than CPU-adjusted savings, especially Black Hole at 89.4% wall-clock versus 57.7% CPU-adjusted for k=3,m=3.",
+    "Some constraints look highly instance/distribution-specific, such as even Bottom coordinates in Vessel Loading or pile-top position bounds in Black Hole; the real-use failure mode is silently excluding the only useful solution family on a new instance.",
+    "The paper's 'applied_domain:finance_modeling' metadata appears wrong for this paper; the actual domain workflow is constraint programming model hardening and streamliner deployment, not finance.",
+    "Leakage risk is not classic label leakage but benchmark/distribution leakage: LLM priors may know CSPLib structures, training/test instances come from related benchmark generators, and semantic clustering/selection may overfit recurring instance-family quirks."
+  ],
+  "positive_signals": [
+    "The paper explicitly distinguishes satisfiability-preserving hardening from non-preserving streamliners and treats streamlining as a last-resort workflow for CP practitioners.",
+    "Reported discovered constraints are concrete MiniZinc-style constraints, not just aggregate benchmark claims.",
+    "The authors include CPU-adjusted savings and acknowledge that parallel portfolios consume more total compute than a single baseline solve.",
+    "The Black Hole comparison is methodologically cleaner because the paper argues there is no canonical hardening, and simple top-3 roughly matches StreamLLM while family-budget improves it.",
+    "The limitations section is unusually candid about missing hardened StreamLLM reruns, LLM dependence, run-to-run variance, and untested CNN ablations."
+  ],
+  "research_score": 7.0,
+  "podcast_score": 7.2,
+  "overclaim_score": 6.5,
+  "replication_interest": 8.0,
+  "verdict": "Worth covering, but frame it as a promising systems paper with strong benchmark engineering rather than a settled ML breakthrough. The domain workflow is a CP practitioner who has already hardened a MiniZinc model and must decide whether to risk incomplete streamliners to solve remaining hard SAT instances. The relevant baseline is hardened Chuffed/MiniZinc plus prior grammar and StreamLLM-style synthesis; the affected decision is which non-solution-preserving constraints to race in a portfolio. The validation is benchmark-only and SAT-filtered, with no expert-in-the-loop deployment study, so the real-use risk is a streamliner that wins spectacularly on familiar generated instances but removes all solutions or gives misleading confidence on a new industrial model.",
+  "citations": [
+    "Section 3 / Table 1: hardening collapses Hypergraph Coloring median solve time to 0.2s and Vessel Loading to 15s, motivating evaluation after standard sound constraints.",
+    "Section 3.1: test sets are restricted to instances where the hardened baseline returns SAT within a 3600s timeout, yielding 61 Social Golfers, 22 Vessel Loading, and 49 Black Hole instances.",
+    "Section 4: the pipeline enumerates at least 500 feasible solutions, trains a 3-layer CNN against perturbed negatives, and feeds filter-property correlations plus high/low activation contrast pairs to an LLM.",
+    "Section 5.1: experiments use Chuffed 0.13.1, MiniZinc 2.9.5, 3600s timeout, CNN ensembles with K=3 seeds, and Claude Opus for synthesis.",
+    "Table 2: family-budget portfolio savings are reported as 89.4% on Black Hole, 98.6% on hardened Social Golfers, and 98.8% on hardened Vessel Loading, with pool ceilings of 94.9%, 98.7%, and 99.6%.",
+    "Section 5.3: the strongest Black Hole constraint family bounds y[layout[i,1]], retaining SAT on only part of the test set but producing very large speedups where satisfiable.",
+    "Section 6.3 / Table 5: Black Hole CPU-adjusted savings for the default family-budget setting are 57.7%, far below the 89.4% wall-clock savings.",
+    "Section 7: the authors acknowledge no hardened-baseline StreamLLM rerun for SG/VL, dependence on Claude Opus, single end-to-end runs without variance bands, and missing CNN architecture ablations."
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "paper_id": "arxiv-2605.20025",
+  "one_line_claim": "AutoResearchClaw claims that a 23-stage, multi-agent, self-healing, verification-gated autonomous research pipeline with targeted human checkpoints produces better experiment execution, analysis, and paper quality than AI Scientist v2 and AIDE-ML.",
+  "what_they_tested": "The paper evaluates an applied scientific-discovery workflow: given a research idea, the implied user is a researcher using the system to scope literature, generate hypotheses, implement experiments, repair failures, analyze results, and draft a paper. The affected decision/scientific step is whether an autonomous agent's outputs are good enough to guide research direction or produce preliminary manuscripts. They test on ARC-Bench: 25 ML experiment-stage topics, 10 end-to-end HITL topics, and a 20-task science-domain extension in HEP, systems biology, and statistics. Main comparisons are AI Scientist v2 and AIDE-ML under a shared LLM backbone and sandbox, with rubric-assisted LLM judging plus some manual audits. They also compare seven human-intervention regimes and ablate debate, self-healing, evolution, and verification.",
+  "strongest_point": "The paper identifies the right practical failure modes for autonomous research: brittle execution, fabricated numbers, hallucinated citations, weak result analysis, and poorly timed human involvement. The best evidence is the component ablation: removing self-healing drops completion from 10/10 to 6/10, removing debate lowers quality from 5.62 to 4.25, and removing verification increases apparent accept rate while introducing fabricated values in manual audit.",
+  "weakest_point": "The evaluation is too self-contained and judge-mediated for the breadth of the claim. ARC-Bench is introduced by the authors, many scores come from LLM judges, HITL interventions are scripted rather than live expert workflows, and the scientific-domain comparison appears partly to measure whether the system was provisioned with domain software and skills rather than whether it performs better scientific reasoning. A serious table inconsistency also undermines confidence: Table 4's reported science-domain overall score of 0.867 does not follow from the listed biology 0.912, statistics 0.898, and HEP 0.489 scores over 7/3/10 tasks, which would be about 0.698 if run-weighted.",
+  "missing_baselines": [
+    "A live human researcher or human-plus-Codex/Claude baseline using the same time and compute budget, since the claimed use case is research amplification.",
+    "A simple orchestration baseline using the same GPT-5.3-codex backbone, Docker sandbox, and verification gates but without the full 23-stage framework, to separate orchestration value from infrastructure value.",
+    "Agent Laboratory or MLR-Copilot under a bounded non-end-to-end protocol, rather than excluding systems that represent plausible prior research-assistant workflows.",
+    "AI Co-Scientist-like debate plus external execution, to isolate whether structured debate or the larger pipeline drives the gains.",
+    "Domain-specialized prior systems for HEP and biology, especially because AutoResearchClaw adopts domain agents and skills such as ColliderAgent.",
+    "Standard ML-agent benchmarks such as MLE-bench or ScienceAgentBench, which would test transfer beyond a newly introduced in-house benchmark."
+  ],
+  "missing_ablations": [
+    "Verification-only and self-healing-only baselines using otherwise simple agents, to identify which safeguards matter without full system complexity.",
+    "LLM-judge versus human-expert scoring correlation across all main tables, not just a held-out or briefly described subset.",
+    "Benchmark contamination or task-memory ablation: cross-run evolution should be disabled or reset when evaluating tasks from the same benchmark family to test leakage through the lesson store.",
+    "Domain-agent provisioning ablation for Table 4: same AutoResearchClaw orchestrator with and without preinstalled scientific software and domain skills.",
+    "SmartPause ablation separate from fixed CoPilot checkpoints; the paper describes adaptive uncertainty pausing but the reported modes look mostly scripted.",
+    "Cost, wall-clock time, and intervention-time ablations; a 23-stage best-of-3 pipeline may be much less practical than the score tables imply.",
+    "Failure-to-draft analysis by upstream cause in the main evaluation, because 11 of 13 invalid HITL runs fail at Stage 17 and this can hide earlier experimental failures."
+  ],
+  "red_flags": [
+    "Applied-domain workflow risk: the system is positioned for research decision support, but validation is mostly benchmark/rubric based rather than deployment with working scientists making consequential choices.",
+    "Domain baseline concern: in the science-domain extension, AIDE-ML and AI Scientist v2 reportedly score zero on biology and HEP because required software stacks are missing, while AutoResearchClaw uses preinstalled domain-specialized agents. That is closer to an environment/provisioning comparison than a clean reasoning-system comparison.",
+    "Leakage risk: ARC-Bench is introduced by the authors, prompts include benchmark and baseline discovery machinery, and cross-run evolution stores prior failures. Without a strict held-out benchmark and reset protocol, lessons or prompt tuning could overfit the task distribution.",
+    "Judge circularity risk: paper quality and result analysis are heavily assessed by rubric-assisted LLM judges, while the system itself optimizes for structured artifacts and verification reports that such judges may reward.",
+    "Table 4 arithmetic appears inconsistent: the reported run-weighted overall of 0.867 is not compatible with the displayed domain means and task counts if HEP is 10 of 20 tasks at 0.489.",
+    "HITL evidence is not a real user study: Appendix J says interventions are scripted, so claims about human-AI collaboration and expert judgment are only partially supported.",
+    "The end-to-end HITL table has small and uneven valid counts, e.g. CoPilot is valid on 8/10 while Step-by-Step is 10/10, yet broad conclusions are drawn from mean quality and accept rate.",
+    "Some appendix claims conflict with the main benchmark description: Appendix E says T01-T10 span tabular ML, RL, MoE, NLP, physics-informed ML, and finance, while the listed T01-T10 topics are mostly tabular/optimization/dimensionality-reduction/text-feature tasks.",
+    "The writing-quality audit reports severe export defects, including abstract placement errors in 20/20 audited deliverables and leaked 'Learned Skills' content in 9/20, which is hard to reconcile with claims of near paper-ready autonomous output.",
+    "Best-of-3 ablation results are not directly comparable to single-run HITL results; the paper notes this, but the narrative still uses them to support broad mechanism claims."
+  ],
+  "positive_signals": [
+    "The paper directly acknowledges that verification prevents fabricated numeric claims but cannot determine whether measurements answer the research question, using the T10 all-zero case as a concrete example.",
+    "The component ablation is mechanistically informative: debate, self-healing, evolution, and verification each map to different observed failure modes rather than only improving a single aggregate score.",
+    "The system design includes useful engineering safeguards: Docker sandboxing, staged network access, read-only evaluation harnesses, AST security checks, numeric registries, and citation verification.",
+    "The evaluation includes both full-auto and human-in-the-loop settings, which is appropriate for the real workflow where researchers remain responsible for scientific judgment.",
+    "The paper separates research quality from integrity: removing verification improves apparent accept rate but creates fabricated values, a valuable result for Paper Radio discussion.",
+    "Appendix failure and writing audits are unusually candid about invalid drafts, formatting defects, citation gaps, and stage-level bottlenecks."
+  ],
+  "research_score": 6.2,
+  "podcast_score": 8.3,
+  "overclaim_score": 7.8,
+  "replication_interest": 8.0,
+  "verdict": "Queue for Paper Radio, but frame it as an ambitious systems paper with a useful taxonomy of autonomous-research failure modes, not as settled evidence that the system can autonomously do science. The most interesting episode angle is the tension between strong engineering instincts and weak external validation: the safeguards are concrete, the ablations are suggestive, but the main results depend on an author-created benchmark, LLM judging, scripted HITL, uneven baselines, and at least one apparent table inconsistency. In real research use, the meaningful failure mode is not just fabricated numbers; it is producing verified but scientifically uninformative experiments that steer a researcher toward bad conclusions. The paper understands that risk, but does not yet validate the workflow in a live expert setting.",
+  "citations": [
+    "Abstract/Introduction: AutoResearchClaw is presented as a multi-agent autonomous research pipeline with debate, self-healing Pivot/Refine execution, verifiable reporting, HITL collaboration, and cross-run evolution; it claims a 54.7% improvement over AI Scientist v2 on ARC-Bench.",
+    "Section 4.1: ARC-Bench includes 25 ML topics plus a 20-topic scientific-domain extension; experiment-stage scoring uses Code Development, Code Execution, and Result Analysis weights of 25/25/50 with two agent reviewers and re-adjudication for disagreements over 0.20.",
+    "Table 2: AutoResearchClaw CoPilot scores 0.648 overall versus 0.511 for AIDE-ML and 0.419 for AI Scientist v2; the largest gap is Result Analysis, 0.523 versus 0.261 for AI Scientist v2.",
+    "Table 3: HITL ablation reports CoPilot mean paper quality 7.27 and 87.5% accept rate over 8 valid outputs, while Full-Auto has mean 4.03 and 25.0% accept over 8 valid outputs.",
+    "Table 4/Section 4.3: scientific-domain coverage reports biology 0.912, statistics 0.898, HEP-ph 0.489, and overall 0.867 for AutoResearchClaw; baselines fail biology and HEP due to missing or unusable domain-specific software.",
+    "Table 5/Section 4.5: component ablation reports Full AutoResearchClaw completion 10/10 and quality 5.62; without debate quality falls to 4.25, without self-healing completion falls to 6/10, and without verification manual audit finds fabricated values despite higher apparent accept rate.",
+    "Section 4.6/Table 11: the T10 case study shows Full-Auto can pass numeric verification with identical zero-bias outputs that do not answer the research question, while CoPilot produces differentiated results and bounded claims.",
+    "Appendix H: 11 of 13 invalid canonical HITL runs fail at Stage 17 paper drafting because the anti-fabrication checkpoint refuses to draft when no usable metric exists upstream.",
+    "Appendix I: writing-quality audit finds abstract-before-maketitle in 20/20 audited deliverables, Markdown-style figure sections in 17/20, duplicated figures in 16/20, and leaked 'Learned Skills' content in 9/20.",
+    "Appendix J: the authors state HITL experiments use scripted interventions rather than live human participants and recommend human responsibility for problem selection, interpretation, final claims, and submission decisions."
+  ]
+}

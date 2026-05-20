@@ -93,6 +93,7 @@ def cmd_promote_triage(args: argparse.Namespace) -> None:
         PROJECT_ROOT,
         triage_dir=Path(args.triage_dir),
         manifest_path=Path(args.manifest),
+        paper_ids=args.paper_id,
     )
     print(
         json.dumps(
@@ -225,6 +226,11 @@ def build_parser() -> argparse.ArgumentParser:
     promote_triage_parser = subparsers.add_parser("promote-triage")
     promote_triage_parser.add_argument("--triage-dir", default="data/triage", help="Directory of triage JSON records")
     promote_triage_parser.add_argument("--manifest", default="jobs/triage.jsonl", help="Triage job manifest path")
+    promote_triage_parser.add_argument(
+        "--paper-id",
+        action="append",
+        help="Limit promotion to one paper ID. Repeat for multiple papers.",
+    )
     promote_triage_parser.set_defaults(func=cmd_promote_triage)
 
     create_episode_parser = subparsers.add_parser("create-episode")
