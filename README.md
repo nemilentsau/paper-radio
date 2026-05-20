@@ -33,7 +33,8 @@ Working today:
 
 Planned next:
 
-- broader discovery lanes: Hugging Face papers, research blogs, and applied domain papers
+- applied-domain LLM/foundation-model arXiv lane, starting with practical use cases
+- broader discovery lanes after that: Hugging Face papers, research blogs, and non-arXiv domain indexes
 - richer portfolio selection across source lanes
 - weekly and monthly memory products
 
